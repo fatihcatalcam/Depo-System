@@ -32,7 +32,6 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-!.env.example
 
 # gecici iskele klasoru
 /scaffold-tmp
@@ -43,3 +42,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ornek env dosyasi depoda kalmali — bu istisna tum .env* kurallarindan
+# sonra gelmeli, yoksa gecersiz kalir
+!.env.example

@@ -14,9 +14,9 @@ Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-08-plan-1-temel-ve-stok.m
 - [x] 7. Stok hareket defteri (applyMovements)
 - [x] 8. Serbest stok ve rezervasyon hesabı
 - [x] 9. Sayım düzeltme
-- [ ] 10. Kategori servisi
-- [ ] 11. Stok kartı servisi
-- [ ] 12. Ürün reçetesi ve boyut kopyalama
+- [x] 10. Kategori servisi
+- [x] 11. Stok kartı servisi
+- [x] 12. Ürün reçetesi ve boyut kopyalama
 - [ ] 13. Parola özetleme ve oturum jetonu
 - [ ] 14. Giriş akışı, ayar kaydı, middleware koruması
 - [ ] 15. Uygulama düzeni ve menü
