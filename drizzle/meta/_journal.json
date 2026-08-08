@@ -8,6 +8,20 @@
       "when": 1786203970327,
       "tag": "0000_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786204187475,
+      "tag": "0001_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786204335331,
+      "tag": "0002_movement-seq",
+      "breakpoints": true
     }
   ]
 }

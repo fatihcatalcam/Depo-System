@@ -8,12 +8,12 @@ Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-08-plan-1-temel-ve-stok.m
 - [x] 1. Proje iskeleti ve test altyapısı (Next.js 16.3, Vitest 4)
 - [x] 2. Veritabanı bağlantısı, tipler, PGlite test yardımcısı
 - [x] 3. Katalog şeması (kategori, stok kartı, ürün, reçete)
-- [ ] 4. Kalan şema (taraflar, belgeler, sistem tabloları)
-- [ ] 5. Para birimi yardımcıları (kuruş)
-- [ ] 6. Belge numarası sayacı
-- [ ] 7. Stok hareket defteri (applyMovements)
-- [ ] 8. Serbest stok ve rezervasyon hesabı
-- [ ] 9. Sayım düzeltme
+- [x] 4. Kalan şema (taraflar, belgeler, sistem tabloları)
+- [x] 5. Para birimi yardımcıları (kuruş)
+- [x] 6. Belge numarası sayacı
+- [x] 7. Stok hareket defteri (applyMovements)
+- [x] 8. Serbest stok ve rezervasyon hesabı
+- [x] 9. Sayım düzeltme
 - [ ] 10. Kategori servisi
 - [ ] 11. Stok kartı servisi
 - [ ] 12. Ürün reçetesi ve boyut kopyalama

@@ -886,6 +886,9 @@ export const stockMovements = pgTable(
   'stock_movements',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    // Monoton artan sira numarasi. createdAt ayni ana denk gelen iki hareketi
+    // ayirmaz, rastgele UUID de siralanamaz; defterin dogru sirasi budur.
+    seq: bigserial('seq', { mode: 'number' }).notNull(),
     stockItemId: uuid('stock_item_id')
       .notNull()
       .references(() => stockItems.id, { onDelete: 'restrict' }),
@@ -898,7 +901,7 @@ export const stockMovements = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index('stock_movements_item_idx').on(t.stockItemId, t.createdAt),
+    index('stock_movements_item_idx').on(t.stockItemId, t.seq),
     index('stock_movements_ref_idx').on(t.referenceType, t.referenceId),
     check('stock_movements_change_chk', sql`${t.quantityChange} <> 0`),
   ],
@@ -4989,7 +4992,7 @@ export async function listStockHistory(
     .select()
     .from(stockMovements)
     .where(eq(stockMovements.stockItemId, stockItemId))
-    .orderBy(desc(stockMovements.createdAt), desc(stockMovements.id))
+    .orderBy(desc(stockMovements.seq))
     .limit(limit);
 
   return rows.map((row) => ({
