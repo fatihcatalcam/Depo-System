@@ -43,7 +43,12 @@ export const stockItems = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     sku: text('sku').notNull().unique(),
     name: text('name').notNull(),
+    // "160x200" (yatak/baza) veya "160 CM" (baslik). Olcu birimi parca tipine
+    // gore degisiyor; eslestirme genislik uzerinden yapiliyor.
     sizeLabel: text('size_label'),
+    // Kumas/renk kodu: "BK-194 MAVI". Isimden ayri tutuluyor ki ayni modelin
+    // farkli renkleri boyut kopyalamada birbirini bulabilsin.
+    variantLabel: text('variant_label'),
     categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'restrict' }),
     barcode: text('barcode').unique(),
     unit: text('unit').notNull().default('adet'),

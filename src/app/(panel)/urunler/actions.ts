@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db/client';
-import { createProduct, duplicateProductForSize, updateProduct } from '@/domain/catalog/products';
+import {
+  createProduct,
+  duplicateProductForSize,
+  getProductWithComponents,
+  suggestSizeCounterparts,
+  updateProduct,
+} from '@/domain/catalog/products';
 import { searchStockItems } from '@/domain/catalog/stock-items';
 import { DomainError } from '@/lib/errors';
 import { parseTlInput } from '@/lib/money';
@@ -75,6 +81,7 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
 const duplicateSchema = z.object({
   name: z.string().min(1, 'Yeni urun adi girin.'),
   targetSizeLabel: z.string().min(1, 'Hedef boyut girin.'),
+  replacements: z.record(z.uuid(), z.uuid()).optional(),
 });
 
 export async function duplicateProductAction(
@@ -88,6 +95,50 @@ export async function duplicateProductAction(
     const product = await duplicateProductForSize(db, sourceId, parsed.data);
     revalidatePath('/urunler');
     return { ok: true, id: product.id };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+export interface DuplicatePreviewRow {
+  sourceId: string;
+  sourceLabel: string;
+  selectedId: string | null;
+  candidates: { id: string; label: string }[];
+}
+
+/**
+ * Kopyalamadan once her parcanin hedef boyuttaki karsiligini gosterir.
+ * Kullanici yanlis kumasla urun olusturmasin diye secim burada yapiliyor.
+ */
+export async function previewDuplicateAction(
+  sourceId: string,
+  targetSizeLabel: string,
+): Promise<{ ok: boolean; error?: string; rows?: DuplicatePreviewRow[] }> {
+  if (!targetSizeLabel.trim()) return { ok: false, error: 'Hedef boyut girin.' };
+
+  try {
+    const product = await getProductWithComponents(db, sourceId);
+    const suggestions = await suggestSizeCounterparts(
+      db,
+      product.components.map((component) => component.stockItemId),
+      targetSizeLabel.trim(),
+    );
+
+    return {
+      ok: true,
+      rows: product.components.map((component) => {
+        const suggestion = suggestions.get(component.stockItemId);
+        return {
+          sourceId: component.stockItemId,
+          sourceLabel:
+            suggestion?.sourceLabel ??
+            `${component.stockItemName} (${component.stockItemSku})`,
+          selectedId: suggestion?.selectedId ?? null,
+          candidates: suggestion?.candidates ?? [],
+        };
+      }),
+    };
   } catch (error) {
     return toResult(error);
   }

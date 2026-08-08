@@ -12,6 +12,7 @@ import type { CategoryNode } from '@/domain/catalog/categories';
 export interface StockItemFormValues {
   name: string;
   sizeLabel: string;
+  variantLabel: string;
   categoryId: string;
   barcode: string;
   minStockLevel: string;
@@ -22,6 +23,7 @@ export interface StockItemFormValues {
 const EMPTY: StockItemFormValues = {
   name: '',
   sizeLabel: '',
+  variantLabel: '',
   categoryId: '',
   barcode: '',
   minStockLevel: '0',
@@ -36,6 +38,7 @@ interface Props {
   onSubmit: (values: {
     name: string;
     sizeLabel?: string;
+    variantLabel?: string;
     categoryId: string | null;
     barcode?: string;
     minStockLevel: number;
@@ -74,6 +77,7 @@ export function StockItemForm({
           const result = await onSubmit({
             name: values.name,
             sizeLabel: values.sizeLabel || undefined,
+            variantLabel: values.variantLabel || undefined,
             categoryId: values.categoryId || null,
             barcode: values.barcode || undefined,
             minStockLevel: Number(values.minStockLevel || 0),
@@ -99,12 +103,13 @@ export function StockItemForm({
           id="name"
           value={values.name}
           onChange={(event) => set('name', event.target.value)}
-          placeholder="Yatak A Baslik"
+          placeholder="MAGNASAND BASLIK"
           className="h-11"
           required
         />
         <p className="text-xs text-neutral-500">
-          Boyut bilgisini ada yazmayin, alttaki alana girin. Boyut kopyalama buna gore calisir.
+          Model + parca tipi yazin. Boyut ve renk kodunu <strong>ada yazmayin</strong>, asagidaki
+          alanlara girin — boyut kopyalama bunlara gore calisir.
         </p>
       </div>
 
@@ -115,10 +120,26 @@ export function StockItemForm({
             id="sizeLabel"
             value={values.sizeLabel}
             onChange={(event) => set('sizeLabel', event.target.value)}
-            placeholder="90x190"
+            placeholder="160x200 veya 160 CM"
+            className="h-11"
+          />
+          <p className="text-xs text-neutral-500">
+            Yatak ve baza icin 160x200, baslik icin 160 CM. Sistem ikisini genislikten eslestirir.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="variantLabel">Renk / kumas kodu</Label>
+          <Input
+            id="variantLabel"
+            value={values.variantLabel}
+            onChange={(event) => set('variantLabel', event.target.value)}
+            placeholder="BK-194 MAVI"
             className="h-11"
           />
         </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="minStockLevel">Kritik seviye</Label>
           <Input
@@ -127,6 +148,16 @@ export function StockItemForm({
             min={0}
             value={values.minStockLevel}
             onChange={(event) => set('minStockLevel', event.target.value)}
+            className="h-11"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="purchasePrice">Alis fiyati</Label>
+          <Input
+            id="purchasePrice"
+            value={values.purchasePrice}
+            onChange={(event) => set('purchasePrice', event.target.value)}
+            placeholder="1.250,00"
             className="h-11"
           />
         </div>
@@ -149,27 +180,15 @@ export function StockItemForm({
         </select>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="barcode">Barkod</Label>
-          <Input
-            id="barcode"
-            value={values.barcode}
-            onChange={(event) => set('barcode', event.target.value)}
-            placeholder="Bos birakilirsa otomatik uretilir"
-            className="h-11"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="purchasePrice">Alis fiyati</Label>
-          <Input
-            id="purchasePrice"
-            value={values.purchasePrice}
-            onChange={(event) => set('purchasePrice', event.target.value)}
-            placeholder="1.250,00"
-            className="h-11"
-          />
-        </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="barcode">Barkod</Label>
+        <Input
+          id="barcode"
+          value={values.barcode}
+          onChange={(event) => set('barcode', event.target.value)}
+          placeholder="Bos birakilirsa otomatik uretilir"
+          className="h-11"
+        />
       </div>
 
       <div className="space-y-1.5">

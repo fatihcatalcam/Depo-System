@@ -22,6 +22,13 @@
       "when": 1786204335331,
       "tag": "0002_movement-seq",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786209721249,
+      "tag": "0003_variant-label",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ export type StockItem = typeof stockItems.$inferSelect;
 export interface CreateStockItemInput {
   name: string;
   sizeLabel?: string | null;
+  variantLabel?: string | null;
   categoryId?: string | null;
   barcode?: string | null;
   unit?: string;
@@ -38,6 +39,7 @@ export async function createStockItem(
       sku,
       name,
       sizeLabel: input.sizeLabel?.trim() || null,
+      variantLabel: input.variantLabel?.trim() || null,
       categoryId: input.categoryId ?? null,
       barcode,
       unit: input.unit?.trim() || 'adet',
@@ -53,6 +55,7 @@ export async function createStockItem(
 export interface UpdateStockItemInput {
   name?: string;
   sizeLabel?: string | null;
+  variantLabel?: string | null;
   categoryId?: string | null;
   barcode?: string | null;
   unit?: string;
@@ -84,6 +87,10 @@ export async function updateStockItem(
       name,
       sizeLabel:
         input.sizeLabel !== undefined ? input.sizeLabel?.trim() || null : existing.sizeLabel,
+      variantLabel:
+        input.variantLabel !== undefined
+          ? input.variantLabel?.trim() || null
+          : existing.variantLabel,
       categoryId: input.categoryId !== undefined ? input.categoryId : existing.categoryId,
       barcode: input.barcode !== undefined ? input.barcode?.trim() || null : existing.barcode,
       unit: input.unit?.trim() || existing.unit,
@@ -122,6 +129,7 @@ export async function searchStockItems(
   if (query) {
     const match = or(
       ilike(stockItems.name, `%${query}%`),
+      ilike(stockItems.variantLabel, `%${query}%`),
       ilike(stockItems.sku, query),
       ilike(stockItems.barcode, query),
     );

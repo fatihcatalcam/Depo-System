@@ -170,20 +170,97 @@ describe('suggestSizeCounterparts', () => {
       '160x200',
     );
 
-    expect(suggestions.get(small[0].id)).toBe(large[0].id);
-    expect(suggestions.get(small[3].id)).toBe(large[3].id);
+    expect(suggestions.get(small[0].id)?.selectedId).toBe(large[0].id);
+    expect(suggestions.get(small[3].id)?.selectedId).toBe(large[3].id);
   });
 
-  it('karsiligi olmayan parca icin null doner', async () => {
+  it('karsiligi olmayan parca icin aday listesi bos doner', async () => {
     const parts = await makeBedParts('140x190');
+
+    const suggestions = await suggestSizeCounterparts(ctx.db, [parts[0].id], '999x999');
+
+    expect(suggestions.get(parts[0].id)?.selectedId).toBeNull();
+    expect(suggestions.get(parts[0].id)?.candidates).toEqual([]);
+  });
+
+  // Gercek irsaliyede: MAGNASAND YATAK 160x200 ile MAGNASAND BASLIK 160 CM
+  it('baslik farkli olcu birimi kullansa da eslesir', async () => {
+    const yatak90 = await createStockItem(ctx.db, { name: 'MAGNASAND YATAK', sizeLabel: '090x190' });
+    const baslik90 = await createStockItem(ctx.db, {
+      name: 'MAGNASAND BASLIK',
+      sizeLabel: '090 CM',
+    });
+    const yatak160 = await createStockItem(ctx.db, {
+      name: 'MAGNASAND YATAK',
+      sizeLabel: '160x200',
+    });
+    const baslik160 = await createStockItem(ctx.db, {
+      name: 'MAGNASAND BASLIK',
+      sizeLabel: '160 CM',
+    });
 
     const suggestions = await suggestSizeCounterparts(
       ctx.db,
-      [parts[0].id],
-      'boyle-bir-boyut-yok',
+      [yatak90.id, baslik90.id],
+      '160x200',
     );
 
-    expect(suggestions.get(parts[0].id)).toBeNull();
+    expect(suggestions.get(yatak90.id)?.selectedId).toBe(yatak160.id);
+    expect(suggestions.get(baslik90.id)?.selectedId).toBe(baslik160.id);
+  });
+
+  it('ayni genislikte farkli uzunluk varsa yanlis olanı secmez', async () => {
+    const source = await createStockItem(ctx.db, { name: 'BORJEN YATAK', sizeLabel: '100x200' });
+    await createStockItem(ctx.db, { name: 'BORJEN YATAK', sizeLabel: '090x190' });
+    const target200 = await createStockItem(ctx.db, {
+      name: 'BORJEN YATAK',
+      sizeLabel: '090x200',
+    });
+
+    const suggestions = await suggestSizeCounterparts(ctx.db, [source.id], '090x200');
+    expect(suggestions.get(source.id)?.selectedId).toBe(target200.id);
+  });
+
+  it('ayni renk kodu varsa onu tercih eder', async () => {
+    const source = await createStockItem(ctx.db, {
+      name: 'DOZY BAZA',
+      sizeLabel: '100x200',
+      variantLabel: 'BK-194 MAVI',
+    });
+    const sameColour = await createStockItem(ctx.db, {
+      name: 'DOZY BAZA',
+      sizeLabel: '160x200',
+      variantLabel: 'BK-194 MAVI',
+    });
+    await createStockItem(ctx.db, {
+      name: 'DOZY BAZA',
+      sizeLabel: '160x200',
+      variantLabel: 'BK-193 PEMBE',
+    });
+
+    const suggestions = await suggestSizeCounterparts(ctx.db, [source.id], '160x200');
+    expect(suggestions.get(source.id)?.selectedId).toBe(sameColour.id);
+  });
+
+  it('renk belirsizse secim yapmaz, adaylari listeler', async () => {
+    const source = await createStockItem(ctx.db, { name: 'BOHEMELA BAZA', sizeLabel: '090x190' });
+    await createStockItem(ctx.db, {
+      name: 'BOHEMELA BAZA',
+      sizeLabel: '160x200',
+      variantLabel: 'BK-101',
+    });
+    await createStockItem(ctx.db, {
+      name: 'BOHEMELA BAZA',
+      sizeLabel: '160x200',
+      variantLabel: 'BK-102',
+    });
+
+    const suggestion = (await suggestSizeCounterparts(ctx.db, [source.id], '160x200')).get(
+      source.id,
+    );
+
+    expect(suggestion?.selectedId).toBeNull();
+    expect(suggestion?.candidates).toHaveLength(2);
   });
 });
 
@@ -237,9 +314,37 @@ describe('duplicateProductForSize', () => {
     await expect(
       duplicateProductForSize(ctx.db, source.id, {
         name: 'Eksik Karsilik 65x165',
-        targetSizeLabel: '65x165-yok',
+        targetSizeLabel: '999x999',
       }),
     ).rejects.toThrow('Yatak A Baslik');
+  });
+
+  it('birden fazla aday varsa sessizce secmez, secim ister', async () => {
+    const source = await createStockItem(ctx.db, {
+      name: 'BELIRSIZ BAZA',
+      sizeLabel: '090x190',
+    });
+    await createStockItem(ctx.db, {
+      name: 'BELIRSIZ BAZA',
+      sizeLabel: '160x200',
+      variantLabel: 'BK-201',
+    });
+    await createStockItem(ctx.db, {
+      name: 'BELIRSIZ BAZA',
+      sizeLabel: '160x200',
+      variantLabel: 'BK-202',
+    });
+    const product = await createProduct(ctx.db, {
+      name: 'Belirsiz Urun 090x190',
+      components: [{ stockItemId: source.id, quantity: 1 }],
+    });
+
+    await expect(
+      duplicateProductForSize(ctx.db, product.id, {
+        name: 'Belirsiz Urun 160x200',
+        targetSizeLabel: '160x200',
+      }),
+    ).rejects.toThrow('birden fazla secenegi var');
   });
 
   it('elle verilen eslestirmeler otomatik oneriyi ezer', async () => {

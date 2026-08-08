@@ -408,6 +408,27 @@ Veri modeli bunların hiçbirini engellemiyor; her biri sonradan sınırlı bir 
 
 ---
 
+## 14.1 Gerçek e-irsaliyeden öğrenilenler (2026-08-08 sonrası ekleme)
+
+Müşterinin Bambi Yatak'tan gelen gerçek e-irsaliyesi incelendi. Üç varsayım düzeltildi:
+
+**Parça tipleri ölçüyü farklı yazıyor.** Yatak ve baza `160x200`, başlık `160 CM`. Aynı takımın
+parçaları aynı ölçü etiketini paylaşmıyor. Boyut kopyalama önce metin, olmazsa **genişlik**
+üzerinden eşleştiriyor; iki ölçülü etiketlerde uzunluk da tutmalı, çünkü aynı modelin
+`090x190` ve `090x200` varyantları birlikte var.
+
+**Renk / kumaş kodu ayrı bir boyut.** `DOZY BAZA 100x200 A:MAVİ R:BK-194 MAVİ` gibi satırlar var.
+Bu bilgi `variant_label` alanında ayrı tutuluyor; isme gömülse boyut eşleştirmesi çalışmazdı.
+Kopyalamada aynı renk kodu tercih ediliyor, birden fazla aday varsa kullanıcıya sorulup
+seçtiriliyor — yanlış kumaşla ürün oluşturmaktansa sormak doğrusu.
+
+**Aynı ürün irsaliyede birden fazla satırda geliyor.** Örnek belgede 1-2, 12-13, 15-16, 22-23 ve
+33-34. satırlar aynı ürünün tekrarı. Mal kabul artık bunu reddetmiyor, adetleri tek satırda
+topluyor; birim maliyet farklıysa adet ağırlıklı ortalama alınıyor.
+
+Ayrıca: birim her zaman "adet" değil — baza `takım`, alez `paket` olarak geliyor. `unit` alanı
+serbest metin olarak bunu karşılıyor.
+
 ## 15. Bilinen riskler ve açık konular
 
 **Tek ortak hesap.** Müşterinin kararı, öyle uygulanacak. Ama "stoğu kim eksiltti, siparişi kim iptal etti" sorusunun cevabı hiç olmayacak — depo işinde bu er geç sorulur. Giriş katmanı `lib/auth` altında izole yazılacak; rol eklemek istedikleri gün mevcut kod bozulmadan `users` tablosu ve rol kontrolü eklenebilecek.

@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { productComponents, products, stockItems } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
+import { sizesMatch } from '@/domain/catalog/sizes';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
 
@@ -146,28 +147,56 @@ export async function listProducts(db: DbOrTx, includeInactive = false): Promise
     .orderBy(asc(products.name));
 }
 
+export interface CounterpartCandidate {
+  id: string;
+  label: string;
+}
+
+export interface CounterpartSuggestion {
+  sourceId: string;
+  sourceLabel: string;
+  /** Tek aday varsa otomatik secilir; birden fazlaysa kullanici secmeli. */
+  selectedId: string | null;
+  candidates: CounterpartCandidate[];
+}
+
 /**
  * Verilen parcalarin hedef boyuttaki karsiliklarini bulur.
- * Eslesme kurali: ayni `name`, hedef `sizeLabel`.
- * Karsiligi olmayan parca icin deger `null` doner.
+ *
+ * Eslesme ayni `name` uzerinden, boyut ise `sizesMatch` ile yapilir — cunku
+ * gercek veride baslik "160 CM", yatak "160x200" yaziyor. Ayni model+boyutta
+ * birden fazla renk varsa hepsi aday olarak doner ve secimi kullanici yapar;
+ * yanlis kumasla urun olusturmaktansa sormak dogrusudur.
  */
 export async function suggestSizeCounterparts(
   db: DbOrTx,
   stockItemIds: string[],
   targetSizeLabel: string,
-): Promise<Map<string, string | null>> {
-  const result = new Map<string, string | null>();
+): Promise<Map<string, CounterpartSuggestion>> {
+  const result = new Map<string, CounterpartSuggestion>();
   if (stockItemIds.length === 0) return result;
 
   const sources = await db
-    .select({ id: stockItems.id, name: stockItems.name })
+    .select({
+      id: stockItems.id,
+      name: stockItems.name,
+      sizeLabel: stockItems.sizeLabel,
+      variantLabel: stockItems.variantLabel,
+      sku: stockItems.sku,
+    })
     .from(stockItems)
     .where(inArray(stockItems.id, stockItemIds));
 
   if (sources.length === 0) return result;
 
-  const candidates = await db
-    .select({ id: stockItems.id, name: stockItems.name })
+  const pool = await db
+    .select({
+      id: stockItems.id,
+      name: stockItems.name,
+      sizeLabel: stockItems.sizeLabel,
+      variantLabel: stockItems.variantLabel,
+      sku: stockItems.sku,
+    })
     .from(stockItems)
     .where(
       and(
@@ -175,16 +204,47 @@ export async function suggestSizeCounterparts(
           stockItems.name,
           sources.map((source) => source.name),
         ),
-        eq(stockItems.sizeLabel, targetSizeLabel),
         eq(stockItems.isActive, true),
       ),
     );
 
-  const byName = new Map(candidates.map((candidate) => [candidate.name, candidate.id]));
   for (const source of sources) {
-    result.set(source.id, byName.get(source.name) ?? null);
+    const matches = pool.filter(
+      (item) =>
+        item.name === source.name &&
+        item.id !== source.id &&
+        sizesMatch(item.sizeLabel, targetSizeLabel),
+    );
+
+    // Ayni kumas/renk kodu varsa onu tercih et: kopyalanan urun ayni seriden olmali.
+    const sameVariant = matches.filter(
+      (item) => (item.variantLabel ?? '') === (source.variantLabel ?? ''),
+    );
+    const shortlist = sameVariant.length > 0 ? sameVariant : matches;
+
+    result.set(source.id, {
+      sourceId: source.id,
+      sourceLabel: describeItem(source),
+      selectedId: shortlist.length === 1 ? shortlist[0].id : null,
+      candidates: shortlist.map((item) => ({ id: item.id, label: describeItem(item) })),
+    });
   }
+
   return result;
+}
+
+interface DescribableItem {
+  name: string;
+  sizeLabel: string | null;
+  variantLabel: string | null;
+  sku: string;
+}
+
+function describeItem(item: DescribableItem): string {
+  const parts = [item.name];
+  if (item.sizeLabel) parts.push(item.sizeLabel);
+  if (item.variantLabel) parts.push(item.variantLabel);
+  return `${parts.join(' · ')} (${item.sku})`;
 }
 
 export interface DuplicateForSizeInput {
@@ -214,22 +274,33 @@ export async function duplicateProductForSize(
   );
 
   const manual = input.replacements ?? {};
-  const unresolved: string[] = [];
+  const missing: string[] = [];
+  const ambiguous: string[] = [];
   const components: ComponentInput[] = [];
 
   for (const component of source.components) {
-    const target = manual[component.stockItemId] ?? suggestions.get(component.stockItemId) ?? null;
+    const suggestion = suggestions.get(component.stockItemId);
+    const target = manual[component.stockItemId] ?? suggestion?.selectedId ?? null;
+
     if (!target) {
-      unresolved.push(component.stockItemName);
+      if (suggestion && suggestion.candidates.length > 1) ambiguous.push(component.stockItemName);
+      else missing.push(component.stockItemName);
       continue;
     }
     components.push({ stockItemId: target, quantity: component.quantity });
   }
 
-  if (unresolved.length > 0) {
+  if (missing.length > 0) {
     throw new DomainError(
-      `${input.targetSizeLabel} boyutunda karsiligi bulunamayan parcalar: ${unresolved.join(', ')}. Once bu parcalarin hedef boyuttaki stok kartlarini olusturun.`,
+      `${input.targetSizeLabel} boyutunda karsiligi bulunamayan parcalar: ${missing.join(', ')}. Once bu parcalarin hedef boyuttaki stok kartlarini olusturun.`,
       'MISSING_COUNTERPART',
+    );
+  }
+
+  if (ambiguous.length > 0) {
+    throw new DomainError(
+      `Su parcalarin hedef boyutta birden fazla secenegi var: ${ambiguous.join(', ')}. Hangisinin kullanilacagini secin.`,
+      'AMBIGUOUS_COUNTERPART',
     );
   }
 

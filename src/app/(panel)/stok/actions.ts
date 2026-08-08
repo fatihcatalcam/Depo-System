@@ -26,6 +26,7 @@ function toResult(error: unknown): ActionResult {
 const stockItemSchema = z.object({
   name: z.string().min(1, 'Parca adi girin.'),
   sizeLabel: z.string().optional(),
+  variantLabel: z.string().optional(),
   categoryId: z.uuid().nullable().optional(),
   barcode: z.string().optional(),
   minStockLevel: z.coerce.number().int().min(0).optional(),

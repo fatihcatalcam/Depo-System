@@ -17,17 +17,24 @@ Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-08-plan-1-temel-ve-stok.m
 - [x] 10. Kategori servisi
 - [x] 11. Stok kartı servisi
 - [x] 12. Ürün reçetesi ve boyut kopyalama
-- [x] - [ ] 13. Parola özetleme ve oturum jetonu
-- [x] - [ ] 14. Giriş akışı, ayar kaydı, middleware koruması
-- [x] - [ ] 15. Uygulama düzeni ve menü
-- [x] - [ ] 16. Kategori yönetimi ekranı
-- [x] - [ ] 17. Stok listesi ekranı
-- [x] - [ ] 18. Stok kartı detayı, hareket geçmişi, sayım
-- [x] - [ ] 19. Ürün ve reçete ekranı
+- [x] 13. Parola özetleme ve oturum jetonu
+- [x] 14. Giriş akışı, ayar kaydı, middleware koruması
+- [x] 15. Uygulama düzeni ve menü
+- [x] 16. Kategori yönetimi ekranı
+- [x] 17. Stok listesi ekranı
+- [x] 18. Stok kartı detayı, hareket geçmişi, sayım
+- [x] 19. Ürün ve reçete ekranı
 - [x] 20. Örnek veri ve bütünsel doğrulama
 
-## Plan 2 — Mal kabul ve barkod (planı henüz yazılmadı)
-Tedarikçiler, mal kabul akışı, barkod okuma, etiket basma, müşteri yönetimi.
+## Plan 2 — Mal kabul ve barkod — tamamlandı (2026-08-08)
+
+- [x] Tedarikçi servisi ve ekranı
+- [x] Müşteri servisi, liste / detay / yeni ekranları
+- [x] Mal kabul: tedarikçi + irsaliye no + satırlar, tek transaction'da stoğa işleme
+- [x] Mal kabul listesi ve detay ekranı
+- [x] Telefon kamerasıyla barkod okuma (@zxing)
+- [x] A4 barkod etiketi yazdırma sayfası (bwip-js, Code128 SVG)
+- [x] Menü yeniden düzenlendi: mobilde 5 sekme + Diğer sayfası
 
 ## Plan 3 — Sipariş, teslimat, ödeme (planı henüz yazılmadı)
 Sipariş oluşturma, reçete dondurma, rezervasyon, kısmi teslimat, ödemeler ve kalan bakiye.
