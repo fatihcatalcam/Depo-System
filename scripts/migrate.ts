@@ -1,4 +1,8 @@
-import 'dotenv/config';
+// Vercel CLI degiskenleri .env.local dosyasina yaziyor; dotenv varsayilan
+// olarak sadece .env okur, ikisini de acikca veriyoruz.
+import { config } from 'dotenv';
+config({ path: ['.env.local', '.env'] });
+
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';

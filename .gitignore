@@ -43,6 +43,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# ornek env dosyasi depoda kalmali — bu istisna tum .env* kurallarindan
-# sonra gelmeli, yoksa gecersiz kalir
+
+.env*
+
+# Ornek env dosyasi depoda kalmali. Bu istisna TUM .env* kurallarindan
+# sonra gelmeli, yoksa gecersiz kalir (Vercel CLI sona .env* ekliyor).
 !.env.example
+
+.env*
