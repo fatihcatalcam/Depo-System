@@ -115,7 +115,6 @@ CommonJS olarak yüklenir ve Vite ESM sözdizimi için uyarı verir.
 `vitest.config.mts`:
 
 ```ts
-import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -126,7 +125,8 @@ export default defineConfig({
     pool: 'forks',
   },
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
+    // __dirname bir ESM yapilandirma dosyasinda tanimli degil.
+    alias: { '@': new URL('./src/', import.meta.url).pathname },
   },
 });
 ```
@@ -343,9 +343,15 @@ export async function createTestDb(): Promise<TestDb> {
 
 `tests/db/migrations.test.ts`:
 
+Bu test Task 3'teki şema oluşturulduktan sonra çalışır — boş şemadan göç üretilemez,
+bu yüzden Task 2 ve Task 3 tek seferde tamamlanıp tek göç dosyası üretilir.
+
+`db.execute()` kullanma: soyut `PgDatabase` tipinde dönüş değeri `unknown`, `tsc` hata verir.
+Tabloları doğrudan sorgula — zaten daha anlamlı bir doğrulama.
+
 ```ts
-import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, expect, it } from 'vitest';
+import { categories, productComponents, products, stockItems } from '@/db/schema';
 import { createTestDb, type TestDb } from '../helpers/test-db';
 
 let ctx: TestDb;
@@ -358,19 +364,20 @@ afterAll(async () => {
   await ctx.close();
 });
 
-it('gocler uygulanir ve veritabani sorgulanabilir', async () => {
-  const result = await ctx.db.execute(sql`select 1 as bir`);
-  expect(result.rows[0]).toEqual({ bir: 1 });
+it('gocler uygulanir, tum katalog tablolari sorgulanabilir', async () => {
+  // Tablo yoksa sorgu hata firlatir; bos dizi donmesi tablonun var oldugunu kanitlar.
+  expect(await ctx.db.select().from(categories)).toEqual([]);
+  expect(await ctx.db.select().from(stockItems)).toEqual([]);
+  expect(await ctx.db.select().from(products)).toEqual([]);
+  expect(await ctx.db.select().from(productComponents)).toEqual([]);
 });
 ```
 
-- [ ] **Step 7: İlk (boş) göçü üret ve testi çalıştır**
+- [ ] **Step 7: Task 3'ün şemasını oluşturduktan sonra göçü üret ve testi çalıştır**
 
 ```bash
-npx drizzle-kit generate --name init && npm test
+npx drizzle-kit generate --name catalog && npm test
 ```
-
-Beklenen: `drizzle/0000_init.sql` oluşur, tüm testler geçer. Şema henüz boş olduğu için göç dosyası da boş olabilir — sorun değil, Task 3 doldurulacak.
 
 - [ ] **Step 8: Commit**
 

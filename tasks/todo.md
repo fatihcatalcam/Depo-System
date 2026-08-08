@@ -6,8 +6,8 @@ Tasarım: `docs/superpowers/specs/2026-08-08-depo-sistemi-design.md`
 Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-08-plan-1-temel-ve-stok.md`
 
 - [x] 1. Proje iskeleti ve test altyapısı (Next.js 16.3, Vitest 4)
-- [ ] 2. Veritabanı bağlantısı, tipler, PGlite test yardımcısı
-- [ ] 3. Katalog şeması (kategori, stok kartı, ürün, reçete)
+- [x] 2. Veritabanı bağlantısı, tipler, PGlite test yardımcısı
+- [x] 3. Katalog şeması (kategori, stok kartı, ürün, reçete)
 - [ ] 4. Kalan şema (taraflar, belgeler, sistem tabloları)
 - [ ] 5. Para birimi yardımcıları (kuruş)
 - [ ] 6. Belge numarası sayacı
