@@ -55,6 +55,7 @@ src/
   app/
     layout.tsx            Kök düzen, Türkçe locale
     giris/page.tsx        Giriş ekranı
+
     (panel)/layout.tsx    Menülü düzen (masaüstü yan, mobil alt)
     (panel)/page.tsx      Ana sayfa
     (panel)/kategoriler/  Kategori yönetimi
@@ -63,7 +64,7 @@ src/
   components/
     ui/                   shadcn/ui bileşenleri
     app-nav.tsx           Menü (mobil + masaüstü)
-  middleware.ts           Oturum koruması
+  proxy.ts                Oturum koruması (Next.js 16'da middleware.ts'in yeni adı)
 tests/
   helpers/test-db.ts      PGlite üstünde göç uygulanmış temiz test veritabanı
   helpers/factories.ts    Test verisi üreticileri
@@ -78,24 +79,24 @@ scripts/seed.ts           Örnek veri (Yatak A ve parçaları)
 ## Task 1: Proje iskeleti ve test altyapısı
 
 **Files:**
-- Create: `package.json`, `tsconfig.json`, `next.config.ts`, `vitest.config.ts`, `.env.example`, `.gitignore`
+- Create: `package.json`, `tsconfig.json`, `next.config.ts`, `vitest.config.mts`, `.env.example`, `.gitignore`
 - Create: `src/app/layout.tsx`, `src/app/page.tsx`
 - Test: `tests/smoke.test.ts`
 
-Proje klasörü boş değil (`.git`, `.claude`, `docs` var), bu yüzden `create-next-app` doğrudan çalışmaz — geçici klasöre kurup içeriği yukarı taşıyoruz.
+Proje klasörü boş değil (`.git`, `.claude`, `docs` var), bu yüzden `create-next-app` doğrudan çalışmaz — geçici klasöre kurup içeriği yukarı taşıyoruz. Klasör adı alt çizgiyle başlayamaz: npm paket adı kuralları reddediyor.
 
 - [ ] **Step 1: Next.js projesini geçici klasöre kur**
 
 ```bash
-npx --yes create-next-app@latest _scaffold --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm --skip-install --yes
+npx --yes create-next-app@latest scaffold-tmp --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm --skip-install --yes
 ```
 
-Beklenen: `_scaffold/` klasörü oluşur.
+Beklenen: `scaffold-tmp/` klasörü oluşur.
 
 - [ ] **Step 2: İçeriği proje köküne taşı ve geçici klasörü sil**
 
 ```bash
-cp -r _scaffold/. . && rm -rf _scaffold && ls -1
+cp -r scaffold-tmp/. . && rm -rf scaffold-tmp && ls -1
 ```
 
 Beklenen: kökte `package.json`, `next.config.ts`, `src/`, `tsconfig.json` görünür. `docs/` ve `.claude/` duruyor olmalı.
@@ -108,11 +109,14 @@ npm install drizzle-orm pg zod jose date-fns && npm install -D drizzle-kit @type
 
 - [ ] **Step 4: Vitest yapılandırmasını oluştur**
 
-`vitest.config.ts`:
+Uzantı `.mts` olmalı: `package.json` içinde `"type": "module"` yok, `.ts` uzantılı yapılandırma
+CommonJS olarak yüklenir ve Vite ESM sözdizimi için uyarı verir.
+
+`vitest.config.mts`:
 
 ```ts
-import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
@@ -138,8 +142,8 @@ export default defineConfig({
   "dev": "next dev",
   "build": "next build",
   "start": "next start",
-  "lint": "next lint",
-  "typecheck": "tsc --noEmit",
+  "lint": "eslint",
+  "typecheck": "next typegen && tsc --noEmit",
   "test": "vitest run",
   "test:watch": "vitest",
   "db:generate": "drizzle-kit generate",
@@ -180,13 +184,19 @@ SESSION_SECRET=en-az-32-karakterlik-rastgele-bir-dizi-buraya
 INITIAL_APP_PASSWORD=depo2026
 ```
 
-`.gitignore` sonuna ekle:
+`.gitignore` içindeki `.env*` satırının altına ekle — şablon `.env*` ile her şeyi yok sayıyor,
+örnek dosyanın depoya girmesi için istisna gerekiyor:
 
 ```
-.env
-.env.local
-_scaffold/
+!.env.example
+
+# gecici iskele klasoru
+/scaffold-tmp
 ```
+
+`typecheck` betiği neden `next typegen` ile başlıyor: Next.js 16, `LayoutProps` ve `PageProps`
+gibi genel tipleri derleme sırasında `.next/types/` altına üretir. Üretilmeden `tsc` çalıştırılırsa
+şablonun kendi `layout.tsx` dosyası "Cannot find name 'LayoutProps'" hatası verir.
 
 - [ ] **Step 9: Commit**
 
@@ -3857,15 +3867,18 @@ export default function GirisPage() {
 }
 ```
 
-- [ ] **Step 7: Middleware korumasını yaz**
+- [ ] **Step 7: Proxy korumasını yaz**
 
-`src/middleware.ts`:
+Next.js 16'da `middleware.ts` kullanımdan kaldırıldı ve `proxy.ts` adını aldı; dışa aktarılan
+fonksiyonun adı da `proxy` oldu. Davranış aynı.
+
+`src/proxy.ts`:
 
 ```ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
 
   if (await verifySessionToken(token)) {
