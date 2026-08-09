@@ -30,6 +30,15 @@ interface CustomerHit {
   address: string | null;
 }
 
+/**
+ * Secili musteri ya kayitli bir kayittir ya da sadece yazilan bir isim.
+ * Isim yazilan durumda musteri, siparis kaydedilirken ayni islem icinde
+ * olusturulur — depoya gelen musteri icin onceden kayit acmak gerekmesin.
+ */
+type SelectedCustomer =
+  | { kind: 'existing'; id: string; name: string; phone: string | null }
+  | { kind: 'new'; name: string };
+
 function toTlInput(kurus: number | null): string {
   if (kurus == null) return '';
   return kurusToTl(kurus).toFixed(2).replace('.', ',');
@@ -44,7 +53,7 @@ function safeKurus(value: string): number {
 }
 
 export function OrderForm() {
-  const [customer, setCustomer] = useState<CustomerHit | null>(null);
+  const [customer, setCustomer] = useState<SelectedCustomer | null>(null);
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerHits, setCustomerHits] = useState<CustomerHit[]>([]);
   const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -75,13 +84,19 @@ export function OrderForm() {
   }
 
   function pickCustomer(hit: CustomerHit) {
-    setCustomer(hit);
+    setCustomer({ kind: 'existing', id: hit.id, name: hit.name, phone: hit.phone });
     setCustomerQuery('');
     setCustomerHits([]);
     // Adres musteriden on-doldurulur ama burada degistirilebilir:
     // ayni musteri baska bir adrese teslimat isteyebilir.
     if (hit.address && !address) setAddress(hit.address);
     if (hit.phone && !phone) setPhone(hit.phone);
+  }
+
+  function pickNewCustomer(name: string) {
+    setCustomer({ kind: 'new', name: name.trim() });
+    setCustomerQuery('');
+    setCustomerHits([]);
   }
 
   async function findItems(value: string) {
@@ -113,7 +128,8 @@ export function OrderForm() {
         }
         startTransition(async () => {
           const result = await createOrderAction({
-            customerId: customer.id,
+            customerId: customer.kind === 'existing' ? customer.id : undefined,
+            newCustomerName: customer.kind === 'new' ? customer.name : undefined,
             orderDate,
             plannedDeliveryDate: plannedDeliveryDate || null,
             deliveryAddress: address,
@@ -146,8 +162,13 @@ export function OrderForm() {
           <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3">
             <span className="text-sm">
               <span className="font-medium">{customer.name}</span>
-              {customer.phone ? (
+              {customer.kind === 'existing' && customer.phone ? (
                 <span className="ml-2 text-neutral-500">{customer.phone}</span>
+              ) : null}
+              {customer.kind === 'new' ? (
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
+                  yeni musteri — siparisle birlikte kaydedilecek
+                </span>
               ) : null}
             </span>
             <Button type="button" variant="ghost" onClick={() => setCustomer(null)}>
@@ -160,10 +181,19 @@ export function OrderForm() {
               id="customer-search"
               value={customerQuery}
               onChange={(event) => void findCustomers(event.target.value)}
-              placeholder="Musteri adi veya telefon (en az 2 harf)"
+              onKeyDown={(event) => {
+                // Enter'a basinca eslesme yoksa dogrudan yeni musteri olarak al.
+                if (event.key === 'Enter' && customerQuery.trim().length >= 2) {
+                  event.preventDefault();
+                  if (customerHits.length === 1) pickCustomer(customerHits[0]);
+                  else pickNewCustomer(customerQuery);
+                }
+              }}
+              placeholder="Musteri adini yazin (kayitli olmasi gerekmez)"
               className="h-11"
             />
-            {customerHits.length > 0 ? (
+
+            {customerQuery.trim().length >= 2 ? (
               <ul className="rounded-lg border border-neutral-200 bg-white">
                 {customerHits.map((hit) => (
                   <li key={hit.id}>
@@ -179,8 +209,29 @@ export function OrderForm() {
                     </button>
                   </li>
                 ))}
+                <li className="border-t border-neutral-100">
+                  <button
+                    type="button"
+                    onClick={() => pickNewCustomer(customerQuery)}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                  >
+                    <span className="font-medium">
+                      &ldquo;{customerQuery.trim()}&rdquo; adiyla yeni musteri
+                    </span>
+                    <span className="ml-2 text-xs text-neutral-500">
+                      {customerHits.length > 0
+                        ? 'listedekilerden biri degilse'
+                        : 'kayit acmadan devam et'}
+                    </span>
+                  </button>
+                </li>
               </ul>
             ) : null}
+
+            <p className="text-xs text-neutral-500">
+              Kayitli musteriden secebilir ya da sadece ismi yazip devam edebilirsiniz. Yeni
+              musteri, girdiginiz teslimat adresi ve telefonuyla birlikte kaydedilir.
+            </p>
           </>
         )}
       </section>

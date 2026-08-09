@@ -53,7 +53,9 @@ const lineSchema = z.object({
 });
 
 const orderSchema = z.object({
-  customerId: z.uuid('Musteri secin.'),
+  // Ikisinden biri: kayitli musteri ya da yeni musteri adi.
+  customerId: z.uuid().optional(),
+  newCustomerName: z.string().optional(),
   orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.'),
   plannedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   deliveryAddress: z.string().min(1, 'Teslimat adresi girin.'),
@@ -68,9 +70,23 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
   const parsed = orderSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
+  const newCustomerName = parsed.data.newCustomerName?.trim();
+  if (!parsed.data.customerId && !newCustomerName) {
+    return { ok: false, error: 'Kayitli bir musteri secin veya yeni musteri adi girin.' };
+  }
+
   try {
     const order = await createOrder(db, {
       customerId: parsed.data.customerId,
+      newCustomer: newCustomerName
+        ? {
+            name: newCustomerName,
+            // Siparis formundaki teslimat bilgileri yeni musteriye de yazilir;
+            // bir dahakine adres ve telefon hazir gelir.
+            phone: parsed.data.deliveryPhone,
+            address: parsed.data.deliveryAddress,
+          }
+        : undefined,
       orderDate: parsed.data.orderDate,
       plannedDeliveryDate: parsed.data.plannedDeliveryDate ?? null,
       deliveryAddress: parsed.data.deliveryAddress,

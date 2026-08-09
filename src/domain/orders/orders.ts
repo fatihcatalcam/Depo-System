@@ -10,6 +10,7 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
+import { createCustomer } from '@/domain/parties/parties';
 import { getReservedQuantities } from '@/domain/stock/availability';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
@@ -43,8 +44,21 @@ export interface OrderLineInput {
   unitPriceKurus: number;
 }
 
+export interface NewCustomerInput {
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+}
+
 export interface CreateOrderInput {
-  customerId: string;
+  /** Kayitli musteri. Yoksa `newCustomer` verilmeli. */
+  customerId?: string;
+  /**
+   * Depoya gelen musteri icin onceden kayit acmak gerekmesin diye: isim
+   * yazilirsa musteri siparisle ayni transaction icinde olusturulur.
+   * Boylece listeye girer, bir dahakine bulunur ve cari bakiyesi tutulur.
+   */
+  newCustomer?: NewCustomerInput;
   /** ISO tarih (YYYY-MM-DD). */
   orderDate: string;
   plannedDeliveryDate?: string | null;
@@ -63,8 +77,7 @@ export async function createOrder(db: DbOrTx, input: CreateOrderInput): Promise<
   if (address === '') throw new DomainError('Teslimat adresi bos olamaz.', 'INVALID_INPUT');
 
   return runInTransaction(db, async (tx) => {
-    const [customer] = await tx.select().from(customers).where(eq(customers.id, input.customerId));
-    if (!customer) throw new NotFoundError('Musteri');
+    const customerId = await resolveCustomer(tx, input);
 
     const orderNo = await nextDocumentNumber(tx, 'order', Number(input.orderDate.slice(0, 4)));
     const resolved = await resolveLines(tx, input.lines);
@@ -74,7 +87,7 @@ export async function createOrder(db: DbOrTx, input: CreateOrderInput): Promise<
       .insert(orders)
       .values({
         orderNo,
-        customerId: input.customerId,
+        customerId,
         orderDate: input.orderDate,
         plannedDeliveryDate: input.plannedDeliveryDate ?? null,
         deliveryAddress: address,
@@ -453,6 +466,40 @@ export async function recalcOrderStatus(tx: Tx, orderId: string): Promise<OrderS
 
   await tx.update(orders).set({ status, updatedAt: sql`now()` }).where(eq(orders.id, orderId));
   return status;
+}
+
+/**
+ * Siparisin musterisini bulur ya da olusturur.
+ *
+ * Ayni isimde kayitli musteri olsa bile sessizce onu kullanmiyoruz: iki farkli
+ * "Mehmet Yilmaz" birlestirilirse siparis gecmisi ve bakiye birbirine karisir.
+ * Bu, listede mukerrer kayit olmasindan daha kotu. Secimi arayuz kullaniciya
+ * yaptiriyor; burada yalnizca ne soylendiyse o yapiliyor.
+ */
+async function resolveCustomer(tx: Tx, input: CreateOrderInput): Promise<string> {
+  if (input.customerId) {
+    const [customer] = await tx
+      .select({ id: customers.id })
+      .from(customers)
+      .where(eq(customers.id, input.customerId));
+    if (!customer) throw new NotFoundError('Musteri');
+    return customer.id;
+  }
+
+  const name = input.newCustomer?.name?.trim() ?? '';
+  if (name === '') {
+    throw new DomainError(
+      'Kayitli bir musteri secin veya yeni musteri adi girin.',
+      'CUSTOMER_REQUIRED',
+    );
+  }
+
+  const created = await createCustomer(tx, {
+    name,
+    phone: input.newCustomer?.phone ?? null,
+    address: input.newCustomer?.address ?? null,
+  });
+  return created.id;
 }
 
 interface ResolvedLine extends OrderLineInput {

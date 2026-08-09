@@ -10,6 +10,7 @@ import {
   listOrders,
   updateOrder,
 } from '@/domain/orders/orders';
+import { searchCustomers } from '@/domain/parties/parties';
 import { getAvailability } from '@/domain/stock/availability';
 import { makeBedSet, makeOrderCustomer } from '../../helpers/order-fixtures';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
@@ -115,6 +116,85 @@ describe('createOrder', () => {
     const detail = await getOrder(ctx.db, order.id);
     expect(detail.lines[0].description).toContain('BASLIK');
     expect(detail.totalKurus).toBe(750_000);
+  });
+
+  // Depoya gelen musteri icin onceden kayit acmak gerekmesin.
+  it('kayitli olmayan musteri adiyla siparis olusturulabilir', async () => {
+    const set = await makeBedSet(ctx.db, { model: 'YENIMUSTERI', size: '160x200' });
+
+    const order = await createOrder(ctx.db, {
+      newCustomer: {
+        name: 'Ayse Kaya',
+        phone: '0532 111 22 33',
+        address: 'Yeni Mah. 7. Sok. No:3',
+      },
+      orderDate: '2026-08-08',
+      deliveryAddress: 'Yeni Mah. 7. Sok. No:3',
+      lines: [
+        { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100_000 },
+      ],
+    });
+
+    const detail = await getOrder(ctx.db, order.id);
+    expect(detail.customerName).toBe('Ayse Kaya');
+
+    // Musteri gercekten kaydedilmis olmali: bir dahakine aramada bulunsun.
+    const found = await searchCustomers(ctx.db, { query: 'Ayse Kaya' });
+    expect(found).toHaveLength(1);
+    expect(found[0].phone).toBe('0532 111 22 33');
+  });
+
+  it('ne musteri secildi ne isim yazildiysa reddedilir', async () => {
+    const set = await makeBedSet(ctx.db, { model: 'MUSTERISIZ', size: '160x200' });
+
+    await expect(
+      createOrder(ctx.db, {
+        newCustomer: { name: '   ' },
+        orderDate: '2026-08-08',
+        deliveryAddress: 'Adres',
+        lines: [
+          { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100 },
+        ],
+      }),
+    ).rejects.toThrow('Kayitli bir musteri secin veya yeni musteri adi girin');
+  });
+
+  it('olmayan musteri id ile siparis olusturulamaz', async () => {
+    const set = await makeBedSet(ctx.db, { model: 'HAYALIMUSTERI', size: '160x200' });
+
+    await expect(
+      createOrder(ctx.db, {
+        customerId: '12121212-1212-1212-1212-121212121212',
+        orderDate: '2026-08-08',
+        deliveryAddress: 'Adres',
+        lines: [
+          { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100 },
+        ],
+      }),
+    ).rejects.toThrow('bulunamadi');
+  });
+
+  it('siparis basarisiz olursa yeni musteri de olusmaz', async () => {
+    const fresh = await createTestDb();
+
+    await expect(
+      createOrder(fresh.db, {
+        newCustomer: { name: 'Olusmamali Musteri' },
+        orderDate: '2026-08-08',
+        deliveryAddress: 'Adres',
+        lines: [
+          {
+            itemType: 'product',
+            productId: '13131313-1313-1313-1313-131313131313',
+            quantity: 1,
+            unitPriceKurus: 100,
+          },
+        ],
+      }),
+    ).rejects.toThrow();
+
+    expect(await searchCustomers(fresh.db, { query: 'Olusmamali' })).toHaveLength(0);
+    await fresh.close();
   });
 
   it('bos adres reddedilir', async () => {

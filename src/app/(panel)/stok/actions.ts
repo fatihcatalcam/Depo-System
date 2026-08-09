@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { db } from '@/db/client';
 import { createStockItem, updateStockItem } from '@/domain/catalog/stock-items';
 import { adjustStockCount } from '@/domain/stock/counting';
+import { applyMovements } from '@/domain/stock/movements';
 import { DomainError } from '@/lib/errors';
 import { parseTlInput } from '@/lib/money';
 
@@ -73,6 +74,37 @@ const countSchema = z.object({
   countedQuantity: z.coerce.number().int().min(0, 'Sayilan adet negatif olamaz.'),
   notes: z.string().optional(),
 });
+
+/**
+ * Listeden tek dokunusla +1 / -1. Hizli olmasi gerekiyor ama sessiz olmamali:
+ * hareket defterine "elle duzeltme" olarak isleniyor, boylece stogun neden
+ * degistigi sonradan okunabiliyor.
+ */
+export async function quickAdjustStockAction(
+  stockItemId: string,
+  delta: number,
+): Promise<ActionResult> {
+  if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 100) {
+    return { ok: false, error: 'Gecersiz miktar.' };
+  }
+
+  try {
+    await applyMovements(db, [
+      {
+        stockItemId,
+        quantityChange: delta,
+        movementType: 'manual',
+        notes: 'Stok listesinden hizli duzeltme',
+      },
+    ]);
+    revalidatePath('/stok');
+    revalidatePath(`/stok/${stockItemId}`);
+    revalidatePath('/');
+    return { ok: true };
+  } catch (error) {
+    return toResult(error);
+  }
+}
 
 export async function adjustStockCountAction(
   stockItemId: string,

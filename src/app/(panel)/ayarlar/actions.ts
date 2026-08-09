@@ -66,15 +66,24 @@ export async function changePasswordAction(input: unknown): Promise<ActionResult
 
 export async function recalculateStockAction(): Promise<ActionResult> {
   try {
-    const fixed = await recalculateStockBalances(db);
+    const { fixed, changes } = await recalculateStockBalances(db);
     revalidatePath('/stok');
     revalidatePath('/');
+
+    if (fixed === 0) {
+      return { ok: true, message: 'Tum stok bakiyeleri hareket defteriyle uyumlu.' };
+    }
+
+    // Ne degistigini acikca soyluyoruz: bakim islemi sessizce stok
+    // degistirirse kimse fark etmez.
+    const detail = changes
+      .slice(0, 5)
+      .map((change) => `${change.name}: ${change.from} → ${change.to}`)
+      .join(', ');
+
     return {
       ok: true,
-      message:
-        fixed === 0
-          ? 'Tum stok bakiyeleri hareket defteriyle uyumlu.'
-          : `${fixed} stok kartinin bakiyesi duzeltildi.`,
+      message: `${fixed} kartin bakiyesi duzeltildi. ${detail}${changes.length > 5 ? ' ...' : ''}`,
     };
   } catch (error) {
     return toResult(error);

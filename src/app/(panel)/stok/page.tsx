@@ -5,6 +5,7 @@ import { db } from '@/db/client';
 import { cn } from '@/lib/utils';
 import { listCategoryTree } from '@/domain/catalog/categories';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
+import { QuickAdjust } from './quick-adjust';
 import { StockFilters } from './stock-filters';
 
 interface PageProps {
@@ -43,7 +44,7 @@ export default async function StokPage({ searchParams }: PageProps) {
             <tr>
               <th className="p-3">Parca</th>
               <th className="p-3">Boyut</th>
-              <th className="p-3 text-right">Mevcut</th>
+              <th className="p-3 text-center">Mevcut</th>
               <th className="p-3 text-right">Rezerve</th>
               <th className="p-3 text-right">Serbest</th>
             </tr>
@@ -57,8 +58,19 @@ export default async function StokPage({ searchParams }: PageProps) {
                   </Link>
                   <div className="text-xs text-neutral-400">{item.sku}</div>
                 </td>
-                <td className="p-3 text-neutral-600">{item.sizeLabel ?? '—'}</td>
-                <td className="p-3 text-right tabular-nums">{item.onHand}</td>
+                <td className="p-3 text-neutral-600">
+                  {item.sizeLabel ?? '—'}
+                  {item.variantLabel ? (
+                    <div className="text-xs text-neutral-400">{item.variantLabel}</div>
+                  ) : null}
+                </td>
+                <td className="p-2">
+                  <QuickAdjust
+                    stockItemId={item.id}
+                    stockItemName={item.name}
+                    onHand={item.onHand}
+                  />
+                </td>
                 <td className="p-3 text-right tabular-nums text-neutral-500">{item.reserved}</td>
                 <td
                   className={`p-3 text-right font-semibold tabular-nums ${
