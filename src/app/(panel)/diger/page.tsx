@@ -1,8 +1,14 @@
-import { FolderTree, Package, QrCode, Warehouse } from 'lucide-react';
+import { FolderTree, Package, QrCode, Users, Warehouse } from 'lucide-react';
 import Link from 'next/link';
 
 const LINKS = [
   { href: '/urunler', label: 'Urunler', description: 'Satilan setler ve receteleri', icon: Package },
+  {
+    href: '/musteriler',
+    label: 'Musteriler',
+    description: 'Musteri kayitlari ve adresleri',
+    icon: Users,
+  },
   {
     href: '/tedarikciler',
     label: 'Tedarikciler',

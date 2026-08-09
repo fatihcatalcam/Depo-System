@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { hardenSslMode } from './connection-string';
 import * as schema from './schema';
 
 const globalForDb = globalThis as unknown as { pool?: Pool };
@@ -9,7 +10,7 @@ const globalForDb = globalThis as unknown as { pool?: Pool };
 const pool =
   globalForDb.pool ??
   new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: hardenSslMode(process.env.DATABASE_URL),
     max: 5,
   });
 

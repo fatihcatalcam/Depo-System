@@ -2,6 +2,7 @@
 
 import {
   Boxes,
+  ClipboardList,
   FolderTree,
   Home,
   MoreHorizontal,
@@ -18,13 +19,14 @@ import { usePathname } from 'next/navigation';
 const PRIMARY = [
   { href: '/', label: 'Ana sayfa', icon: Home },
   { href: '/stok', label: 'Stok', icon: Boxes },
+  { href: '/siparisler', label: 'Siparis', icon: ClipboardList },
   { href: '/mal-kabul', label: 'Mal kabul', icon: Truck },
-  { href: '/musteriler', label: 'Musteri', icon: Users },
 ] as const;
 
 /** Masaustu yan menude ayrica gorunenler; mobilde "Diger" sayfasindan. */
 const SECONDARY = [
   { href: '/urunler', label: 'Urunler', icon: Package },
+  { href: '/musteriler', label: 'Musteriler', icon: Users },
   { href: '/tedarikciler', label: 'Tedarikciler', icon: Warehouse },
   { href: '/kategoriler', label: 'Kategoriler', icon: FolderTree },
   { href: '/etiket', label: 'Barkod etiketi', icon: QrCode },

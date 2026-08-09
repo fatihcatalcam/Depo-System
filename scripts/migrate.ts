@@ -6,13 +6,14 @@ config({ path: ['.env.local', '.env'] });
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
+import { hardenSslMode } from '../src/db/connection-string';
 
 async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL tanimli degil. .env dosyasini kontrol edin.');
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString: hardenSslMode(process.env.DATABASE_URL) });
   const db = drizzle(pool);
   await migrate(db, { migrationsFolder: './drizzle' });
   await pool.end();

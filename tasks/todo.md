@@ -36,8 +36,19 @@ Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-08-plan-1-temel-ve-stok.m
 - [x] A4 barkod etiketi yazdırma sayfası (bwip-js, Code128 SVG)
 - [x] Menü yeniden düzenlendi: mobilde 5 sekme + Diğer sayfası
 
-## Plan 3 — Sipariş, teslimat, ödeme (planı henüz yazılmadı)
-Sipariş oluşturma, reçete dondurma, rezervasyon, kısmi teslimat, ödemeler ve kalan bakiye.
+## Plan 3 — Sipariş, teslimat, ödeme — tamamlandı (2026-08-09)
+
+- [x] Sipariş servisi: oluştur / düzenle / onayla / iptal, iskonto, toplamlar
+- [x] Onayda reçete dondurma (order_line_components)
+- [x] Rezervasyon: taslak stoğu etkilemez, onay rezerve eder
+- [x] Bileşen seviyesinde kısmi teslimat + otomatik durum geçişi
+- [x] Çift tıklama koruması (idempotency anahtarı)
+- [x] Stok yetersizse uyarı + açık onayla eksiye düşürme
+- [x] İptalde teslim edilenin iade hareketiyle stoğa dönmesi
+- [x] Ödemeler: kısmi ödeme, yöntem, kalan bakiye, ödeme silme
+- [x] Sipariş listesi (durum filtreleri, toplam kalan alacak)
+- [x] Sipariş detayı: malzemeler, teslimat geçmişi, ödeme paneli
+- [x] Ana sayfa yenilendi: bugünkü teslimat, geciken sipariş, kalan alacak, kritik stok
 
 ## Plan 4 — Sevkiyat, PDF, raporlar (planı henüz yazılmadı)
 Günlük sevkiyat ekranı, dört PDF çıktısı, dönemsel raporlar, Excel içe/dışa aktarma, PWA rötuşu.

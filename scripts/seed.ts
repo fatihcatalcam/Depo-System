@@ -3,6 +3,7 @@ config({ path: ['.env.local', '.env'] });
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { hardenSslMode } from '../src/db/connection-string';
 import * as schema from '../src/db/schema';
 import type { Db } from '../src/db/types';
 import { createCategory } from '../src/domain/catalog/categories';
@@ -60,7 +61,7 @@ function headboardSize(size: string): string {
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL tanimli degil.');
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString: hardenSslMode(process.env.DATABASE_URL) });
   const db = drizzle(pool, { schema, casing: 'snake_case' }) as unknown as Db;
 
   await ensureSettings(db, process.env.INITIAL_APP_PASSWORD ?? 'depo2026');

@@ -4,6 +4,7 @@ config({ path: ['.env.local', '.env'] });
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { hardenSslMode } from '../src/db/connection-string';
 
 /**
  * Tum is verisini siler, sema ve gocleri korur. Demo/gelistirme icindir.
@@ -32,7 +33,7 @@ const TABLES = [
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL tanimli degil.');
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString: hardenSslMode(process.env.DATABASE_URL) });
   const db = drizzle(pool);
 
   await db.execute(sql.raw(`TRUNCATE TABLE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`));
