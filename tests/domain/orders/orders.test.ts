@@ -255,6 +255,52 @@ describe('updateOrder', () => {
     expect((await getAvailability(ctx.db, set.yatak.id)).reserved).toBe(4);
   });
 
+  it('sadece teslimat plani degistirilince satirlar ve iskonto korunur', async () => {
+    const set = await makeBedSet(ctx.db, { model: 'PLANDEGIS', size: '160x200' });
+    const customer = await makeOrderCustomer(ctx.db);
+    const order = await createOrder(ctx.db, {
+      customerId: customer.id,
+      orderDate: '2026-08-08',
+      deliveryAddress: 'Eski adres',
+      discountKurus: 400_000,
+      lines: [
+        { itemType: 'product', productId: set.product.id, quantity: 2, unitPriceKurus: 3_000_000 },
+      ],
+    });
+
+    await updateOrder(ctx.db, order.id, {
+      plannedDeliveryDate: '2026-08-20',
+      deliveryAddress: 'Yeni adres',
+    });
+
+    const detail = await getOrder(ctx.db, order.id);
+    expect(detail.plannedDeliveryDate).toBe('2026-08-20');
+    expect(detail.deliveryAddress).toBe('Yeni adres');
+    // Iskonto ve satirlar dokunulmadan kalmali.
+    expect(detail.discountKurus).toBe(400_000);
+    expect(detail.totalKurus).toBe(5_600_000);
+    expect(detail.lines).toHaveLength(1);
+    expect(detail.lines[0].quantity).toBe(2);
+  });
+
+  it('teslimat tarihi temizlenebilir', async () => {
+    const set = await makeBedSet(ctx.db, { model: 'TARIHSIL', size: '160x200' });
+    const customer = await makeOrderCustomer(ctx.db);
+    const order = await createOrder(ctx.db, {
+      customerId: customer.id,
+      orderDate: '2026-08-08',
+      plannedDeliveryDate: '2026-08-20',
+      deliveryAddress: 'Adres',
+      lines: [
+        { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100 },
+      ],
+    });
+
+    await updateOrder(ctx.db, order.id, { plannedDeliveryDate: null });
+
+    expect((await getOrder(ctx.db, order.id)).plannedDeliveryDate).toBeNull();
+  });
+
   it('iptal edilmis siparis duzenlenemez', async () => {
     const { order } = await newDraft();
     await cancelOrder(ctx.db, order.id);

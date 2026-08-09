@@ -50,15 +50,26 @@ Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-08-plan-1-temel-ve-stok.m
 - [x] Sipariş detayı: malzemeler, teslimat geçmişi, ödeme paneli
 - [x] Ana sayfa yenilendi: bugünkü teslimat, geciken sipariş, kalan alacak, kritik stok
 
-## Plan 4 — Sevkiyat, PDF, raporlar (planı henüz yazılmadı)
-Günlük sevkiyat ekranı, dört PDF çıktısı, dönemsel raporlar, Excel içe/dışa aktarma, PWA rötuşu.
+## Plan 4 — Sevkiyat, çıktılar, raporlar — tamamlandı (2026-08-09)
+
+- [x] Günlük sevkiyat ekranı: tarih seçici, duraklar, toplama listesi, tahsilat toplamı
+- [x] Şoför sevkiyat kâğıdı çıktısı (adres, telefon, malzeme, tahsilat, imza)
+- [x] Depo toplama listesi çıktısı (parça parça toplam, işaret kutucuğu)
+- [x] Sipariş formu çıktısı (reçete dökümü, iskonto, ödenen, kalan, ödemeler)
+- [x] Dönemsel özet çıktısı
+- [x] Raporlar: günlük / haftalık / aylık; ciro, tahsilat, alacak, stok değeri, en çok satanlar
+- [x] Excel dışa aktarma: stok, müşteriler, siparişler + alacaklar, dönem raporu
+- [x] Excel içe aktarma: müşteri ve stok kartları, şablon indirme, hepsi-ya-hiçbiri
+- [x] Ayarlar: firma bilgileri, parola değiştirme, stok bakiyesi yeniden hesaplama
+- [x] Sipariş detayında teslimat planı düzenleme
 
 ---
 
 ## Açık konular
 
-- **Fiyatlandırma modeli** — müşteriye sorulacak. Seçilen yapı (opsiyonel liste fiyatı + her zaman
-  düzenlenebilir satır fiyatı) her iki tercihi de karşılıyor, karar Plan 3'e kadar bekleyebilir.
+- ~~Fiyatlandırma modeli~~ **karara bağlandı (2026-08-09):** ürünün bir liste fiyatı olur,
+  siparişe otomatik gelir, sipariş girerken satır bazında değiştirilebilir. Zaten kurulu olan
+  yapı bu; ek geliştirme gerekmedi.
 - **Başlangıç parolası `depo2026`** — Vercel'de üç ortama da yazıldı. Müşteriye teslimden önce
   değiştirilmeli. Parola değiştirme ekranı Plan 4'te geliyor; o zamana kadar
   `vercel env rm/add INITIAL_APP_PASSWORD` ile ve veritabanındaki `app_settings.password_hash`

@@ -1,10 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import type { OrderStatus } from '@/domain/orders/orders';
+import { cn } from '@/lib/utils';
 import { cancelOrderAction, confirmOrderAction } from '../actions';
 
 interface Props {
@@ -30,6 +32,13 @@ export function OrderActions({ orderId, status }: Props) {
 
   return (
     <div className="flex flex-wrap gap-2">
+      <Link
+        href={`/siparisler/${orderId}/yazdir`}
+        className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
+      >
+        Yazdir / PDF
+      </Link>
+
       {status === 'draft' ? (
         <Button
           className="h-11"

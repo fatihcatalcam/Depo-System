@@ -93,18 +93,40 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
   }
 }
 
+/**
+ * Kismi guncelleme: yalnizca gonderilen alanlar degisir.
+ *
+ * `lines` istege bagli — teslimat planini duzenlerken satirlar gonderilmez.
+ * `discount` da istege bagli ve gonderilmediginde mevcut iskonto korunur;
+ * aksi halde adres degistirmek siparisin iskontosunu sifirlardi.
+ */
+const orderPatchSchema = z.object({
+  plannedDeliveryDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+  deliveryAddress: z.string().min(1, 'Teslimat adresi girin.').optional(),
+  deliveryPhone: z.string().optional(),
+  deliveryNotes: z.string().optional(),
+  discount: z.string().optional(),
+  notes: z.string().optional(),
+  lines: z.array(lineSchema).min(1, 'En az bir satir ekleyin.').optional(),
+});
+
 export async function updateOrderAction(id: string, input: unknown): Promise<ActionResult> {
-  const parsed = orderSchema.partial({ customerId: true, orderDate: true }).safeParse(input);
+  const parsed = orderPatchSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
     await updateOrder(db, id, {
-      plannedDeliveryDate: parsed.data.plannedDeliveryDate ?? null,
+      plannedDeliveryDate: parsed.data.plannedDeliveryDate,
       deliveryAddress: parsed.data.deliveryAddress,
       deliveryPhone: parsed.data.deliveryPhone,
       deliveryNotes: parsed.data.deliveryNotes,
       notes: parsed.data.notes,
-      discountKurus: parsed.data.discount ? parseTlInput(parsed.data.discount) : 0,
+      discountKurus:
+        parsed.data.discount !== undefined ? parseTlInput(parsed.data.discount || '0') : undefined,
       lines: parsed.data.lines?.map((line) => ({
         itemType: line.itemType,
         productId: line.productId ?? null,

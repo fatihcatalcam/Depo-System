@@ -19,5 +19,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!giris|_next/static|_next/image|favicon.ico|manifest.webmanifest).*)'],
+  // `_next` tamamen disarida: statik varliklar, goruntu optimizasyonu ve
+  // gelistirmedeki HMR websocket'i buradan geciyor. Sayfa degiller.
+  matcher: ['/((?!giris|_next/|favicon.ico|manifest.webmanifest).*)'],
 };

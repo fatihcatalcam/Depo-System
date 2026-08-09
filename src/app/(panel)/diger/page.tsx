@@ -1,7 +1,28 @@
-import { FolderTree, Package, QrCode, Users, Warehouse } from 'lucide-react';
+import {
+  BarChart3,
+  FolderTree,
+  Package,
+  PackagePlus,
+  QrCode,
+  Settings,
+  Users,
+  Warehouse,
+} from 'lucide-react';
 import Link from 'next/link';
 
 const LINKS = [
+  {
+    href: '/mal-kabul',
+    label: 'Mal kabul',
+    description: 'Fabrikadan gelen sevkiyati stoga isle',
+    icon: PackagePlus,
+  },
+  {
+    href: '/raporlar',
+    label: 'Raporlar',
+    description: 'Gunluk, haftalik ve aylik ozet',
+    icon: BarChart3,
+  },
   { href: '/urunler', label: 'Urunler', description: 'Satilan setler ve receteleri', icon: Package },
   {
     href: '/musteriler',
@@ -26,6 +47,12 @@ const LINKS = [
     label: 'Barkod etiketi',
     description: 'Parcalar icin yazdirilabilir etiket sayfasi',
     icon: QrCode,
+  },
+  {
+    href: '/ayarlar',
+    label: 'Ayarlar',
+    description: 'Firma bilgileri, parola, Excel aktarma',
+    icon: Settings,
   },
 ] as const;
 

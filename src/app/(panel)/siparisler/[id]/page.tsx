@@ -8,6 +8,7 @@ import { NotFoundError } from '@/lib/errors';
 import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { DeliveryForm } from './delivery-form';
+import { DeliveryPlan } from './delivery-plan';
 import { OrderActions } from './order-actions';
 import { PaymentPanel } from './payment-panel';
 
@@ -90,6 +91,16 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
             </div>
           ) : null}
         </dl>
+
+        {order.status !== 'cancelled' && order.status !== 'delivered' ? (
+          <DeliveryPlan
+            orderId={order.id}
+            plannedDeliveryDate={order.plannedDeliveryDate}
+            deliveryAddress={order.deliveryAddress}
+            deliveryPhone={order.deliveryPhone}
+            deliveryNotes={order.deliveryNotes}
+          />
+        ) : null}
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
