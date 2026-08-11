@@ -29,9 +29,9 @@ async function orderFor(options: {
     model: options.model ?? `S${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
     size: '160x200',
   });
-  const customer = await makeOrderCustomer(ctx.db);
+  const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
-  const order = await createOrder(ctx.db, {
+  const order = await createOrder(ctx.db, ctx.scope, {
     customerId: customer.id,
     orderDate: '2026-08-08',
     plannedDeliveryDate: options.date,
@@ -47,7 +47,7 @@ async function orderFor(options: {
     ],
   });
 
-  if (options.confirm !== false) await confirmOrder(ctx.db, order.id);
+  if (options.confirm !== false) await confirmOrder(ctx.db, ctx.scope, order.id);
   return { order, set, customer };
 }
 
@@ -55,7 +55,7 @@ describe('getDailyShipment', () => {
   it('o gune planlanmis onayli siparisleri listeler', async () => {
     const { order, customer } = await orderFor({ date: DAY });
 
-    const shipment = await getDailyShipment(ctx.db, DAY);
+    const shipment = await getDailyShipment(ctx.db, ctx.scope, DAY);
 
     const stop = shipment.stops.find((s) => s.orderId === order.id);
     expect(stop).toBeDefined();
@@ -66,27 +66,27 @@ describe('getDailyShipment', () => {
 
   it('baska gune planlanmis siparis gelmez', async () => {
     const { order } = await orderFor({ date: OTHER_DAY });
-    const shipment = await getDailyShipment(ctx.db, DAY);
+    const shipment = await getDailyShipment(ctx.db, ctx.scope, DAY);
     expect(shipment.stops.map((s) => s.orderId)).not.toContain(order.id);
   });
 
   it('taslak siparis sevkiyata girmez', async () => {
     const { order } = await orderFor({ date: DAY, confirm: false });
-    const shipment = await getDailyShipment(ctx.db, DAY);
+    const shipment = await getDailyShipment(ctx.db, ctx.scope, DAY);
     expect(shipment.stops.map((s) => s.orderId)).not.toContain(order.id);
   });
 
   it('teslimat tarihi olmayan siparis gelmez', async () => {
     const { order } = await orderFor({ date: null });
-    const shipment = await getDailyShipment(ctx.db, DAY);
+    const shipment = await getDailyShipment(ctx.db, ctx.scope, DAY);
     expect(shipment.stops.map((s) => s.orderId)).not.toContain(order.id);
   });
 
   it('teslim edilmis parcalar listede gorunmez', async () => {
     const fresh = await createTestDb();
     const set = await makeBedSet(fresh.db, { model: 'KISMI', size: '160x200' });
-    const customer = await makeOrderCustomer(fresh.db);
-    const order = await createOrder(fresh.db, {
+    const customer = await makeOrderCustomer(fresh.db, fresh.scope);
+    const order = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
       orderDate: '2026-08-08',
       plannedDeliveryDate: DAY,
@@ -95,16 +95,16 @@ describe('getDailyShipment', () => {
         { itemType: 'product', productId: set.product.id, quantity: 2, unitPriceKurus: 100 },
       ],
     });
-    await confirmOrder(fresh.db, order.id);
+    await confirmOrder(fresh.db, fresh.scope, order.id);
 
-    const detail = await getOrder(fresh.db, order.id);
+    const detail = await getOrder(fresh.db, fresh.scope, order.id);
     const yatak = detail.lines[0].components.find((c) => c.stockItemId === set.yatak.id)!;
-    await createDelivery(fresh.db, {
+    await createDelivery(fresh.db, fresh.scope, {
       orderId: order.id,
       lines: [{ orderLineComponentId: yatak.id, quantity: 2 }],
     });
 
-    const shipment = await getDailyShipment(fresh.db, DAY);
+    const shipment = await getDailyShipment(fresh.db, fresh.scope, DAY);
     const stop = shipment.stops[0];
 
     expect(stop.items.map((i) => i.stockItemId)).not.toContain(set.yatak.id);
@@ -118,8 +118,8 @@ describe('getDailyShipment', () => {
     const set = await makeBedSet(fresh.db, { model: 'TOPLAMA', size: '160x200', stock: 50 });
 
     for (const quantity of [2, 3]) {
-      const customer = await makeOrderCustomer(fresh.db);
-      const order = await createOrder(fresh.db, {
+      const customer = await makeOrderCustomer(fresh.db, fresh.scope);
+      const order = await createOrder(fresh.db, fresh.scope, {
         customerId: customer.id,
         orderDate: '2026-08-08',
         plannedDeliveryDate: DAY,
@@ -128,10 +128,10 @@ describe('getDailyShipment', () => {
           { itemType: 'product', productId: set.product.id, quantity, unitPriceKurus: 100 },
         ],
       });
-      await confirmOrder(fresh.db, order.id);
+      await confirmOrder(fresh.db, fresh.scope, order.id);
     }
 
-    const shipment = await getDailyShipment(fresh.db, DAY);
+    const shipment = await getDailyShipment(fresh.db, fresh.scope, DAY);
 
     expect(shipment.stops).toHaveLength(2);
     const yatakRow = shipment.pickingList.find((i) => i.stockItemId === set.yatak.id);
@@ -145,8 +145,8 @@ describe('getDailyShipment', () => {
   it('sofore tahsil edilecek tutar dogru hesaplanir', async () => {
     const fresh = await createTestDb();
     const set = await makeBedSet(fresh.db, { model: 'TAHSILAT', size: '160x200' });
-    const customer = await makeOrderCustomer(fresh.db);
-    const order = await createOrder(fresh.db, {
+    const customer = await makeOrderCustomer(fresh.db, fresh.scope);
+    const order = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
       orderDate: '2026-08-08',
       plannedDeliveryDate: DAY,
@@ -155,15 +155,15 @@ describe('getDailyShipment', () => {
         { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 5_000_000 },
       ],
     });
-    await confirmOrder(fresh.db, order.id);
-    await addPayment(fresh.db, {
+    await confirmOrder(fresh.db, fresh.scope, order.id);
+    await addPayment(fresh.db, fresh.scope, {
       orderId: order.id,
       amountKurus: 4_000_000,
       method: 'havale',
       paidAt: '2026-08-09',
     });
 
-    const shipment = await getDailyShipment(fresh.db, DAY);
+    const shipment = await getDailyShipment(fresh.db, fresh.scope, DAY);
 
     expect(shipment.stops[0].balanceKurus).toBe(1_000_000);
     expect(shipment.totalCollectionKurus).toBe(1_000_000);
@@ -172,7 +172,7 @@ describe('getDailyShipment', () => {
   });
 
   it('o gun sevkiyat yoksa bos ozet doner', async () => {
-    const shipment = await getDailyShipment(ctx.db, '2030-01-01');
+    const shipment = await getDailyShipment(ctx.db, ctx.scope, '2030-01-01');
     expect(shipment.stops).toEqual([]);
     expect(shipment.pickingList).toEqual([]);
     expect(shipment.totalPieces).toBe(0);

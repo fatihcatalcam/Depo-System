@@ -3,6 +3,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
 import { getDailyShipment } from '@/domain/shipments';
 import { formatLongDate, todayInIstanbul } from '@/lib/dates';
+import { currentUser } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { DatePicker } from './date-picker';
@@ -17,13 +18,19 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
     ? (params.tarih as string)
     : todayInIstanbul();
 
-  const shipment = await getDailyShipment(db, date);
+  const user = await currentUser();
+  const shipment = await getDailyShipment(db, user.scope, date);
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-lg font-semibold">Gunluk sevkiyat</h1>
-        <p className="text-sm text-neutral-500">{formatLongDate(date)}</p>
+        <p className="text-sm text-neutral-500">
+          {formatLongDate(date)}
+          {/* Yonetici iki subenin sevkiyatini birlikte goruyor; kagit
+              ciktisini yanlis subeye vermemesi icin acikca yaziyoruz. */}
+          {user.isAdmin ? ' · iki sube birlikte' : ` · ${user.label}`}
+        </p>
       </div>
 
       <DatePicker date={date} />

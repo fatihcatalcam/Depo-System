@@ -32,12 +32,12 @@ describe('parola', () => {
 
 describe('oturum jetonu', () => {
   it('uretilen jeton dogrulanir', async () => {
-    const token = await createSessionToken();
+    const token = await createSessionToken({ role: 'admin' });
     expect(await verifySessionToken(token)).toBe(true);
   });
 
   it('kurcalanmis jeton reddedilir', async () => {
-    const token = await createSessionToken();
+    const token = await createSessionToken({ role: 'admin' });
     expect(await verifySessionToken(`${token}x`)).toBe(false);
   });
 
@@ -47,7 +47,7 @@ describe('oturum jetonu', () => {
   });
 
   it('baska bir anahtarla imzalanmis jeton reddedilir', async () => {
-    const token = await createSessionToken();
+    const token = await createSessionToken({ role: 'admin' });
     const original = process.env.SESSION_SECRET;
     process.env.SESSION_SECRET = 'bambaska-bir-anahtar-en-az-otuz-iki-karakter';
     const result = await verifySessionToken(token);

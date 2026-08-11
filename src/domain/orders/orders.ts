@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
+  branches,
   customers,
   orderLineComponents,
   orderLines,
@@ -11,6 +12,7 @@ import {
 } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
 import { createCustomer } from '@/domain/parties/parties';
+import { requireBranch, scopeFilter, type Scope } from '@/domain/scope';
 import { getReservedQuantities } from '@/domain/stock/availability';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
@@ -70,22 +72,32 @@ export interface CreateOrderInput {
   lines: OrderLineInput[];
 }
 
-export async function createOrder(db: DbOrTx, input: CreateOrderInput): Promise<Order> {
+export async function createOrder(
+  db: DbOrTx,
+  scope: Scope,
+  input: CreateOrderInput,
+): Promise<Order> {
   validateLines(input.lines);
 
   const address = input.deliveryAddress.trim();
   if (address === '') throw new DomainError('Teslimat adresi bos olamaz.', 'INVALID_INPUT');
 
-  return runInTransaction(db, async (tx) => {
-    const customerId = await resolveCustomer(tx, input);
+  const branch = requireBranch(scope);
 
-    const orderNo = await nextDocumentNumber(tx, 'order', Number(input.orderDate.slice(0, 4)));
+  return runInTransaction(db, async (tx) => {
+    const customerId = await resolveCustomer(tx, scope, input);
+
+    const orderNo = await nextDocumentNumber(tx, 'order', {
+      branchCode: branch.code,
+      year: Number(input.orderDate.slice(0, 4)),
+    });
     const resolved = await resolveLines(tx, input.lines);
     const totals = computeTotals(resolved, input.discountKurus ?? 0);
 
     const [order] = await tx
       .insert(orders)
       .values({
+        branchId: branch.id,
         orderNo,
         customerId,
         orderDate: input.orderDate,
@@ -118,11 +130,12 @@ export interface UpdateOrderInput {
 
 export async function updateOrder(
   db: DbOrTx,
+  scope: Scope,
   id: string,
   input: UpdateOrderInput,
 ): Promise<Order> {
   return runInTransaction(db, async (tx) => {
-    const existing = await loadOrder(tx, id);
+    const existing = await loadOrder(tx, scope, id);
 
     if (existing.status === 'cancelled' || existing.status === 'delivered') {
       throw new DomainError(
@@ -191,9 +204,9 @@ export async function updateOrder(
  * dondurur. Bu andan sonra urun tanimi degisse bile siparis, musteriye
  * soz verilen malzemeyi gostermeye devam eder.
  */
-export async function confirmOrder(db: DbOrTx, id: string): Promise<Order> {
+export async function confirmOrder(db: DbOrTx, scope: Scope, id: string): Promise<Order> {
   return runInTransaction(db, async (tx) => {
-    const existing = await loadOrder(tx, id);
+    const existing = await loadOrder(tx, scope, id);
     if (existing.status !== 'draft') {
       throw new DomainError('Yalnizca taslak siparisler onaylanabilir.', 'INVALID_STATUS');
     }
@@ -219,9 +232,9 @@ export async function confirmOrder(db: DbOrTx, id: string): Promise<Order> {
  * rezervasyon uretmiyor). Teslim edilmis miktar varsa `return` tipi
  * hareketle stoga geri alinir — sessizce kaybolmasin diye.
  */
-export async function cancelOrder(db: DbOrTx, id: string): Promise<Order> {
+export async function cancelOrder(db: DbOrTx, scope: Scope, id: string): Promise<Order> {
   return runInTransaction(db, async (tx) => {
-    const existing = await loadOrder(tx, id);
+    const existing = await loadOrder(tx, scope, id);
     if (existing.status === 'cancelled') return existing;
 
     const delivered = await tx
@@ -301,12 +314,12 @@ export interface OrderDetail extends Order {
   paymentStatus: PaymentStatus;
 }
 
-export async function getOrder(db: DbOrTx, id: string): Promise<OrderDetail> {
+export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<OrderDetail> {
   const [row] = await db
     .select({ order: orders, customerName: customers.name, customerPhone: customers.phone })
     .from(orders)
     .innerJoin(customers, eq(customers.id, orders.customerId))
-    .where(eq(orders.id, id));
+    .where(and(eq(orders.id, id), scopeFilter(scope, orders.branchId)));
 
   if (!row) throw new NotFoundError('Siparis');
 
@@ -383,6 +396,8 @@ export async function getOrder(db: DbOrTx, id: string): Promise<OrderDetail> {
 
 export interface OrderSummary extends Order {
   customerName: string;
+  /** Yonetici listesinde sutun olarak gosterilir; sube kendi adini gormez. */
+  branchName: string;
   paidKurus: number;
   balanceKurus: number;
   paymentStatus: PaymentStatus;
@@ -392,24 +407,31 @@ export interface OrderFilters {
   status?: OrderStatus;
   customerId?: string;
   plannedDeliveryDate?: string;
+  /** Yalnizca yonetici icin anlamli: tek subeye daraltir. */
+  branchId?: string;
   limit?: number;
 }
 
 export async function listOrders(
   db: DbOrTx,
+  scope: Scope,
   filters: OrderFilters = {},
 ): Promise<OrderSummary[]> {
-  const conditions = [];
+  const conditions = [scopeFilter(scope, orders.branchId)];
   if (filters.status) conditions.push(eq(orders.status, filters.status));
   if (filters.customerId) conditions.push(eq(orders.customerId, filters.customerId));
   if (filters.plannedDeliveryDate) {
     conditions.push(eq(orders.plannedDeliveryDate, filters.plannedDeliveryDate));
   }
+  // Yonetici tek subeyi suzmek isteyebilir; kapsam zaten genis oldugu icin bu
+  // ek bir yetki acmaz, yalnizca daraltir.
+  if (filters.branchId) conditions.push(eq(orders.branchId, filters.branchId));
 
   const rows = await db
     .select({
       order: orders,
       customerName: customers.name,
+      branchName: branches.name,
       paid: sql<number>`coalesce((
         select sum(${payments.amountKurus}) from ${payments}
         where ${payments.orderId} = ${orders.id}
@@ -417,7 +439,8 @@ export async function listOrders(
     })
     .from(orders)
     .innerJoin(customers, eq(customers.id, orders.customerId))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .innerJoin(branches, eq(branches.id, orders.branchId))
+    .where(and(...conditions))
     .orderBy(desc(orders.orderDate), desc(orders.createdAt))
     .limit(filters.limit ?? 200);
 
@@ -426,6 +449,7 @@ export async function listOrders(
     return {
       ...row.order,
       customerName: row.customerName,
+      branchName: row.branchName,
       paidKurus,
       balanceKurus: row.order.totalKurus - paidKurus,
       paymentStatus: derivePaymentStatus(row.order.totalKurus, paidKurus),
@@ -476,12 +500,15 @@ export async function recalcOrderStatus(tx: Tx, orderId: string): Promise<OrderS
  * Bu, listede mukerrer kayit olmasindan daha kotu. Secimi arayuz kullaniciya
  * yaptiriyor; burada yalnizca ne soylendiyse o yapiliyor.
  */
-async function resolveCustomer(tx: Tx, input: CreateOrderInput): Promise<string> {
+async function resolveCustomer(tx: Tx, scope: Scope, input: CreateOrderInput): Promise<string> {
   if (input.customerId) {
+    // Kapsam suzgeci sart: aksi halde diger subenin musteri kimligini
+    // gonderen biri kendi siparisini o musteriye baglayabilir ve boylece
+    // musterinin varligini ogrenirdi.
     const [customer] = await tx
       .select({ id: customers.id })
       .from(customers)
-      .where(eq(customers.id, input.customerId));
+      .where(and(eq(customers.id, input.customerId), scopeFilter(scope, customers.branchId)));
     if (!customer) throw new NotFoundError('Musteri');
     return customer.id;
   }
@@ -494,7 +521,7 @@ async function resolveCustomer(tx: Tx, input: CreateOrderInput): Promise<string>
     );
   }
 
-  const created = await createCustomer(tx, {
+  const created = await createCustomer(tx, scope, {
     name,
     phone: input.newCustomer?.phone ?? null,
     address: input.newCustomer?.address ?? null,
@@ -649,8 +676,16 @@ function validateLines(lines: OrderLineInput[]) {
   }
 }
 
-async function loadOrder(tx: Tx, id: string): Promise<Order> {
-  const [row] = await tx.select().from(orders).where(eq(orders.id, id));
+/**
+ * Siparis degistiren her islemin tek giris noktasi. Kapsam suzgeci burada
+ * oldugu icin, yeni bir islem eklendiginde izolasyonu ayrica dusunmek
+ * gerekmiyor: baska subenin siparisi zaten "bulunamadi" doner.
+ */
+async function loadOrder(tx: Tx, scope: Scope, id: string): Promise<Order> {
+  const [row] = await tx
+    .select()
+    .from(orders)
+    .where(and(eq(orders.id, id), scopeFilter(scope, orders.branchId)));
   if (!row) throw new NotFoundError('Siparis');
   return row;
 }

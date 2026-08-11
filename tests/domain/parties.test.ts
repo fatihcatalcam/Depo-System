@@ -22,45 +22,45 @@ afterAll(async () => {
 
 describe('musteriler', () => {
   it('kod otomatik uretilir', async () => {
-    const first = await createCustomer(ctx.db, { name: 'Fatih Catalcam' });
-    const second = await createCustomer(ctx.db, { name: 'Ayse Yilmaz' });
+    const first = await createCustomer(ctx.db, ctx.scope, { name: 'Fatih Catalcam' });
+    const second = await createCustomer(ctx.db, ctx.scope, { name: 'Ayse Yilmaz' });
 
-    expect(first.code).toBe('MS-00001');
-    expect(second.code).toBe('MS-00002');
+    expect(first.code).toBe('MS-S1-00001');
+    expect(second.code).toBe('MS-S1-00002');
   });
 
   it('bos isim reddedilir', async () => {
-    await expect(createCustomer(ctx.db, { name: '  ' })).rejects.toThrow(
+    await expect(createCustomer(ctx.db, ctx.scope, { name: '  ' })).rejects.toThrow(
       'Musteri adi bos olamaz',
     );
   });
 
   it('bos alanlar null olarak saklanir', async () => {
-    const customer = await createCustomer(ctx.db, { name: 'Bos Alanli', phone: '   ' });
+    const customer = await createCustomer(ctx.db, ctx.scope, { name: 'Bos Alanli', phone: '   ' });
     expect(customer.phone).toBeNull();
   });
 
   it('isim ve telefonla aranir', async () => {
-    await createCustomer(ctx.db, { name: 'Mehmet Demir', phone: '05551112233' });
+    await createCustomer(ctx.db, ctx.scope, { name: 'Mehmet Demir', phone: '05551112233' });
 
-    expect((await searchCustomers(ctx.db, { query: 'mehmet' })).length).toBe(1);
-    expect((await searchCustomers(ctx.db, { query: '5551112233' })).length).toBe(1);
+    expect((await searchCustomers(ctx.db, ctx.scope, { query: 'mehmet' })).length).toBe(1);
+    expect((await searchCustomers(ctx.db, ctx.scope, { query: '5551112233' })).length).toBe(1);
   });
 
   it('guncelleme calisir ve pasif musteri aramada gelmez', async () => {
-    const customer = await createCustomer(ctx.db, { name: 'Pasif Olacak' });
-    await updateCustomer(ctx.db, customer.id, { phone: '05009998877', isActive: false });
+    const customer = await createCustomer(ctx.db, ctx.scope, { name: 'Pasif Olacak' });
+    await updateCustomer(ctx.db, ctx.scope, customer.id, { phone: '05009998877', isActive: false });
 
-    const updated = await getCustomer(ctx.db, customer.id);
+    const updated = await getCustomer(ctx.db, ctx.scope, customer.id);
     expect(updated.phone).toBe('05009998877');
-    expect((await searchCustomers(ctx.db, { query: 'Pasif Olacak' })).length).toBe(0);
+    expect((await searchCustomers(ctx.db, ctx.scope, { query: 'Pasif Olacak' })).length).toBe(0);
     expect(
-      (await searchCustomers(ctx.db, { query: 'Pasif Olacak', includeInactive: true })).length,
+      (await searchCustomers(ctx.db, ctx.scope, { query: 'Pasif Olacak', includeInactive: true })).length,
     ).toBe(1);
   });
 
   it('olmayan musteri bulunamaz', async () => {
-    await expect(getCustomer(ctx.db, '99999999-9999-9999-9999-999999999999')).rejects.toThrow(
+    await expect(getCustomer(ctx.db, ctx.scope, '99999999-9999-9999-9999-999999999999')).rejects.toThrow(
       'bulunamadi',
     );
   });

@@ -1,9 +1,19 @@
 import { desc, eq, sql } from 'drizzle-orm';
-import { goodsReceiptLines, goodsReceipts, stockItems, suppliers } from '@/db/schema';
+import { branches, goodsReceiptLines, goodsReceipts, stockItems, suppliers } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
+import { requireBranch, type Scope } from '@/domain/scope';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
+
+/**
+ * Mal kabul kayitlari **iki subeye de aciktir** — bilerek.
+ *
+ * `branchId` yalnizca kaydi kimin girdigini soyler. Stok tek havuz oldugu icin
+ * bir subenin girdigi mal digerinin serbest stogunu artirir; girisi gizleseydik
+ * depoda "bu adet nereden geldi" sorusu cevapsiz kalirdi. Gizlenen sey satis
+ * bilgisi (siparis, musteri, odeme); mal girisi degil.
+ */
 
 export type GoodsReceipt = typeof goodsReceipts.$inferSelect;
 
@@ -34,6 +44,7 @@ export interface GoodsReceiptLineDetail {
 
 export interface GoodsReceiptDetail extends GoodsReceipt {
   supplierName: string | null;
+  branchName: string;
   lines: GoodsReceiptLineDetail[];
 }
 
@@ -43,20 +54,22 @@ export interface GoodsReceiptDetail extends GoodsReceipt {
  */
 export async function createGoodsReceipt(
   db: DbOrTx,
+  scope: Scope,
   input: CreateGoodsReceiptInput,
 ): Promise<GoodsReceipt> {
   const lines = mergeLines(input.lines);
+  const branch = requireBranch(scope);
 
   return runInTransaction(db, async (tx) => {
-    const receiptNo = await nextDocumentNumber(
-      tx,
-      'goodsReceipt',
-      Number(input.receivedAt.slice(0, 4)),
-    );
+    const receiptNo = await nextDocumentNumber(tx, 'goodsReceipt', {
+      branchCode: branch.code,
+      year: Number(input.receivedAt.slice(0, 4)),
+    });
 
     const [receipt] = await tx
       .insert(goodsReceipts)
       .values({
+        branchId: branch.id,
         receiptNo,
         supplierId: input.supplierId ?? null,
         waybillNo: input.waybillNo?.trim() || null,
@@ -91,9 +104,14 @@ export async function createGoodsReceipt(
 
 export async function getGoodsReceipt(db: DbOrTx, id: string): Promise<GoodsReceiptDetail> {
   const [row] = await db
-    .select({ receipt: goodsReceipts, supplierName: suppliers.name })
+    .select({
+      receipt: goodsReceipts,
+      supplierName: suppliers.name,
+      branchName: branches.name,
+    })
     .from(goodsReceipts)
     .leftJoin(suppliers, eq(suppliers.id, goodsReceipts.supplierId))
+    .innerJoin(branches, eq(branches.id, goodsReceipts.branchId))
     .where(eq(goodsReceipts.id, id));
 
   if (!row) throw new NotFoundError('Mal kabul kaydi');
@@ -112,11 +130,17 @@ export async function getGoodsReceipt(db: DbOrTx, id: string): Promise<GoodsRece
     .innerJoin(stockItems, eq(stockItems.id, goodsReceiptLines.stockItemId))
     .where(eq(goodsReceiptLines.goodsReceiptId, id));
 
-  return { ...row.receipt, supplierName: row.supplierName, lines };
+  return {
+    ...row.receipt,
+    supplierName: row.supplierName,
+    branchName: row.branchName,
+    lines,
+  };
 }
 
 export interface GoodsReceiptSummary extends GoodsReceipt {
   supplierName: string | null;
+  branchName: string;
   lineCount: number;
   totalQuantity: number;
 }
@@ -126,19 +150,22 @@ export async function listGoodsReceipts(db: DbOrTx, limit = 100): Promise<GoodsR
     .select({
       receipt: goodsReceipts,
       supplierName: suppliers.name,
+      branchName: branches.name,
       lineCount: sql<number>`count(${goodsReceiptLines.id})::int`,
       totalQuantity: sql<number>`coalesce(sum(${goodsReceiptLines.quantity}), 0)::int`,
     })
     .from(goodsReceipts)
     .leftJoin(suppliers, eq(suppliers.id, goodsReceipts.supplierId))
+    .innerJoin(branches, eq(branches.id, goodsReceipts.branchId))
     .leftJoin(goodsReceiptLines, eq(goodsReceiptLines.goodsReceiptId, goodsReceipts.id))
-    .groupBy(goodsReceipts.id, suppliers.name)
+    .groupBy(goodsReceipts.id, suppliers.name, branches.name)
     .orderBy(desc(goodsReceipts.receivedAt), desc(goodsReceipts.createdAt))
     .limit(limit);
 
   return rows.map((row) => ({
     ...row.receipt,
     supplierName: row.supplierName,
+    branchName: row.branchName,
     lineCount: Number(row.lineCount),
     totalQuantity: Number(row.totalQuantity),
   }));

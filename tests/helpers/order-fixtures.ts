@@ -4,6 +4,7 @@ import { createStockItem } from '@/domain/catalog/stock-items';
 import { createCustomer } from '@/domain/parties/parties';
 import { applyMovements } from '@/domain/stock/movements';
 import type { Db } from '@/db/types';
+import type { Scope } from '@/domain/scope';
 
 /**
  * Gercek irsaliyedeki yapiya uygun bir takim kurar:
@@ -49,8 +50,8 @@ export async function makeBedSet(
 
 let customerCounter = 0;
 
-export async function makeOrderCustomer(db: Db) {
-  return createCustomer(db, {
+export async function makeOrderCustomer(db: Db, scope: Scope) {
+  return createCustomer(db, scope, {
     name: `Test Musteri ${++customerCounter}`,
     phone: '0555 000 00 00',
     address: 'Ornek Mah. 1. Sok. No:1',

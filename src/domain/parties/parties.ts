@@ -3,9 +3,15 @@ import { customers, suppliers } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
+import { requireBranch, scopeFilter, type Scope } from '../scope';
 
 export type Customer = typeof customers.$inferSelect;
 export type Supplier = typeof suppliers.$inferSelect;
+
+/**
+ * Musteriler subeye ozeldir. Tedarikciler (asagida) degil — iki sube ayni
+ * fabrikalardan mal aliyor ve stok zaten ortak.
+ */
 
 export interface CreateCustomerInput {
   name: string;
@@ -20,25 +26,32 @@ export interface CreateCustomerInput {
   notes?: string | null;
 }
 
-export async function createCustomer(db: DbOrTx, input: CreateCustomerInput): Promise<Customer> {
+export async function createCustomer(
+  db: DbOrTx,
+  scope: Scope,
+  input: CreateCustomerInput,
+): Promise<Customer> {
   const name = input.name.trim();
   if (name === '') throw new DomainError('Musteri adi bos olamaz.', 'INVALID_INPUT');
 
-  const code = await nextDocumentNumber(db, 'customer');
+  const branch = requireBranch(scope);
+  const code = await nextDocumentNumber(db, 'customer', { branchCode: branch.code });
   const [row] = await db
     .insert(customers)
-    .values({ ...normalize(input), name, code })
+    .values({ ...normalize(input), name, code, branchId: branch.id })
     .returning();
   return row;
 }
 
 export async function updateCustomer(
   db: DbOrTx,
+  scope: Scope,
   id: string,
   input: Partial<CreateCustomerInput> & { isActive?: boolean },
 ): Promise<Customer> {
-  const [existing] = await db.select().from(customers).where(eq(customers.id, id));
-  if (!existing) throw new NotFoundError('Musteri');
+  // Kapsam disindaki kayit "bulunamadi" doner; "yetkiniz yok" demek o
+  // musterinin var oldugunu soylemek olurdu.
+  const existing = await getCustomer(db, scope, id);
 
   const name = input.name?.trim() ?? existing.name;
   if (name === '') throw new DomainError('Musteri adi bos olamaz.', 'INVALID_INPUT');
@@ -51,8 +64,11 @@ export async function updateCustomer(
   return row;
 }
 
-export async function getCustomer(db: DbOrTx, id: string): Promise<Customer> {
-  const [row] = await db.select().from(customers).where(eq(customers.id, id));
+export async function getCustomer(db: DbOrTx, scope: Scope, id: string): Promise<Customer> {
+  const [row] = await db
+    .select()
+    .from(customers)
+    .where(and(eq(customers.id, id), scopeFilter(scope, customers.branchId)));
   if (!row) throw new NotFoundError('Musteri');
   return row;
 }
@@ -65,9 +81,10 @@ export interface PartyFilters {
 
 export async function searchCustomers(
   db: DbOrTx,
+  scope: Scope,
   filters: PartyFilters = {},
 ): Promise<Customer[]> {
-  const conditions: SQL[] = [];
+  const conditions: (SQL | undefined)[] = [scopeFilter(scope, customers.branchId)];
   if (!filters.includeInactive) conditions.push(eq(customers.isActive, true));
 
   const query = filters.query?.trim();
@@ -84,7 +101,7 @@ export async function searchCustomers(
   return db
     .select()
     .from(customers)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(asc(customers.name))
     .limit(filters.limit ?? 200);
 }

@@ -6,6 +6,7 @@ import { db } from '@/db/client';
 import { searchStockItems } from '@/domain/catalog/stock-items';
 import { createGoodsReceipt } from '@/domain/goods-receipt';
 import { createSupplier } from '@/domain/parties/parties';
+import { currentScope } from '@/lib/auth/current';
 import { DomainError } from '@/lib/errors';
 import { parseTlInput } from '@/lib/money';
 
@@ -45,7 +46,7 @@ export async function createGoodsReceiptAction(input: unknown): Promise<ActionRe
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    const receipt = await createGoodsReceipt(db, {
+    const receipt = await createGoodsReceipt(db, await currentScope(), {
       supplierId: parsed.data.supplierId ?? null,
       waybillNo: parsed.data.waybillNo,
       receivedAt: parsed.data.receivedAt,

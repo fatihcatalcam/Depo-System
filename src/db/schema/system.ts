@@ -58,15 +58,20 @@ export const appSettings = pgTable(
 );
 
 /**
- * Belge numarasi uretimi. Yilsiz tipler (SK, UR, MS, TD) year = 0 kullanir.
+ * Belge numarasi uretimi. Yilsiz tipler (SK, UR, TD) year = 0 kullanir.
  * Artirma INSERT ... ON CONFLICT DO UPDATE ile atomiktir.
+ *
+ * `branchCode` subeye ozel belgeleri ayirir: SP-S1-2026-00001. Ortak belgeler
+ * (stok karti, urun, tedarikci) bos dize kullanir — iki sube ayni stok
+ * kartlarini paylastigi icin numaralari da ortak olmali.
  */
 export const documentCounters = pgTable(
   'document_counters',
   {
     docType: text('doc_type').notNull(),
+    branchCode: text('branch_code').notNull().default(''),
     year: integer('year').notNull(),
     lastNumber: integer('last_number').notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.docType, t.year] })],
+  (t) => [primaryKey({ columns: [t.docType, t.branchCode, t.year] })],
 );

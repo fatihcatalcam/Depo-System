@@ -14,6 +14,7 @@ import {
 } from '@/domain/orders/orders';
 import { addPayment, deletePayment } from '@/domain/orders/payments';
 import { searchCustomers } from '@/domain/parties/parties';
+import { currentScope } from '@/lib/auth/current';
 import { DomainError, NegativeStockError } from '@/lib/errors';
 import { parseTlInput } from '@/lib/money';
 
@@ -76,7 +77,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
   }
 
   try {
-    const order = await createOrder(db, {
+    const order = await createOrder(db, await currentScope(), {
       customerId: parsed.data.customerId,
       newCustomer: newCustomerName
         ? {
@@ -135,7 +136,7 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    await updateOrder(db, id, {
+    await updateOrder(db, await currentScope(), id, {
       plannedDeliveryDate: parsed.data.plannedDeliveryDate,
       deliveryAddress: parsed.data.deliveryAddress,
       deliveryPhone: parsed.data.deliveryPhone,
@@ -160,7 +161,7 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
 
 export async function confirmOrderAction(id: string): Promise<ActionResult> {
   try {
-    await confirmOrder(db, id);
+    await confirmOrder(db, await currentScope(), id);
     refresh(id);
     return { ok: true, id };
   } catch (error) {
@@ -170,7 +171,7 @@ export async function confirmOrderAction(id: string): Promise<ActionResult> {
 
 export async function cancelOrderAction(id: string): Promise<ActionResult> {
   try {
-    await cancelOrder(db, id);
+    await cancelOrder(db, await currentScope(), id);
     refresh(id);
     return { ok: true, id };
   } catch (error) {
@@ -197,7 +198,7 @@ export async function createDeliveryAction(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    const delivery = await createDelivery(db, { orderId, ...parsed.data });
+    const delivery = await createDelivery(db, await currentScope(), { orderId, ...parsed.data });
     refresh(orderId);
     return { ok: true, id: delivery.id };
   } catch (error) {
@@ -217,7 +218,7 @@ export async function addPaymentAction(orderId: string, input: unknown): Promise
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    await addPayment(db, {
+    await addPayment(db, await currentScope(), {
       orderId,
       amountKurus: parseTlInput(parsed.data.amount),
       method: parsed.data.method,
@@ -236,7 +237,7 @@ export async function deletePaymentAction(
   paymentId: string,
 ): Promise<ActionResult> {
   try {
-    await deletePayment(db, paymentId);
+    await deletePayment(db, await currentScope(), paymentId);
     refresh(orderId);
     return { ok: true };
   } catch (error) {
@@ -274,7 +275,7 @@ export async function searchOrderItemsAction(query: string) {
 }
 
 export async function searchCustomersAction(query: string) {
-  const list = await searchCustomers(db, { query, limit: 15 });
+  const list = await searchCustomers(db, await currentScope(), { query, limit: 15 });
   return list.map((customer) => ({
     id: customer.id,
     name: customer.name,

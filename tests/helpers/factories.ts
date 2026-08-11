@@ -1,8 +1,35 @@
-import { customers, stockItems, suppliers } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { branches, customers, stockItems, suppliers } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
+import { branchScope, type Scope } from '@/domain/scope';
 
 let counter = 0;
 const nextId = () => (++counter).toString().padStart(5, '0');
+
+/**
+ * Gocler iki subeyi (S1, S2) hazir olusturuyor; testler bunlari kullanir.
+ * Cogu test S1 ile calisir, izolasyon testleri ikisini de ister.
+ */
+export async function branchScopes(db: DbOrTx): Promise<{ s1: Scope; s2: Scope }> {
+  const rows = await db.select().from(branches);
+  const find = (code: string) => {
+    const row = rows.find((entry) => entry.code === code);
+    if (!row) throw new Error(`${code} subesi bulunamadi — gocler eksik mi?`);
+    return branchScope(row.id, row.code);
+  };
+  return { s1: find('S1'), s2: find('S2') };
+}
+
+/** Tek sube yeten testler icin kisa yol. */
+export async function defaultScope(db: DbOrTx): Promise<Scope> {
+  return (await branchScopes(db)).s1;
+}
+
+export async function branchIdOf(db: DbOrTx, code: string): Promise<string> {
+  const [row] = await db.select().from(branches).where(eq(branches.code, code));
+  if (!row) throw new Error(`${code} subesi bulunamadi.`);
+  return row.id;
+}
 
 export async function makeStockItem(
   db: DbOrTx,
@@ -19,9 +46,10 @@ export async function makeCustomer(
   db: DbOrTx,
   overrides: Partial<typeof customers.$inferInsert> = {},
 ) {
+  const branchId = overrides.branchId ?? (await branchIdOf(db, 'S1'));
   const [row] = await db
     .insert(customers)
-    .values({ code: `TEST-MS-${nextId()}`, name: 'Test Musteri', ...overrides })
+    .values({ code: `TEST-MS-${nextId()}`, name: 'Test Musteri', ...overrides, branchId })
     .returning();
   return row;
 }

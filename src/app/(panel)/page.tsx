@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { db } from '@/db/client';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
 import { ORDER_STATUS_LABELS, listOrders } from '@/domain/orders/orders';
+import { currentScope } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
@@ -17,9 +18,11 @@ function todayInIstanbul(): string {
 export default async function AnaSayfa() {
   const today = todayInIstanbul();
 
+  const scope = await currentScope();
   const [items, orders] = await Promise.all([
+    // Stok ortak: iki sube de ayni rakamlari gorur.
     listStockItemsWithAvailability(db, {}),
-    listOrders(db, {}),
+    listOrders(db, scope, {}),
   ]);
 
   const critical = items.filter((item) => item.isBelowMinimum);

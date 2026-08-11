@@ -7,6 +7,7 @@ import {
   listOrders,
   type OrderStatus,
 } from '@/domain/orders/orders';
+import { currentUser } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
@@ -42,12 +43,12 @@ interface PageProps {
 }
 
 export default async function SiparislerPage({ searchParams }: PageProps) {
-  const { durum } = await searchParams;
+  const [{ durum }, user] = await Promise.all([searchParams, currentUser()]);
   const status = FILTERS.some((f) => f.value === durum && f.value)
     ? (durum as OrderStatus)
     : undefined;
 
-  const orders = await listOrders(db, { status });
+  const orders = await listOrders(db, user.scope, { status });
   const openBalance = orders
     .filter((order) => order.status !== 'cancelled')
     .reduce((sum, order) => sum + Math.max(0, order.balanceKurus), 0);
@@ -92,6 +93,9 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
             <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-xs uppercase text-neutral-500">
               <tr>
                 <th className="p-3">Siparis</th>
+                {/* Sube kendi listesini goruyor; kendi adini her satirda
+                    tekrarlamanin anlami yok. */}
+                {user.isAdmin ? <th className="p-3">Sube</th> : null}
                 <th className="p-3">Musteri</th>
                 <th className="p-3">Teslimat</th>
                 <th className="p-3">Durum</th>
@@ -111,6 +115,9 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                     </Link>
                     <div className="text-xs text-neutral-400">{formatDate(order.orderDate)}</div>
                   </td>
+                  {user.isAdmin ? (
+                    <td className="whitespace-nowrap p-3 text-neutral-600">{order.branchName}</td>
+                  ) : null}
                   <td className="p-3">{order.customerName}</td>
                   <td className="whitespace-nowrap p-3 text-neutral-600">
                     {formatDate(order.plannedDeliveryDate)}

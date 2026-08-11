@@ -3,9 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db/client';
+import { changeOwnPassword, type Account } from '@/domain/auth';
+import { renameBranch, setBranchPassword } from '@/domain/branches';
 import { importCustomers, importStockItems, type ImportResult } from '@/domain/excel';
-import { changePassword, updateCompanyInfo } from '@/domain/settings';
+import { updateCompanyInfo } from '@/domain/settings';
 import { recalculateStockBalances } from '@/domain/stock/maintenance';
+import { currentScope, currentUser } from '@/lib/auth/current';
 import { DomainError } from '@/lib/errors';
 
 export interface ActionResult {
@@ -52,13 +55,71 @@ const passwordSchema = z
     path: ['confirmPassword'],
   });
 
+/** Oturumu acik olan hesabin kendi parolasi — mevcut parola sorulur. */
 export async function changePasswordAction(input: unknown): Promise<ActionResult> {
   const parsed = passwordSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    await changePassword(db, parsed.data.currentPassword, parsed.data.newPassword);
+    const scope = await currentScope();
+    const account: Account =
+      scope.kind === 'admin' ? { kind: 'admin' } : { kind: 'branch', branchId: scope.branchId };
+
+    await changeOwnPassword(db, account, parsed.data.currentPassword, parsed.data.newPassword);
     return { ok: true, message: 'Parola degistirildi.' };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/**
+ * Sube yonetimi — yalnizca yonetici.
+ *
+ * Sube parolasi belirlenirken mevcut parola sorulmuyor: sube calisani
+ * parolasini unuttugunda patron yenisini verebilmeli. Yetki kontrolu
+ * oturumdan yapiliyor, formdan gelen bir bayraktan degil.
+ */
+async function assertAdmin(): Promise<void> {
+  const user = await currentUser();
+  if (!user.isAdmin) {
+    throw new DomainError('Bu islem yalnizca yonetici hesabiyla yapilabilir.', 'FORBIDDEN');
+  }
+}
+
+const branchNameSchema = z.object({
+  branchId: z.uuid(),
+  name: z.string().min(1, 'Sube adi girin.'),
+});
+
+export async function renameBranchAction(input: unknown): Promise<ActionResult> {
+  const parsed = branchNameSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+
+  try {
+    await assertAdmin();
+    await renameBranch(db, parsed.data.branchId, parsed.data.name);
+    revalidatePath('/ayarlar');
+    revalidatePath('/', 'layout');
+    return { ok: true, message: 'Sube adi guncellendi.' };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+const branchPasswordSchema = z.object({
+  branchId: z.uuid(),
+  newPassword: z.string().min(6, 'Parola en az 6 karakter olmali.'),
+});
+
+export async function setBranchPasswordAction(input: unknown): Promise<ActionResult> {
+  const parsed = branchPasswordSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+
+  try {
+    await assertAdmin();
+    await setBranchPassword(db, parsed.data.branchId, parsed.data.newPassword);
+    revalidatePath('/ayarlar');
+    return { ok: true, message: 'Sube parolasi belirlendi.' };
   } catch (error) {
     return toResult(error);
   }
@@ -110,7 +171,7 @@ export async function importExcelAction(
     const buffer = Buffer.from(await file.arrayBuffer());
     const result =
       kind === 'musteri'
-        ? await importCustomers(db, buffer)
+        ? await importCustomers(db, await currentScope(), buffer)
         : await importStockItems(db, buffer);
 
     revalidatePath('/stok');

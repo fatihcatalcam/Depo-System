@@ -34,7 +34,7 @@ describe('createGoodsReceipt', () => {
     const a = await createStockItem(ctx.db, { name: 'Kabul Parca 1' });
     const b = await createStockItem(ctx.db, { name: 'Kabul Parca 2' });
 
-    const receipt = await createGoodsReceipt(ctx.db, {
+    const receipt = await createGoodsReceipt(ctx.db, ctx.scope, {
       supplierId: supplier.id,
       waybillNo: 'IRS-2026-001',
       receivedAt: '2026-08-08',
@@ -44,14 +44,14 @@ describe('createGoodsReceipt', () => {
       ],
     });
 
-    expect(receipt.receiptNo).toBe('MK-2026-00001');
+    expect(receipt.receiptNo).toBe('MK-S1-2026-00001');
     expect(await onHand(a.id)).toBe(10);
     expect(await onHand(b.id)).toBe(4);
   });
 
   it('hareket kaydi mal kabul belgesine baglanir', async () => {
     const item = await createStockItem(ctx.db, { name: 'Izlenebilir Parca' });
-    const receipt = await createGoodsReceipt(ctx.db, {
+    const receipt = await createGoodsReceipt(ctx.db, ctx.scope, {
       receivedAt: '2026-08-08',
       lines: [{ stockItemId: item.id, quantity: 6 }],
     });
@@ -68,7 +68,7 @@ describe('createGoodsReceipt', () => {
 
   it('tedarikci ve irsaliye olmadan da kabul edilir', async () => {
     const item = await createStockItem(ctx.db, { name: 'Tedarikcisiz Parca' });
-    const receipt = await createGoodsReceipt(ctx.db, {
+    const receipt = await createGoodsReceipt(ctx.db, ctx.scope, {
       receivedAt: '2026-08-08',
       lines: [{ stockItemId: item.id, quantity: 2 }],
     });
@@ -79,7 +79,7 @@ describe('createGoodsReceipt', () => {
 
   it('bos satir listesi reddedilir', async () => {
     await expect(
-      createGoodsReceipt(ctx.db, { receivedAt: '2026-08-08', lines: [] }),
+      createGoodsReceipt(ctx.db, ctx.scope, { receivedAt: '2026-08-08', lines: [] }),
     ).rejects.toThrow('Mal kabul en az bir satir icermeli');
   });
 
@@ -88,7 +88,7 @@ describe('createGoodsReceipt', () => {
   it('ayni parca birden fazla satirda gelirse adetler toplanir', async () => {
     const item = await createStockItem(ctx.db, { name: 'Tekrarli Kabul Parcasi' });
 
-    const receipt = await createGoodsReceipt(ctx.db, {
+    const receipt = await createGoodsReceipt(ctx.db, ctx.scope, {
       receivedAt: '2026-08-08',
       lines: [
         { stockItemId: item.id, quantity: 1 },
@@ -106,7 +106,7 @@ describe('createGoodsReceipt', () => {
   it('toplanan satirlarda birim maliyet adet agirlikli ortalanir', async () => {
     const item = await createStockItem(ctx.db, { name: 'Farkli Maliyetli Parca' });
 
-    const receipt = await createGoodsReceipt(ctx.db, {
+    const receipt = await createGoodsReceipt(ctx.db, ctx.scope, {
       receivedAt: '2026-08-08',
       lines: [
         { stockItemId: item.id, quantity: 1, unitCostKurus: 100_000 },
@@ -122,7 +122,7 @@ describe('createGoodsReceipt', () => {
   it('tek stok hareketi olusur, satir sayisi kadar degil', async () => {
     const item = await createStockItem(ctx.db, { name: 'Tek Hareket Parcasi' });
 
-    await createGoodsReceipt(ctx.db, {
+    await createGoodsReceipt(ctx.db, ctx.scope, {
       receivedAt: '2026-08-08',
       lines: [
         { stockItemId: item.id, quantity: 2 },
@@ -142,7 +142,7 @@ describe('createGoodsReceipt', () => {
   it('sifir adet reddedilir', async () => {
     const item = await createStockItem(ctx.db, { name: 'Sifir Adet Parcasi' });
     await expect(
-      createGoodsReceipt(ctx.db, {
+      createGoodsReceipt(ctx.db, ctx.scope, {
         receivedAt: '2026-08-08',
         lines: [{ stockItemId: item.id, quantity: 0 }],
       }),
@@ -155,7 +155,7 @@ describe('createGoodsReceipt', () => {
     const receiptsBefore = (await ctx.db.select().from(goodsReceipts)).length;
 
     await expect(
-      createGoodsReceipt(ctx.db, {
+      createGoodsReceipt(ctx.db, ctx.scope, {
         receivedAt: '2026-08-08',
         lines: [
           { stockItemId: good.id, quantity: 5 },
@@ -170,11 +170,11 @@ describe('createGoodsReceipt', () => {
 
   it('yila gore numara verir', async () => {
     const item = await createStockItem(ctx.db, { name: 'Gelecek Yil Parcasi' });
-    const receipt = await createGoodsReceipt(ctx.db, {
+    const receipt = await createGoodsReceipt(ctx.db, ctx.scope, {
       receivedAt: '2027-01-15',
       lines: [{ stockItemId: item.id, quantity: 1 }],
     });
-    expect(receipt.receiptNo).toBe('MK-2027-00001');
+    expect(receipt.receiptNo).toBe('MK-S1-2027-00001');
   });
 });
 
@@ -182,7 +182,7 @@ describe('getGoodsReceipt / listGoodsReceipts', () => {
   it('detayda tedarikci adi ve satirlar gelir', async () => {
     const supplier = await createSupplier(ctx.db, { name: 'Fabrika B' });
     const item = await createStockItem(ctx.db, { name: 'Detay Parcasi', sizeLabel: '90x190' });
-    const receipt = await createGoodsReceipt(ctx.db, {
+    const receipt = await createGoodsReceipt(ctx.db, ctx.scope, {
       supplierId: supplier.id,
       receivedAt: '2026-08-08',
       lines: [{ stockItemId: item.id, quantity: 3, unitCostKurus: 125_000 }],
@@ -203,7 +203,7 @@ describe('getGoodsReceipt / listGoodsReceipts', () => {
   it('listede satir sayisi ve toplam adet ozetlenir', async () => {
     const a = await createStockItem(ctx.db, { name: 'Ozet Parca 1' });
     const b = await createStockItem(ctx.db, { name: 'Ozet Parca 2' });
-    const receipt = await createGoodsReceipt(ctx.db, {
+    const receipt = await createGoodsReceipt(ctx.db, ctx.scope, {
       receivedAt: '2026-08-09',
       lines: [
         { stockItemId: a.id, quantity: 7 },

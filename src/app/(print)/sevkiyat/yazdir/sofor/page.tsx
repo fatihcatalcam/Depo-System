@@ -2,6 +2,7 @@ import { PrintHeader } from '@/components/print-header';
 import { db } from '@/db/client';
 import { getDailyShipment } from '@/domain/shipments';
 import { formatLongDate, todayInIstanbul } from '@/lib/dates';
+import { currentScope } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 
 interface PageProps {
@@ -18,7 +19,7 @@ export default async function SoforKagidiPage({ searchParams }: PageProps) {
     ? (params.tarih as string)
     : todayInIstanbul();
 
-  const shipment = await getDailyShipment(db, date);
+  const shipment = await getDailyShipment(db, await currentScope(), date);
 
   return (
     <>

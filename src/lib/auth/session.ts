@@ -1,6 +1,9 @@
 import { SignJWT, jwtVerify } from 'jose';
 
 export const SESSION_COOKIE = 'depo_oturum';
+/** Giris ekraninda son secilen hesabi hatirlar. Gizli bir sey icermez. */
+export const LAST_ACCOUNT_COOKIE = 'depo_son_hesap';
+
 const SESSION_DAYS = 30;
 
 export const SESSION_MAX_AGE_SECONDS = SESSION_DAYS * 24 * 60 * 60;
@@ -14,23 +17,40 @@ function secret(): Uint8Array {
 }
 
 /**
- * Jetonun icine rol bilgisi koyuyoruz. Bugun tek rol var, ama ileride rol
- * eklendiginde mevcut oturumlar gecerli kalsin ve kontrol noktasi hazir olsun.
+ * Oturumun tasidigi bilgi.
+ *
+ * Sube **adi** bilerek jetona konmuyor: konsaydi sube yeniden adlandirildiginda
+ * herkesin yeniden giris yapmasi gerekirdi. Ad her istekte veritabanindan
+ * okunuyor.
  */
-export async function createSessionToken(): Promise<string> {
-  return new SignJWT({ role: 'staff' })
+export type SessionPayload = { role: 'admin' } | { role: 'branch'; branchId: string };
+
+export async function createSessionToken(payload: SessionPayload): Promise<string> {
+  return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)
     .sign(secret());
 }
 
-export async function verifySessionToken(token: string | undefined): Promise<boolean> {
-  if (!token) return false;
+/** Jeton gecerliyse icerigini, degilse null doner. */
+export async function readSessionToken(
+  token: string | undefined,
+): Promise<SessionPayload | null> {
+  if (!token) return null;
   try {
-    await jwtVerify(token, secret());
-    return true;
+    const { payload } = await jwtVerify(token, secret());
+
+    if (payload.role === 'admin') return { role: 'admin' };
+    if (payload.role === 'branch' && typeof payload.branchId === 'string') {
+      return { role: 'branch', branchId: payload.branchId };
+    }
+    return null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+export async function verifySessionToken(token: string | undefined): Promise<boolean> {
+  return (await readSessionToken(token)) !== null;
 }

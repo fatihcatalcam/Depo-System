@@ -4,6 +4,7 @@ import { db } from '@/db/client';
 import { listDeliveriesForOrder } from '@/domain/orders/deliveries';
 import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
 import { listPayments } from '@/domain/orders/payments';
+import { currentScope } from '@/lib/auth/current';
 import { NotFoundError } from '@/lib/errors';
 import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
@@ -30,17 +31,19 @@ function formatDate(value: string | null) {
 export default async function SiparisDetayPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
+  const scope = await currentScope();
+
   let order;
   try {
-    order = await getOrder(db, id);
+    order = await getOrder(db, scope, id);
   } catch (error) {
     if (error instanceof NotFoundError) notFound();
     throw error;
   }
 
   const [deliveries, payments] = await Promise.all([
-    listDeliveriesForOrder(db, id),
-    listPayments(db, id),
+    listDeliveriesForOrder(db, scope, id),
+    listPayments(db, scope, id),
   ]);
 
   const isDraft = order.status === 'draft';

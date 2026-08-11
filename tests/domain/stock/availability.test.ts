@@ -32,6 +32,7 @@ async function makeOrderReserving(
     .insert(orders)
     .values({
       orderNo: `SP-2026-${(++sequence).toString().padStart(5, '0')}`,
+      branchId: ctx.branchId,
       customerId: customer.id,
       orderDate: '2026-08-08',
       deliveryAddress: 'Test adres',

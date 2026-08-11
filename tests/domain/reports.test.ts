@@ -50,7 +50,7 @@ describe('getPeriodSummary', () => {
   });
 
   it('bos donemde sifirlar doner', async () => {
-    const summary = await getPeriodSummary(ctx.db, '2030-01-01', '2030-01-31');
+    const summary = await getPeriodSummary(ctx.db, ctx.scope, '2030-01-01', '2030-01-31');
     expect(summary.orderCount).toBe(0);
     expect(summary.revenueKurus).toBe(0);
     expect(summary.collectedKurus).toBe(0);
@@ -59,9 +59,9 @@ describe('getPeriodSummary', () => {
   it('siparis sayisi, ciro, tahsilat ve teslimat sayisini hesaplar', async () => {
     const fresh = await createTestDb();
     const set = await makeBedSet(fresh.db, { model: 'RAPOR', size: '160x200', stock: 20 });
-    const customer = await makeOrderCustomer(fresh.db);
+    const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
-    const order = await createOrder(fresh.db, {
+    const order = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
       orderDate: '2026-08-12',
       deliveryAddress: 'Adres',
@@ -69,22 +69,22 @@ describe('getPeriodSummary', () => {
         { itemType: 'product', productId: set.product.id, quantity: 2, unitPriceKurus: 3_000_000 },
       ],
     });
-    await confirmOrder(fresh.db, order.id);
-    await addPayment(fresh.db, {
+    await confirmOrder(fresh.db, fresh.scope, order.id);
+    await addPayment(fresh.db, fresh.scope, {
       orderId: order.id,
       amountKurus: 2_000_000,
       method: 'nakit',
       paidAt: '2026-08-12',
     });
 
-    const detail = await getOrder(fresh.db, order.id);
-    await createDelivery(fresh.db, {
+    const detail = await getOrder(fresh.db, fresh.scope, order.id);
+    await createDelivery(fresh.db, fresh.scope, {
       orderId: order.id,
       deliveredAt: new Date('2026-08-12T10:00:00Z'),
       lines: [{ orderLineComponentId: detail.lines[0].components[0].id, quantity: 1 }],
     });
 
-    const summary = await getPeriodSummary(fresh.db, '2026-08-01', '2026-08-31');
+    const summary = await getPeriodSummary(fresh.db, fresh.scope, '2026-08-01', '2026-08-31');
 
     expect(summary.orderCount).toBe(1);
     expect(summary.revenueKurus).toBe(6_000_000);
@@ -98,9 +98,9 @@ describe('getPeriodSummary', () => {
   it('iptal edilen siparis ciroya girmez', async () => {
     const fresh = await createTestDb();
     const set = await makeBedSet(fresh.db, { model: 'IPTALRAPOR', size: '160x200' });
-    const customer = await makeOrderCustomer(fresh.db);
+    const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
-    const order = await createOrder(fresh.db, {
+    const order = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
       orderDate: '2026-08-12',
       deliveryAddress: 'Adres',
@@ -108,9 +108,9 @@ describe('getPeriodSummary', () => {
         { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 9_000_000 },
       ],
     });
-    await cancelOrder(fresh.db, order.id);
+    await cancelOrder(fresh.db, fresh.scope, order.id);
 
-    const summary = await getPeriodSummary(fresh.db, '2026-08-01', '2026-08-31');
+    const summary = await getPeriodSummary(fresh.db, fresh.scope, '2026-08-01', '2026-08-31');
     expect(summary.orderCount).toBe(0);
     expect(summary.revenueKurus).toBe(0);
 
@@ -120,9 +120,9 @@ describe('getPeriodSummary', () => {
   it('donem disindaki tahsilat sayilmaz', async () => {
     const fresh = await createTestDb();
     const set = await makeBedSet(fresh.db, { model: 'DONEMDISI', size: '160x200' });
-    const customer = await makeOrderCustomer(fresh.db);
+    const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
-    const order = await createOrder(fresh.db, {
+    const order = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
       orderDate: '2026-08-12',
       deliveryAddress: 'Adres',
@@ -130,16 +130,16 @@ describe('getPeriodSummary', () => {
         { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 1_000_000 },
       ],
     });
-    await confirmOrder(fresh.db, order.id);
-    await addPayment(fresh.db, {
+    await confirmOrder(fresh.db, fresh.scope, order.id);
+    await addPayment(fresh.db, fresh.scope, {
       orderId: order.id,
       amountKurus: 1_000_000,
       method: 'nakit',
       paidAt: '2026-09-05',
     });
 
-    const august = await getPeriodSummary(fresh.db, '2026-08-01', '2026-08-31');
-    const september = await getPeriodSummary(fresh.db, '2026-09-01', '2026-09-30');
+    const august = await getPeriodSummary(fresh.db, fresh.scope, '2026-08-01', '2026-08-31');
+    const september = await getPeriodSummary(fresh.db, fresh.scope, '2026-09-01', '2026-09-30');
 
     expect(august.collectedKurus).toBe(0);
     expect(september.collectedKurus).toBe(1_000_000);
@@ -150,10 +150,10 @@ describe('getPeriodSummary', () => {
   it('fazla odenmis siparis baska siparisin alacagini goturmez', async () => {
     const fresh = await createTestDb();
     const set = await makeBedSet(fresh.db, { model: 'FAZLAODEME', size: '160x200', stock: 30 });
-    const customer = await makeOrderCustomer(fresh.db);
+    const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
     // 1.000.000 tutarli siparise 1.500.000 odendi (bakiye -500.000)
-    const overpaid = await createOrder(fresh.db, {
+    const overpaid = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
       orderDate: '2026-08-12',
       deliveryAddress: 'Adres',
@@ -161,8 +161,8 @@ describe('getPeriodSummary', () => {
         { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 1_000_000 },
       ],
     });
-    await confirmOrder(fresh.db, overpaid.id);
-    await addPayment(fresh.db, {
+    await confirmOrder(fresh.db, fresh.scope, overpaid.id);
+    await addPayment(fresh.db, fresh.scope, {
       orderId: overpaid.id,
       amountKurus: 1_500_000,
       method: 'nakit',
@@ -170,7 +170,7 @@ describe('getPeriodSummary', () => {
     });
 
     // 2.000.000 tutarli, hic odenmemis ikinci siparis
-    const unpaid = await createOrder(fresh.db, {
+    const unpaid = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
       orderDate: '2026-08-12',
       deliveryAddress: 'Adres',
@@ -178,9 +178,9 @@ describe('getPeriodSummary', () => {
         { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 2_000_000 },
       ],
     });
-    await confirmOrder(fresh.db, unpaid.id);
+    await confirmOrder(fresh.db, fresh.scope, unpaid.id);
 
-    const summary = await getPeriodSummary(fresh.db, '2026-08-01', '2026-08-31');
+    const summary = await getPeriodSummary(fresh.db, fresh.scope, '2026-08-01', '2026-08-31');
 
     // Naif toplama 2.000.000 - 500.000 = 1.500.000 verirdi; dogrusu 2.000.000.
     expect(summary.outstandingKurus).toBe(2_000_000);
@@ -192,9 +192,9 @@ describe('getPeriodSummary', () => {
     const fresh = await createTestDb();
     const az = await makeBedSet(fresh.db, { model: 'AZSATAN', size: '160x200', stock: 30 });
     const cok = await makeBedSet(fresh.db, { model: 'COKSATAN', size: '160x200', stock: 30 });
-    const customer = await makeOrderCustomer(fresh.db);
+    const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
-    await createOrder(fresh.db, {
+    await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
       orderDate: '2026-08-12',
       deliveryAddress: 'Adres',
@@ -204,7 +204,7 @@ describe('getPeriodSummary', () => {
       ],
     });
 
-    const summary = await getPeriodSummary(fresh.db, '2026-08-01', '2026-08-31');
+    const summary = await getPeriodSummary(fresh.db, fresh.scope, '2026-08-01', '2026-08-31');
 
     expect(summary.topProducts[0].description).toContain('COKSATAN');
     expect(summary.topProducts[0].quantity).toBe(7);
@@ -224,7 +224,7 @@ describe('getPeriodSummary', () => {
       { stockItemId: item.id, quantityChange: 4, movementType: 'goods_receipt' },
     ]);
 
-    const summary = await getPeriodSummary(fresh.db, '2026-08-01', '2026-08-31');
+    const summary = await getPeriodSummary(fresh.db, fresh.scope, '2026-08-01', '2026-08-31');
     expect(summary.stockValueKurus).toBe(600_000);
 
     await fresh.close();

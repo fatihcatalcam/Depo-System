@@ -1,47 +1,32 @@
-'use client';
+import { cookies } from 'next/headers';
+import { db } from '@/db/client';
+import { listLoginableBranches } from '@/domain/branches';
+import { LAST_ACCOUNT_COOKIE } from '@/lib/auth/session';
+import { LoginForm, type AccountOption } from './login-form';
 
-import { useActionState } from 'react';
-import { loginAction, type LoginState } from './actions';
+// Sube adlari ve parola durumu veritabanindan geliyor; on-uretilmis bir giris
+// ekrani yeni acilan subeyi gostermezdi.
+export const dynamic = 'force-dynamic';
 
-const initialState: LoginState = {};
+export default async function GirisPage() {
+  const [branches, store] = await Promise.all([listLoginableBranches(db), cookies()]);
 
-export default function GirisPage() {
-  const [state, formAction, pending] = useActionState(loginAction, initialState);
+  const accounts: AccountOption[] = [
+    ...branches.map((branch) => ({ id: branch.id, label: branch.name })),
+    { id: 'admin', label: 'Yonetici' },
+  ];
+
+  // Parolasi belirlenmemis sube listede yok; hatirlanan hesap artik
+  // secilemiyorsa ilk siradakine dusuyoruz.
+  const remembered = store.get(LAST_ACCOUNT_COOKIE)?.value;
+  const defaultAccount =
+    remembered && accounts.some((account) => account.id === remembered)
+      ? remembered
+      : accounts[0].id;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-neutral-50 p-4">
-      <form
-        action={formAction}
-        className="w-full max-w-sm space-y-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm"
-      >
-        <div>
-          <h1 className="text-xl font-semibold text-neutral-900">Depo Sistemi</h1>
-          <p className="mt-1 text-sm text-neutral-500">Devam etmek icin parolayi girin.</p>
-        </div>
-
-        <input
-          type="password"
-          name="password"
-          autoFocus
-          autoComplete="current-password"
-          placeholder="Parola"
-          className="h-12 w-full rounded-lg border border-neutral-300 px-3 text-base outline-none focus:border-neutral-900"
-        />
-
-        {state.error ? (
-          <p role="alert" className="text-sm text-red-600">
-            {state.error}
-          </p>
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="h-12 w-full rounded-lg bg-neutral-900 text-base font-medium text-white disabled:opacity-60"
-        >
-          {pending ? 'Kontrol ediliyor...' : 'Giris yap'}
-        </button>
-      </form>
+      <LoginForm accounts={accounts} defaultAccount={defaultAccount} />
     </main>
   );
 }

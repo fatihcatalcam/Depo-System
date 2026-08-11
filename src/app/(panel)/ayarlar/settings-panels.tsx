@@ -10,6 +10,8 @@ import {
   changePasswordAction,
   importExcelAction,
   recalculateStockAction,
+  renameBranchAction,
+  setBranchPasswordAction,
   updateCompanyAction,
 } from './actions';
 
@@ -173,6 +175,120 @@ export function PasswordPanel() {
         </Button>
       </form>
     </Section>
+  );
+}
+
+export interface BranchRow {
+  id: string;
+  code: string;
+  name: string;
+  hasPassword: boolean;
+}
+
+/**
+ * Sube yonetimi — yalnizca yonetici gorur.
+ *
+ * Parolasi belirlenmemis sube giris ekraninda listelenmez; bu yuzden eksik
+ * parolayi sessizce gecmiyoruz, acikca uyariyoruz.
+ */
+export function BranchPanel({ branches }: { branches: BranchRow[] }) {
+  return (
+    <Section
+      title="Subeler"
+      description="Her subenin kendi girisi var. Stok iki subede ortak; siparis, musteri ve odemeler ayri."
+    >
+      <div className="space-y-4">
+        {branches.map((branch) => (
+          <BranchRowForm key={branch.id} branch={branch} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function BranchRowForm({ branch }: { branch: BranchRow }) {
+  const [name, setName] = useState(branch.name);
+  const [password, setPassword] = useState('');
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  return (
+    <div className="rounded-lg border border-neutral-200 p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium text-neutral-600">
+          {branch.code}
+        </span>
+        {branch.hasPassword ? null : (
+          <span className="text-xs text-amber-700">
+            Parola belirlenmedi — bu subeye henuz giris yapilamaz.
+          </span>
+        )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field id={`name-${branch.id}`} label="Sube adi">
+          <Input
+            id={`name-${branch.id}`}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="h-11"
+          />
+        </Field>
+        <Field id={`pass-${branch.id}`} label="Yeni parola">
+          <Input
+            id={`pass-${branch.id}`}
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            placeholder={branch.hasPassword ? 'Degistirmek icin doldurun' : 'En az 6 karakter'}
+            onChange={(event) => setPassword(event.target.value)}
+            className="h-11"
+          />
+        </Field>
+      </div>
+
+      <Button
+        type="button"
+        disabled={pending}
+        className="mt-3 h-11"
+        onClick={() =>
+          startTransition(async () => {
+            const messages: string[] = [];
+
+            if (name.trim() !== branch.name) {
+              const result = await renameBranchAction({ branchId: branch.id, name });
+              if (!result.ok) {
+                toast.error(result.error ?? 'Sube adi guncellenemedi.');
+                return;
+              }
+              messages.push('ad guncellendi');
+            }
+
+            if (password !== '') {
+              const result = await setBranchPasswordAction({
+                branchId: branch.id,
+                newPassword: password,
+              });
+              if (!result.ok) {
+                toast.error(result.error ?? 'Parola belirlenemedi.');
+                return;
+              }
+              setPassword('');
+              messages.push('parola belirlendi');
+            }
+
+            if (messages.length === 0) {
+              toast.info('Degisiklik yok.');
+              return;
+            }
+            toast.success(`${branch.name}: ${messages.join(', ')}.`);
+            router.refresh();
+          })
+        }
+      >
+        {pending ? 'Kaydediliyor...' : 'Kaydet'}
+      </Button>
+    </div>
   );
 }
 

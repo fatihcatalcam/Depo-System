@@ -11,19 +11,31 @@ import {
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { branches } from './branches';
 import { products, stockItems } from './catalog';
 import { orderLineItemTypeEnum, orderStatusEnum, paymentMethodEnum } from './enums';
 import { customers, suppliers } from './parties';
 
-export const goodsReceipts = pgTable('goods_receipts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  receiptNo: text('receipt_no').notNull().unique(),
-  supplierId: uuid('supplier_id').references(() => suppliers.id, { onDelete: 'restrict' }),
-  waybillNo: text('waybill_no'),
-  receivedAt: date('received_at').notNull(),
-  notes: text('notes'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+/**
+ * Mal kabul. `branchId` yalnizca "hangi sube kaydetti" bilgisidir; stok tek
+ * havuz oldugu icin girisin etkisi her iki sube tarafindan gorulur.
+ */
+export const goodsReceipts = pgTable(
+  'goods_receipts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'restrict' }),
+    receiptNo: text('receipt_no').notNull().unique(),
+    supplierId: uuid('supplier_id').references(() => suppliers.id, { onDelete: 'restrict' }),
+    waybillNo: text('waybill_no'),
+    receivedAt: date('received_at').notNull(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('goods_receipts_branch_idx').on(t.branchId)],
+);
 
 export const goodsReceiptLines = pgTable(
   'goods_receipt_lines',
@@ -41,10 +53,20 @@ export const goodsReceiptLines = pgTable(
   (t) => [check('goods_receipt_lines_qty_chk', sql`${t.quantity} > 0`)],
 );
 
+/**
+ * Siparis subeye ozeldir.
+ *
+ * `deliveries` ve `payments` ayrica `branchId` tasimaz — subelerini bagli
+ * olduklari siparisten alirlar. Ikinci bir dogruluk kaynagi, ikisinin
+ * birbirinden ayrilma ihtimali demektir.
+ */
 export const orders = pgTable(
   'orders',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'restrict' }),
     orderNo: text('order_no').notNull().unique(),
     customerId: uuid('customer_id')
       .notNull()
@@ -65,6 +87,7 @@ export const orders = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    index('orders_branch_status_idx').on(t.branchId, t.status, t.plannedDeliveryDate),
     index('orders_status_delivery_idx').on(t.status, t.plannedDeliveryDate),
     index('orders_customer_idx').on(t.customerId),
     check('orders_discount_chk', sql`${t.discountKurus} >= 0`),

@@ -2,6 +2,7 @@ import { PrintHeader } from '@/components/print-header';
 import { db } from '@/db/client';
 import { getPeriodSummary, periodRange, type PeriodPreset } from '@/domain/reports';
 import { formatDate, todayInIstanbul } from '@/lib/dates';
+import { currentScope } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 
 const PRESET_LABELS: Record<PeriodPreset, string> = {
@@ -26,7 +27,7 @@ export default async function RaporYazdirPage({ searchParams }: PageProps) {
     : todayInIstanbul();
 
   const { from, to } = periodRange(preset, reference);
-  const summary = await getPeriodSummary(db, from, to);
+  const summary = await getPeriodSummary(db, await currentScope(), from, to);
 
   return (
     <>

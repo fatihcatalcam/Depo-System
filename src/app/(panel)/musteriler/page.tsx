@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
 import { searchCustomers } from '@/domain/parties/parties';
+import { currentScope } from '@/lib/auth/current';
 import { cn } from '@/lib/utils';
 
 interface PageProps {
@@ -10,7 +11,7 @@ interface PageProps {
 
 export default async function MusterilerPage({ searchParams }: PageProps) {
   const { q } = await searchParams;
-  const customers = await searchCustomers(db, { query: q });
+  const customers = await searchCustomers(db, await currentScope(), { query: q });
 
   return (
     <div className="space-y-4">

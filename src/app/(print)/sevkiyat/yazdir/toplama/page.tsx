@@ -1,6 +1,7 @@
 import { PrintHeader } from '@/components/print-header';
 import { db } from '@/db/client';
 import { getDailyShipment } from '@/domain/shipments';
+import { currentScope } from '@/lib/auth/current';
 import { formatLongDate, todayInIstanbul } from '@/lib/dates';
 
 interface PageProps {
@@ -17,7 +18,7 @@ export default async function ToplamaListesiPage({ searchParams }: PageProps) {
     ? (params.tarih as string)
     : todayInIstanbul();
 
-  const shipment = await getDailyShipment(db, date);
+  const shipment = await getDailyShipment(db, await currentScope(), date);
 
   return (
     <>

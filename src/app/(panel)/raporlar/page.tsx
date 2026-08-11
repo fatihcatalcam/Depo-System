@@ -3,6 +3,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
 import { getPeriodSummary, periodRange, type PeriodPreset } from '@/domain/reports';
 import { formatDate, todayInIstanbul } from '@/lib/dates';
+import { currentUser } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +27,8 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
     : todayInIstanbul();
 
   const { from, to } = periodRange(preset, reference);
-  const summary = await getPeriodSummary(db, from, to);
+  const user = await currentUser();
+  const summary = await getPeriodSummary(db, user.scope, from, to);
 
   return (
     <div className="space-y-5">
@@ -34,6 +36,7 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
         <h1 className="text-lg font-semibold">Raporlar</h1>
         <p className="text-sm text-neutral-500">
           {formatDate(from)} – {formatDate(to)}
+          {user.isAdmin ? ' · iki sube toplami' : ` · ${user.label}`}
         </p>
       </div>
 

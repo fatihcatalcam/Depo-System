@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 config({ path: ['.env.local', '.env'] });
 
+import { asc } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { hardenSslMode } from '../src/db/connection-string';
@@ -10,6 +11,7 @@ import { createCategory } from '../src/domain/catalog/categories';
 import { createProduct } from '../src/domain/catalog/products';
 import { createStockItem } from '../src/domain/catalog/stock-items';
 import { createGoodsReceipt } from '../src/domain/goods-receipt';
+import { branchScope } from '../src/domain/scope';
 import { createCustomer, createSupplier } from '../src/domain/parties/parties';
 import { ensureSettings, updateCompanyInfo } from '../src/domain/settings';
 
@@ -65,6 +67,12 @@ async function main() {
   const db = drizzle(pool, { schema, casing: 'snake_case' }) as unknown as Db;
 
   await ensureSettings(db, process.env.INITIAL_APP_PASSWORD ?? 'depo2026');
+
+  // Ornek veri S1 subesine yaziliyor. Subeler gocle olusuyor; parolalari
+  // yonetici Ayarlar'dan belirliyor.
+  const [firstBranch] = await db.select().from(schema.branches).orderBy(asc(schema.branches.code));
+  if (!firstBranch) throw new Error('Sube bulunamadi — gocler uygulandi mi?');
+  const scope = branchScope(firstBranch.id, firstBranch.code);
   await updateCompanyInfo(db, {
     companyName: 'Ismet Yatak ve Mobilya',
     address: 'Ikitelli OSB Mah. Masko 12 B Blok No:8, Basaksehir / Istanbul',
@@ -126,7 +134,7 @@ async function main() {
     receiptLines.push({ stockItemId: item.id, quantity: 6 });
   }
 
-  await createGoodsReceipt(db, {
+  await createGoodsReceipt(db, scope, {
     supplierId: supplier.id,
     waybillNo: 'EI82026000003653',
     receivedAt: '2026-08-05',
@@ -134,14 +142,14 @@ async function main() {
     lines: receiptLines,
   });
 
-  await createCustomer(db, {
+  await createCustomer(db, scope, {
     name: 'Fatih Catalcam',
     phone: '0555 000 00 00',
     address: 'Ornek Mah. 1. Sok. No:1 D:5',
     city: 'Istanbul',
     district: 'Basaksehir',
   });
-  await createCustomer(db, {
+  await createCustomer(db, scope, {
     name: 'Mobilya Dunyasi Ltd. Sti.',
     phone: '0212 111 22 33',
     address: 'Masko 8. Blok No:22',

@@ -5,20 +5,22 @@ import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
 import { PAYMENT_METHOD_LABELS, listPayments } from '@/domain/orders/payments';
 import { formatDate } from '@/lib/dates';
 import { NotFoundError } from '@/lib/errors';
+import { currentScope } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 
 export default async function SiparisYazdirPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const scope = await currentScope();
 
   let order;
   try {
-    order = await getOrder(db, id);
+    order = await getOrder(db, scope, id);
   } catch (error) {
     if (error instanceof NotFoundError) notFound();
     throw error;
   }
 
-  const payments = await listPayments(db, id);
+  const payments = await listPayments(db, scope, id);
 
   return (
     <>

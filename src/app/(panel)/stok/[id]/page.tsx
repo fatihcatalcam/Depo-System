@@ -5,8 +5,9 @@ import { StockItemForm } from '@/components/stock-item-form';
 import { db } from '@/db/client';
 import { stockItems } from '@/db/schema';
 import { listCategoryTree } from '@/domain/catalog/categories';
-import { getAvailability } from '@/domain/stock/availability';
+import { getAvailability, getReservationBreakdown } from '@/domain/stock/availability';
 import { MOVEMENT_LABELS, listStockHistory } from '@/domain/stock/history';
+import { currentScope } from '@/lib/auth/current';
 import { formatKurus, kurusToTl } from '@/lib/money';
 import { updateStockItemAction } from '../actions';
 import { StockCountForm } from './stock-count-form';
@@ -23,8 +24,10 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
   const [item] = await db.select().from(stockItems).where(eq(stockItems.id, id));
   if (!item) notFound();
 
-  const [availability, history, categories] = await Promise.all([
+  const scope = await currentScope();
+  const [availability, reservations, history, categories] = await Promise.all([
     getAvailability(db, id),
+    getReservationBreakdown(db, scope, id),
     listStockHistory(db, id),
     listCategoryTree(db),
   ]);
@@ -49,6 +52,35 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
           danger={availability.available < item.minStockLevel}
         />
       </div>
+
+      {reservations.length > 0 ? (
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <h2 className="mb-2 text-sm font-semibold">Rezervasyonlar</h2>
+          <ul className="space-y-1 text-sm">
+            {reservations.map((line) => (
+              <li
+                key={line.orderId ?? 'diger-sube'}
+                className="flex items-center justify-between gap-3"
+              >
+                {line.orderId ? (
+                  <Link
+                    href={`/siparisler/${line.orderId}`}
+                    className="min-w-0 truncate hover:underline"
+                  >
+                    {line.orderNo} · {line.label}
+                  </Link>
+                ) : (
+                  // Diger subenin siparisi: adet gorunur, sebebi gorunmez.
+                  <span className="min-w-0 truncate text-neutral-500">{line.label}</span>
+                )}
+                <span className="whitespace-nowrap tabular-nums text-neutral-600">
+                  {line.quantity}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {item.purchasePriceKurus ? (
         <p className="text-sm text-neutral-500">

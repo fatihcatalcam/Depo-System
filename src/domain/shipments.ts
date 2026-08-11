@@ -8,6 +8,7 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
+import { scopeFilter, type Scope } from './scope';
 
 export interface ShipmentItem {
   stockItemId: string;
@@ -49,8 +50,15 @@ export interface DailyShipment {
  * Listeye giren siparisler: planlanan teslimat tarihi o gune esit **ve**
  * durumu `confirmed` veya `partially_delivered` olanlar. Her siparis icin
  * yalnizca henuz teslim edilmemis bilesenler gosterilir.
+ *
+ * Sube kendi sevkiyatini gorur. Yoneticide ikisi birlesir — arac genelde ortak
+ * cikiyor, toplama listesinin tek kagit olmasi ise yariyor.
  */
-export async function getDailyShipment(db: DbOrTx, date: string): Promise<DailyShipment> {
+export async function getDailyShipment(
+  db: DbOrTx,
+  scope: Scope,
+  date: string,
+): Promise<DailyShipment> {
   const orderRows = await db
     .select({
       order: orders,
@@ -67,6 +75,7 @@ export async function getDailyShipment(db: DbOrTx, date: string): Promise<DailyS
       and(
         eq(orders.plannedDeliveryDate, date),
         inArray(orders.status, ['confirmed', 'partially_delivered']),
+        scopeFilter(scope, orders.branchId),
       ),
     )
     .orderBy(asc(orders.orderNo));

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db/client';
 import { createCustomer, updateCustomer } from '@/domain/parties/parties';
+import { currentScope } from '@/lib/auth/current';
 import { DomainError } from '@/lib/errors';
 
 export interface ActionResult {
@@ -36,7 +37,7 @@ export async function createCustomerAction(input: unknown): Promise<ActionResult
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    const customer = await createCustomer(db, parsed.data);
+    const customer = await createCustomer(db, await currentScope(), parsed.data);
     revalidatePath('/musteriler');
     return { ok: true, id: customer.id };
   } catch (error) {
@@ -49,7 +50,7 @@ export async function updateCustomerAction(id: string, input: unknown): Promise<
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    await updateCustomer(db, id, parsed.data);
+    await updateCustomer(db, await currentScope(), id, parsed.data);
     revalidatePath('/musteriler');
     revalidatePath(`/musteriler/${id}`);
     return { ok: true, id };

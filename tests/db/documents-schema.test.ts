@@ -27,12 +27,13 @@ async function seedOrderLine() {
   const suffix = uniqueSuffix();
   const [customer] = await ctx.db
     .insert(customers)
-    .values({ code: `MS-${suffix}`, name: 'Fatih Catalcam' })
+    .values({ code: `MS-${suffix}`, name: 'Fatih Catalcam', branchId: ctx.branchId })
     .returning();
   const [order] = await ctx.db
     .insert(orders)
     .values({
       orderNo: `SP-2026-${suffix}`,
+      branchId: ctx.branchId,
       customerId: customer.id,
       orderDate: '2026-08-08',
       deliveryAddress: 'Ornek Mah. 1. Sok. No:1',

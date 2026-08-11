@@ -9,6 +9,7 @@ import {
 } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
 import { recalcOrderStatus } from '@/domain/orders/orders';
+import { requireBranch, scopeFilter, type Scope } from '@/domain/scope';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
@@ -46,6 +47,7 @@ export interface CreateDeliveryInput {
  */
 export async function createDelivery(
   db: DbOrTx,
+  scope: Scope,
   input: CreateDeliveryInput,
 ): Promise<Delivery> {
   if (input.lines.length === 0) {
@@ -63,8 +65,14 @@ export async function createDelivery(
     );
   }
 
+  // Teslimat kaydi bir yazma islemidir; yonetici yapamaz.
+  const branch = requireBranch(scope);
+
   return runInTransaction(db, async (tx) => {
-    const [order] = await tx.select().from(orders).where(eq(orders.id, input.orderId));
+    const [order] = await tx
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, input.orderId), eq(orders.branchId, branch.id)));
     if (!order) throw new NotFoundError('Siparis');
 
     if (order.status === 'draft') {
@@ -114,11 +122,10 @@ export async function createDelivery(
       }
     }
 
-    const deliveryNo = await nextDocumentNumber(
-      tx,
-      'delivery',
-      (input.deliveredAt ?? new Date()).getFullYear(),
-    );
+    const deliveryNo = await nextDocumentNumber(tx, 'delivery', {
+      branchCode: branch.code,
+      year: (input.deliveredAt ?? new Date()).getFullYear(),
+    });
 
     const [delivery] = await tx
       .insert(deliveries)
@@ -177,15 +184,22 @@ export interface DeliveryDetail extends Delivery {
   lines: DeliveryLineDetail[];
 }
 
+/**
+ * Teslimatlar `branchId` tasimaz; subelerini bagli olduklari siparisten
+ * alirlar. Bu yuzden kapsam suzgeci `orders` uzerinden isliyor.
+ */
 export async function listDeliveriesForOrder(
   db: DbOrTx,
+  scope: Scope,
   orderId: string,
 ): Promise<DeliveryDetail[]> {
   const rows = await db
-    .select()
+    .select({ delivery: deliveries })
     .from(deliveries)
-    .where(eq(deliveries.orderId, orderId))
-    .orderBy(desc(deliveries.deliveredAt));
+    .innerJoin(orders, eq(orders.id, deliveries.orderId))
+    .where(and(eq(deliveries.orderId, orderId), scopeFilter(scope, orders.branchId)))
+    .orderBy(desc(deliveries.deliveredAt))
+    .then((result) => result.map((entry) => entry.delivery));
 
   if (rows.length === 0) return [];
 

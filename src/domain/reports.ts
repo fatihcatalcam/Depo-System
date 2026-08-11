@@ -7,6 +7,7 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
+import { scopeFilter, type Scope } from './scope';
 
 export interface TopProductRow {
   description: string;
@@ -27,7 +28,13 @@ export interface PeriodSummary {
   deliveryCount: number;
   /** Tum zamanlarin acik bakiyesi (donemden bagimsiz). */
   outstandingKurus: number;
-  /** Alis fiyati tanimli parcalarin stok degeri (anlik). */
+  /**
+   * Alis fiyati tanimli parcalarin stok degeri (anlik).
+   *
+   * Bu rakam **kapsamlanmaz**: depo tek havuz, degeri de tek. Subeye
+   * bolunemez, bolseydik iki subenin raporu toplandiginda stok iki kere
+   * sayilirdi.
+   */
   stockValueKurus: number;
   topProducts: TopProductRow[];
 }
@@ -36,13 +43,17 @@ const OPEN_STATUSES = ['draft', 'confirmed', 'partially_delivered', 'delivered']
 
 export async function getPeriodSummary(
   db: DbOrTx,
+  scope: Scope,
   from: string,
   to: string,
 ): Promise<PeriodSummary> {
+  const branchOnly = scopeFilter(scope, orders.branchId);
+
   const periodOrders = and(
     gte(orders.orderDate, from),
     lte(orders.orderDate, to),
     inArray(orders.status, [...OPEN_STATUSES]),
+    branchOnly,
   );
 
   const [orderStats] = await db
@@ -53,18 +64,23 @@ export async function getPeriodSummary(
     .from(orders)
     .where(periodOrders);
 
+  // Odeme ve teslimat kendi sube kolonunu tasimaz; siparise baglanip oradan
+  // suzuluyor.
   const [collected] = await db
     .select({ total: sql<number>`coalesce(sum(${payments.amountKurus}), 0)::bigint` })
     .from(payments)
-    .where(and(gte(payments.paidAt, from), lte(payments.paidAt, to)));
+    .innerJoin(orders, eq(orders.id, payments.orderId))
+    .where(and(gte(payments.paidAt, from), lte(payments.paidAt, to), branchOnly));
 
   const [deliveryStats] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(deliveries)
+    .innerJoin(orders, eq(orders.id, deliveries.orderId))
     .where(
       and(
         gte(deliveries.deliveredAt, new Date(`${from}T00:00:00Z`)),
         lte(deliveries.deliveredAt, new Date(`${to}T23:59:59.999Z`)),
+        branchOnly,
       ),
     );
 
@@ -82,7 +98,7 @@ export async function getPeriodSummary(
     })
     .from(orders)
     .leftJoin(payments, eq(payments.orderId, orders.id))
-    .where(inArray(orders.status, [...OPEN_STATUSES]))
+    .where(and(inArray(orders.status, [...OPEN_STATUSES]), branchOnly))
     .groupBy(orders.id, orders.totalKurus)
     .as('balances');
 

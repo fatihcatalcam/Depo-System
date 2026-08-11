@@ -32,9 +32,9 @@ async function confirmedOrder(options?: { quantity?: number; stock?: number }) {
     size: '160x200',
     stock: options?.stock ?? 10,
   });
-  const customer = await makeOrderCustomer(ctx.db);
+  const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
-  const order = await createOrder(ctx.db, {
+  const order = await createOrder(ctx.db, ctx.scope, {
     customerId: customer.id,
     orderDate: '2026-08-08',
     deliveryAddress: 'Adres',
@@ -47,9 +47,9 @@ async function confirmedOrder(options?: { quantity?: number; stock?: number }) {
       },
     ],
   });
-  await confirmOrder(ctx.db, order.id);
+  await confirmOrder(ctx.db, ctx.scope, order.id);
 
-  const detail = await getOrder(ctx.db, order.id);
+  const detail = await getOrder(ctx.db, ctx.scope, order.id);
   const component = (stockItemId: string) =>
     detail.lines[0].components.find((c) => c.stockItemId === stockItemId)!;
 
@@ -61,7 +61,7 @@ describe('createDelivery', () => {
     const { order, set, component } = await confirmedOrder({ quantity: 2 });
 
     // Yatak ve baza gidiyor, baslik kaliyor — notlardaki senaryo.
-    await createDelivery(ctx.db, {
+    await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [
         { orderLineComponentId: component(set.yatak.id).id, quantity: 2 },
@@ -72,14 +72,14 @@ describe('createDelivery', () => {
     expect(await onHand(set.yatak.id)).toBe(8);
     expect(await onHand(set.baslik.id)).toBe(10);
 
-    const after = await getOrder(ctx.db, order.id);
+    const after = await getOrder(ctx.db, ctx.scope, order.id);
     expect(after.status).toBe('partially_delivered');
   });
 
   it('kalan bilesen rezerve kalir, teslim edilen duser', async () => {
     const { order, set, component } = await confirmedOrder({ quantity: 4 });
 
-    await createDelivery(ctx.db, {
+    await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 3 }],
     });
@@ -93,7 +93,7 @@ describe('createDelivery', () => {
   it('tum bilesenler teslim edilince siparis teslim edildi olur', async () => {
     const { order, set, component } = await confirmedOrder({ quantity: 1 });
 
-    await createDelivery(ctx.db, {
+    await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [
         { orderLineComponentId: component(set.yatak.id).id, quantity: 1 },
@@ -102,7 +102,7 @@ describe('createDelivery', () => {
       ],
     });
 
-    const after = await getOrder(ctx.db, order.id);
+    const after = await getOrder(ctx.db, ctx.scope, order.id);
     expect(after.status).toBe('delivered');
     expect((await getAvailability(ctx.db, set.yatak.id)).reserved).toBe(0);
   });
@@ -111,7 +111,7 @@ describe('createDelivery', () => {
     const { order, set, component } = await confirmedOrder({ quantity: 2 });
 
     await expect(
-      createDelivery(ctx.db, {
+      createDelivery(ctx.db, ctx.scope, {
         orderId: order.id,
         lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 3 }],
       }),
@@ -121,13 +121,13 @@ describe('createDelivery', () => {
   it('iki asamali teslimatta ikinci parti da fazlaya izin vermez', async () => {
     const { order, set, component } = await confirmedOrder({ quantity: 5 });
 
-    await createDelivery(ctx.db, {
+    await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 3 }],
     });
 
     await expect(
-      createDelivery(ctx.db, {
+      createDelivery(ctx.db, ctx.scope, {
         orderId: order.id,
         lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 3 }],
       }),
@@ -138,7 +138,7 @@ describe('createDelivery', () => {
     const { order, set, component } = await confirmedOrder({ quantity: 8, stock: 5 });
 
     await expect(
-      createDelivery(ctx.db, {
+      createDelivery(ctx.db, ctx.scope, {
         orderId: order.id,
         lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 8 }],
       }),
@@ -150,7 +150,7 @@ describe('createDelivery', () => {
   it('acikca onaylanirsa stok eksiye dusebilir', async () => {
     const { order, set, component } = await confirmedOrder({ quantity: 8, stock: 5 });
 
-    await createDelivery(ctx.db, {
+    await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 8 }],
       allowNegativeStock: true,
@@ -161,8 +161,8 @@ describe('createDelivery', () => {
 
   it('taslak siparis teslim edilemez', async () => {
     const set = await makeBedSet(ctx.db, { model: 'TASLAKTESLIM', size: '090x190' });
-    const customer = await makeOrderCustomer(ctx.db);
-    const order = await createOrder(ctx.db, {
+    const customer = await makeOrderCustomer(ctx.db, ctx.scope);
+    const order = await createOrder(ctx.db, ctx.scope, {
       customerId: customer.id,
       orderDate: '2026-08-08',
       deliveryAddress: 'Adres',
@@ -172,7 +172,7 @@ describe('createDelivery', () => {
     });
 
     await expect(
-      createDelivery(ctx.db, {
+      createDelivery(ctx.db, ctx.scope, {
         orderId: order.id,
         lines: [{ orderLineComponentId: '11111111-1111-1111-1111-111111111111', quantity: 1 }],
       }),
@@ -182,10 +182,10 @@ describe('createDelivery', () => {
   it('iptal edilmis siparis teslim edilemez', async () => {
     const { order, set, component } = await confirmedOrder({ quantity: 1 });
     const componentId = component(set.yatak.id).id;
-    await cancelOrder(ctx.db, order.id);
+    await cancelOrder(ctx.db, ctx.scope, order.id);
 
     await expect(
-      createDelivery(ctx.db, {
+      createDelivery(ctx.db, ctx.scope, {
         orderId: order.id,
         lines: [{ orderLineComponentId: componentId, quantity: 1 }],
       }),
@@ -197,7 +197,7 @@ describe('createDelivery', () => {
     const second = await confirmedOrder({ quantity: 1 });
 
     await expect(
-      createDelivery(ctx.db, {
+      createDelivery(ctx.db, ctx.scope, {
         orderId: second.order.id,
         lines: [
           { orderLineComponentId: first.component(first.set.yatak.id).id, quantity: 1 },
@@ -210,12 +210,12 @@ describe('createDelivery', () => {
     const { order, set, component } = await confirmedOrder({ quantity: 3 });
     const key = 'cift-tiklama-testi';
 
-    const first = await createDelivery(ctx.db, {
+    const first = await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 2 }],
       idempotencyKey: key,
     });
-    const second = await createDelivery(ctx.db, {
+    const second = await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 2 }],
       idempotencyKey: key,
@@ -230,7 +230,7 @@ describe('createDelivery', () => {
     const before = await onHand(set.yatak.id);
 
     await expect(
-      createDelivery(ctx.db, {
+      createDelivery(ctx.db, ctx.scope, {
         orderId: order.id,
         lines: [
           { orderLineComponentId: component(set.yatak.id).id, quantity: 1 },
@@ -240,13 +240,13 @@ describe('createDelivery', () => {
     ).rejects.toThrow();
 
     expect(await onHand(set.yatak.id)).toBe(before);
-    expect(await listDeliveriesForOrder(ctx.db, order.id)).toHaveLength(0);
+    expect(await listDeliveriesForOrder(ctx.db, ctx.scope, order.id)).toHaveLength(0);
   });
 
   it('hareket kaydi teslimat belgesine baglanir', async () => {
     const { order, set, component } = await confirmedOrder({ quantity: 1 });
 
-    const delivery = await createDelivery(ctx.db, {
+    const delivery = await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 1 }],
     });
@@ -267,13 +267,13 @@ describe('cancelOrder teslimattan sonra', () => {
   it('teslim edilen mal iade hareketiyle stoga geri doner', async () => {
     const { order, set, component } = await confirmedOrder({ quantity: 2 });
 
-    await createDelivery(ctx.db, {
+    await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 2 }],
     });
     expect(await onHand(set.yatak.id)).toBe(8);
 
-    await cancelOrder(ctx.db, order.id);
+    await cancelOrder(ctx.db, ctx.scope, order.id);
 
     expect(await onHand(set.yatak.id)).toBe(10);
     const movements = await ctx.db
@@ -288,7 +288,7 @@ describe('listDeliveriesForOrder', () => {
   it('teslimatlari satirlariyla listeler', async () => {
     const { order, set, component } = await confirmedOrder({ quantity: 2 });
 
-    await createDelivery(ctx.db, {
+    await createDelivery(ctx.db, ctx.scope, {
       orderId: order.id,
       deliveredBy: 'Ahmet Sofor',
       receiverName: 'Fatih Catalcam',
@@ -298,11 +298,11 @@ describe('listDeliveriesForOrder', () => {
       ],
     });
 
-    const list = await listDeliveriesForOrder(ctx.db, order.id);
+    const list = await listDeliveriesForOrder(ctx.db, ctx.scope, order.id);
     expect(list).toHaveLength(1);
     expect(list[0].deliveredBy).toBe('Ahmet Sofor');
     expect(list[0].receiverName).toBe('Fatih Catalcam');
     expect(list[0].lines).toHaveLength(2);
-    expect(list[0].deliveryNo).toMatch(/^TS-\d{4}-\d{5}$/);
+    expect(list[0].deliveryNo).toMatch(/^TS-S1-\d{4}-\d{5}$/);
   });
 });

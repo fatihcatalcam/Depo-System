@@ -1,11 +1,12 @@
 import ExcelJS from 'exceljs';
-import { asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { customers, stockItems } from '@/db/schema';
 import type { Db, DbOrTx } from '@/db/types';
+import { type Scope } from './scope';
 import { listCategoryTree, type CategoryNode } from '@/domain/catalog/categories';
 import { createStockItem, listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
 import { listOrders } from '@/domain/orders/orders';
-import { createCustomer } from '@/domain/parties/parties';
+import { createCustomer, searchCustomers } from '@/domain/parties/parties';
 import { getPeriodSummary } from '@/domain/reports';
 import { DomainError } from '@/lib/errors';
 import { kurusToTl } from '@/lib/money';
@@ -69,8 +70,10 @@ export async function exportStockWorkbook(db: DbOrTx): Promise<Buffer> {
   return toBuffer(workbook);
 }
 
-export async function exportCustomersWorkbook(db: DbOrTx): Promise<Buffer> {
-  const rows = await db.select().from(customers).orderBy(asc(customers.name));
+export async function exportCustomersWorkbook(db: DbOrTx, scope: Scope): Promise<Buffer> {
+  // Tabloyu dogrudan sorgulamiyoruz: kapsam suzgeci atlanirsa disa aktarma
+  // diger subenin musteri listesini de dosyaya yazar.
+  const rows = await searchCustomers(db, scope, { includeInactive: true, limit: 5000 });
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Musteriler');
@@ -108,8 +111,8 @@ export async function exportCustomersWorkbook(db: DbOrTx): Promise<Buffer> {
   return toBuffer(workbook);
 }
 
-export async function exportOrdersWorkbook(db: DbOrTx): Promise<Buffer> {
-  const orders = await listOrders(db, { limit: 5000 });
+export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Buffer> {
+  const orders = await listOrders(db, scope, { limit: 5000 });
 
   const workbook = new ExcelJS.Workbook();
 
@@ -163,10 +166,11 @@ export async function exportOrdersWorkbook(db: DbOrTx): Promise<Buffer> {
 
 export async function exportReportWorkbook(
   db: DbOrTx,
+  scope: Scope,
   from: string,
   to: string,
 ): Promise<Buffer> {
-  const summary = await getPeriodSummary(db, from, to);
+  const summary = await getPeriodSummary(db, scope, from, to);
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Ozet');
@@ -232,7 +236,7 @@ function cellText(row: ExcelJS.Row, index: number): string {
  * Ya hepsi gecer ya hicbiri: dosyada hatali satir varsa hicbir kayit
  * olusturulmaz, hangi satirin neden gecmedigi bildirilir.
  */
-export async function importCustomers(db: Db, buffer: Buffer): Promise<ImportResult> {
+export async function importCustomers(db: Db, scope: Scope, buffer: Buffer): Promise<ImportResult> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
 
@@ -286,7 +290,7 @@ export async function importCustomers(db: Db, buffer: Buffer): Promise<ImportRes
 
   await db.transaction(async (tx) => {
     for (const row of fresh) {
-      await createCustomer(tx, row);
+      await createCustomer(tx, scope, row);
     }
   });
 

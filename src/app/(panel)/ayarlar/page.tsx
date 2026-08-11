@@ -1,6 +1,9 @@
 import { db } from '@/db/client';
+import { listBranches } from '@/domain/branches';
 import { ensureSettings, getSettings } from '@/domain/settings';
+import { currentUser } from '@/lib/auth/current';
 import {
+  BranchPanel,
   CompanyPanel,
   ImportPanel,
   MaintenancePanel,
@@ -15,14 +18,22 @@ const EXPORTS = [
 
 export default async function AyarlarPage() {
   await ensureSettings(db, process.env.INITIAL_APP_PASSWORD ?? 'depo2026');
-  const settings = await getSettings(db);
+  const [settings, user, branches] = await Promise.all([
+    getSettings(db),
+    currentUser(),
+    listBranches(db),
+  ]);
 
   return (
     <div className="max-w-2xl space-y-4">
       <div>
         <h1 className="text-lg font-semibold">Ayarlar</h1>
-        <p className="text-sm text-neutral-500">Firma bilgileri, parola ve veri aktarma</p>
+        <p className="text-sm text-neutral-500">
+          {user.label} olarak giris yapildi · firma bilgileri, parola ve veri aktarma
+        </p>
       </div>
+
+      {user.isAdmin ? <BranchPanel branches={branches} /> : null}
 
       <CompanyPanel
         initial={{

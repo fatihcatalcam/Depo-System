@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { CustomerForm } from '@/components/customer-form';
 import { db } from '@/db/client';
 import { getCustomer } from '@/domain/parties/parties';
+import { currentScope } from '@/lib/auth/current';
 import { NotFoundError } from '@/lib/errors';
 import { updateCustomerAction } from '../actions';
 
@@ -11,7 +12,7 @@ export default async function MusteriDetayPage({ params }: { params: Promise<{ i
 
   let customer;
   try {
-    customer = await getCustomer(db, id);
+    customer = await getCustomer(db, await currentScope(), id);
   } catch (error) {
     if (error instanceof NotFoundError) notFound();
     throw error;
