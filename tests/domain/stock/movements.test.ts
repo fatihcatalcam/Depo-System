@@ -162,4 +162,31 @@ describe('applyMovements', () => {
     expect(row.referenceType).toBe('goods_receipt');
     expect(row.referenceId).toBe(referenceId);
   });
+
+  /**
+   * Stok listesindeki hizli +/- bu doner degere guveniyor: ekrandaki sayiyi
+   * router.refresh() beklemeden buradan duzeltiyor.
+   */
+  it('olusan bakiyeleri geri doner', async () => {
+    const first = await makeStockItem(ctx.db);
+    const second = await makeStockItem(ctx.db);
+
+    await applyMovements(ctx.db, [
+      { stockItemId: first.id, quantityChange: 6, movementType: 'goods_receipt' },
+    ]);
+
+    const results = await applyMovements(ctx.db, [
+      { stockItemId: first.id, quantityChange: -2, movementType: 'manual' },
+      { stockItemId: second.id, quantityChange: 4, movementType: 'goods_receipt' },
+    ]);
+
+    expect(results).toHaveLength(2);
+    expect(results.find((row) => row.stockItemId === first.id)?.balanceAfter).toBe(4);
+    expect(results.find((row) => row.stockItemId === second.id)?.balanceAfter).toBe(4);
+    expect(await onHand(first.id)).toBe(4);
+  });
+
+  it('hareket yoksa bos dizi doner', async () => {
+    expect(await applyMovements(ctx.db, [])).toEqual([]);
+  });
 });

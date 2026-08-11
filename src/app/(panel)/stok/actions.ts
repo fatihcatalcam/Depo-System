@@ -15,6 +15,11 @@ export interface ActionResult {
   id?: string;
 }
 
+export interface QuickAdjustResult extends ActionResult {
+  /** Islemden sonraki kesin bakiye — istemci ekrani buna gore duzeltir. */
+  onHand?: number;
+}
+
 function toResult(error: unknown): ActionResult {
   if (error instanceof DomainError) return { ok: false, error: error.message };
   if (error instanceof Error && error.message.startsWith('Gecersiz tutar')) {
@@ -76,20 +81,24 @@ const countSchema = z.object({
 });
 
 /**
- * Listeden tek dokunusla +1 / -1. Hizli olmasi gerekiyor ama sessiz olmamali:
+ * Listeden hizli stok duzeltme. Hizli olmasi gerekiyor ama sessiz olmamali:
  * hareket defterine "elle duzeltme" olarak isleniyor, boylece stogun neden
  * degistigi sonradan okunabiliyor.
+ *
+ * Istemci ard arda basilan dokunuslari biriktirip tek cagriya cevirir; bu
+ * yuzden delta 1'den buyuk gelebilir. Defterde de tek satir olusur — depocunun
+ * "5 tane geldi" dusuncesine bes ayri +1 satirindan daha yakin.
  */
 export async function quickAdjustStockAction(
   stockItemId: string,
   delta: number,
-): Promise<ActionResult> {
-  if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 100) {
+): Promise<QuickAdjustResult> {
+  if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 1000) {
     return { ok: false, error: 'Gecersiz miktar.' };
   }
 
   try {
-    await applyMovements(db, [
+    const [result] = await applyMovements(db, [
       {
         stockItemId,
         quantityChange: delta,
@@ -100,7 +109,7 @@ export async function quickAdjustStockAction(
     revalidatePath('/stok');
     revalidatePath(`/stok/${stockItemId}`);
     revalidatePath('/');
-    return { ok: true };
+    return { ok: true, onHand: result.balanceAfter };
   } catch (error) {
     return toResult(error);
   }

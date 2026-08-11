@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { QuantityInput } from '@/components/quantity-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,20 +107,14 @@ export function DeliveryForm({ orderId, lines }: Props) {
                   : ''}
               </span>
             </span>
-            <Input
-              type="number"
+            <QuantityInput
               min={0}
               max={component.remainingQuantity}
               value={quantities[component.id] ?? 0}
-              onChange={(event) => {
-                const value = Math.max(
-                  0,
-                  Math.min(component.remainingQuantity, Number(event.target.value) || 0),
-                );
-                setQuantities((current) => ({ ...current, [component.id]: value }));
-              }}
-              className="h-10 w-20"
               aria-label={`${component.stockItemName} teslim adedi`}
+              onValueChange={(value) =>
+                setQuantities((current) => ({ ...current, [component.id]: value }))
+              }
             />
             <Button
               type="button"

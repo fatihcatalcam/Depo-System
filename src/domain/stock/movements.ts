@@ -26,18 +26,27 @@ export interface ApplyOptions {
   allowNegative?: boolean;
 }
 
+export interface MovementResult {
+  stockItemId: string;
+  /** Hareketten sonraki kesin bakiye. */
+  balanceAfter: number;
+}
+
 /**
  * Sistemdeki tum stok degisikliklerinin tek kapisi.
  *
  * Hareket defterine yazar ve quantityOnHand onbellegini ayni transaction
  * icinde gunceller — ikisi asla birbirinden ayrilamaz.
+ *
+ * Olusan bakiyeleri geri doner: cagiran taraf ekrani guncellemek icin ayrica
+ * sorgu atmak zorunda kalmasin. Sonucu yok saymak serbest.
  */
 export async function applyMovements(
   db: DbOrTx,
   movements: MovementInput[],
   options: ApplyOptions = {},
-): Promise<void> {
-  if (movements.length === 0) return;
+): Promise<MovementResult[]> {
+  if (movements.length === 0) return [];
 
   for (const movement of movements) {
     if (movement.quantityChange === 0) {
@@ -49,7 +58,9 @@ export async function applyMovements(
   // kartlari hep ayni sirayla kilitler.
   const sorted = [...movements].sort((a, b) => a.stockItemId.localeCompare(b.stockItemId));
 
-  await runInTransaction(db, async (tx) => {
+  return runInTransaction(db, async (tx) => {
+    const results: MovementResult[] = [];
+
     for (const movement of sorted) {
       const locked = await tx
         .select({ id: stockItems.id, quantityOnHand: stockItems.quantityOnHand })
@@ -85,7 +96,11 @@ export async function applyMovements(
         .update(stockItems)
         .set({ quantityOnHand: balanceAfter, updatedAt: sql`now()` })
         .where(eq(stockItems.id, movement.stockItemId));
+
+      results.push({ stockItemId: movement.stockItemId, balanceAfter });
     }
+
+    return results;
   });
 }
 
@@ -94,13 +109,12 @@ export async function applyMovements(
  * Boylece applyMovements hem tek basina hem daha buyuk bir islemin
  * (ornegin teslimat kaydinin) parcasi olarak cagrilabilir.
  */
-async function runInTransaction(db: DbOrTx, fn: (tx: Tx) => Promise<void>): Promise<void> {
+async function runInTransaction<T>(db: DbOrTx, fn: (tx: Tx) => Promise<T>): Promise<T> {
   const maybeTx = db as Partial<Tx>;
   if (typeof maybeTx.rollback === 'function') {
-    await fn(db as Tx);
-    return;
+    return fn(db as Tx);
   }
-  await (db as Db).transaction(fn);
+  return (db as Db).transaction(fn);
 }
 
-type Db = { transaction: (cb: (tx: Tx) => Promise<void>) => Promise<void> };
+type Db = { transaction: <T>(cb: (tx: Tx) => Promise<T>) => Promise<T> };

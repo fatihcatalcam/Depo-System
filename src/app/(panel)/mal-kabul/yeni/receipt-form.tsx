@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { BarcodeScanner } from '@/components/barcode-scanner';
+import { QuantityInput } from '@/components/quantity-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -202,21 +203,14 @@ export function ReceiptForm({ suppliers }: { suppliers: Supplier[] }) {
                   className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white p-3"
                 >
                   <span className="min-w-0 flex-1 text-sm">{row.label}</span>
-                  <Input
-                    type="number"
-                    min={1}
+                  <QuantityInput
                     value={row.quantity}
-                    onChange={(event) =>
+                    aria-label={`${row.label} adedi`}
+                    onValueChange={(quantity) =>
                       setLines((rows) =>
-                        rows.map((current, i) =>
-                          i === index
-                            ? { ...current, quantity: Math.max(1, Number(event.target.value) || 1) }
-                            : current,
-                        ),
+                        rows.map((current, i) => (i === index ? { ...current, quantity } : current)),
                       )
                     }
-                    className="h-10 w-20"
-                    aria-label="Adet"
                   />
                   <Input
                     value={row.unitCost}

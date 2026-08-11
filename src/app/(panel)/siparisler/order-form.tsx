@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { QuantityInput } from '@/components/quantity-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -387,21 +388,12 @@ export function OrderForm() {
                     {line.itemType === 'product' ? 'set' : 'parca'}
                   </span>
                 </span>
-                <Input
-                  type="number"
-                  min={1}
+                <QuantityInput
                   value={line.quantity}
-                  onChange={(event) =>
-                    setLines((rows) =>
-                      rows.map((row, i) =>
-                        i === index
-                          ? { ...row, quantity: Math.max(1, Number(event.target.value) || 1) }
-                          : row,
-                      ),
-                    )
+                  aria-label={`${line.label} adedi`}
+                  onValueChange={(quantity) =>
+                    setLines((rows) => rows.map((row, i) => (i === index ? { ...row, quantity } : row)))
                   }
-                  className="h-10 w-20"
-                  aria-label="Adet"
                 />
                 <Input
                   value={line.unitPrice}
