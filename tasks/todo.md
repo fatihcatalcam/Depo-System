@@ -63,6 +63,18 @@ Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-08-plan-1-temel-ve-stok.m
 - [x] Ayarlar: firma bilgileri, parola değiştirme, stok bakiyesi yeniden hesaplama
 - [x] Sipariş detayında teslimat planı düzenleme
 
+## Kullanım düzeltmeleri — tamamlandı (2026-08-11)
+
+- [x] Stok listesindeki +/− hızlı tıklamayı kaybediyordu: dokunuşlar biriktirilip tek
+      istekte yazılıyor, butonlar artık kilitlenmiyor, deftere tek satır giriyor
+- [x] Adet kutuları boşaltılamıyordu ("2" yazınca "12" oluyordu): ortak `QuantityInput`
+      bileşeni, dokununca değer seçili gelir, mobilde de üstüne yazılır
+
+## Plan 5 — İki şube, ayrı girişler, ortak stok — planlandı (2026-08-11)
+
+Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-11-plan-5-subeler.md`
+Onay bekliyor.
+
 ---
 
 ## Açık konular
