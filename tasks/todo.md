@@ -70,10 +70,23 @@ Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-08-plan-1-temel-ve-stok.m
 - [x] Adet kutuları boşaltılamıyordu ("2" yazınca "12" oluyordu): ortak `QuantityInput`
       bileşeni, dokununca değer seçili gelir, mobilde de üstüne yazılır
 
-## Plan 5 — İki şube, ayrı girişler, ortak stok — planlandı (2026-08-11)
+## Plan 5 — İki şube, ayrı girişler, ortak stok — tamamlandı (2026-08-11)
 
 Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-11-plan-5-subeler.md`
-Onay bekliyor.
+
+- [x] Şema: `branches` tablosu, `orders`/`customers`/`goods_receipts` üzerinde `branch_id`
+- [x] Göç: mevcut veri Şube 1'e taşındı (canlıda uygulandı, 4 müşteri / 4 sipariş / 3 mal kabul)
+- [x] Belge numaraları şube başına: `SP-S1-2026-00001`
+- [x] `Scope` tipi: şubeye özel her fonksiyon zorunlu parametre alıyor
+- [x] Üç hesap; giriş ekranında yalnızca şubeler, yönetici kendi parolasıyla
+- [x] Hesap başına kilitlenme; şubedeki hatalı denemeler yöneticiyi kilitlemiyor
+- [x] Alan katmanı kapsamlandı (sipariş, müşteri, teslimat, ödeme, sevkiyat, rapor, Excel)
+- [x] Rezervasyon global kaldı; karşı şubeye "Diğer şube · adet" olarak görünüyor
+- [x] Ekranlar: şube rozeti, yöneticide "Şube" sütunu, Ayarlar'da şube yönetimi
+- [x] 284 test (21'i çapraz şube izolasyonu, 4'ü göçün taşıma adımı)
+
+**Kalan tek adım (kullanıcıda):** Ayarlar → Şubeler'den iki şubeye parola ver.
+Parola verilene kadar giriş ekranında şube düğmesi çıkmaz.
 
 ---
 
