@@ -1,8 +1,8 @@
 import { asc, eq } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import { branches } from '@/db/schema';
+import { appSettings, branches } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
-import { hashPassword } from '@/lib/auth/password';
+import { hashPassword, verifyPassword } from '@/lib/auth/password';
 import { DomainError, NotFoundError } from '@/lib/errors';
 
 export type Branch = typeof branches.$inferSelect;
@@ -71,6 +71,20 @@ export async function setBranchPassword(
 ): Promise<void> {
   if (newPassword.length < 6) {
     throw new DomainError('Parola en az 6 karakter olmali.', 'WEAK_PASSWORD');
+  }
+
+  // Giriste once sube parolasi deneniyor. Sube parolasi yoneticininkiyle ayni
+  // olursa yonetici hesabina bir daha ulasilamaz — sessizce izin veremeyiz.
+  const [settings] = await db
+    .select({ passwordHash: appSettings.passwordHash })
+    .from(appSettings)
+    .where(eq(appSettings.id, 1));
+
+  if (settings?.passwordHash && (await verifyPassword(newPassword, settings.passwordHash))) {
+    throw new DomainError(
+      'Sube parolasi yonetici parolasiyla ayni olamaz; yonetici hesabina girilemez hale gelir.',
+      'PASSWORD_COLLIDES_WITH_ADMIN',
+    );
   }
 
   const result = await db

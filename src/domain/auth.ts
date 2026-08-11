@@ -118,6 +118,58 @@ export async function authenticate(
   return shouldLock ? { ok: false, lockedMinutes: LOCK_MINUTES } : { ok: false };
 }
 
+/**
+ * Giris ekranindan gelen deneme.
+ *
+ * Yoneticinin ayri bir dugmesi yok; kendi parolasi var. Once secili subenin
+ * parolasi denenir, tutmazsa yonetici parolasi denenir. Sube once deneniyor
+ * cunku iki parola yanlislikla ayni olursa daha az yetkili olan kazanmali.
+ *
+ * Kilitlenme sayaci **yalnizca secili subede** tutulur. Yanlis deneme
+ * yoneticinin sayacini da artirsaydi, subede bes kez yanlis yazan biri patronu
+ * disarida birakirdi.
+ *
+ * Sube kilitliyse yonetici parolasi hic denenmez — denenseydi kilit, deneme
+ * hakkini sinirsiz kilan bir bosluga donusurdu.
+ */
+export async function login(
+  db: DbOrTx,
+  branchId: string | null,
+  password: string,
+): Promise<LoginResult> {
+  // Hicbir subenin parolasi yoksa (ilk kurulum) girilecek tek hesap yonetici.
+  if (!branchId) return authenticate(db, { kind: 'admin' }, password);
+
+  const account: Account = { kind: 'branch', branchId };
+  const branch = await readCredential(db, account);
+
+  if (branch.lockedUntil && branch.lockedUntil > new Date()) {
+    const remaining = Math.max(1, Math.ceil((branch.lockedUntil.getTime() - Date.now()) / 60_000));
+    return { ok: false, lockedMinutes: remaining };
+  }
+
+  if (branch.passwordHash && (await verifyPassword(password, branch.passwordHash))) {
+    await writeCredential(db, account, { failedAttempts: 0, lockedUntil: null });
+    return { ok: true, scope: branch.scope };
+  }
+
+  const admin = await readCredential(db, { kind: 'admin' });
+  if (admin.passwordHash && (await verifyPassword(password, admin.passwordHash))) {
+    await writeCredential(db, account, { failedAttempts: 0, lockedUntil: null });
+    await writeCredential(db, { kind: 'admin' }, { failedAttempts: 0, lockedUntil: null });
+    return { ok: true, scope: admin.scope };
+  }
+
+  const attempts = branch.failedAttempts + 1;
+  const shouldLock = attempts >= MAX_ATTEMPTS;
+  await writeCredential(db, account, {
+    failedAttempts: shouldLock ? 0 : attempts,
+    lockedUntil: shouldLock ? new Date(Date.now() + LOCK_MINUTES * 60_000) : null,
+  });
+
+  return shouldLock ? { ok: false, lockedMinutes: LOCK_MINUTES } : { ok: false };
+}
+
 /** Hesabin kendi parolasini degistirmesi — mevcut parola sorulur. */
 export async function changeOwnPassword(
   db: DbOrTx,

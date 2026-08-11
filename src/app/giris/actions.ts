@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { db } from '@/db/client';
-import { authenticate, type Account } from '@/domain/auth';
+import { login } from '@/domain/auth';
 import { ensureSettings } from '@/domain/settings';
 import {
   LAST_ACCOUNT_COOKIE,
@@ -14,8 +14,8 @@ import {
 } from '@/lib/auth/session';
 
 const schema = z.object({
-  /** 'admin' ya da bir sube kimligi. */
-  account: z.string().min(1, 'Hesap secin.'),
+  /** Secili sube. Hicbir subenin parolasi yoksa bos gelir. */
+  branchId: z.union([z.uuid(), z.literal('')]),
   password: z.string().min(1, 'Parola girin.'),
 });
 
@@ -25,7 +25,7 @@ export interface LoginState {
 
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = schema.safeParse({
-    account: formData.get('account'),
+    branchId: formData.get('branchId'),
     password: formData.get('password'),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -33,18 +33,8 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   // Ilk acilista ayar satirini ve yonetici parolasini olusturur.
   await ensureSettings(db, process.env.INITIAL_APP_PASSWORD ?? 'depo2026');
 
-  const { account: accountId, password } = parsed.data;
-
-  let account: Account;
-  if (accountId === 'admin') {
-    account = { kind: 'admin' };
-  } else if (z.uuid().safeParse(accountId).success) {
-    account = { kind: 'branch', branchId: accountId };
-  } else {
-    return { error: 'Hesap secin.' };
-  }
-
-  const result = await authenticate(db, account, password);
+  const branchId = parsed.data.branchId || null;
+  const result = await login(db, branchId, parsed.data.password);
 
   if (!result.ok) {
     return {
@@ -58,7 +48,9 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   store.set(
     SESSION_COOKIE,
     await createSessionToken(
-      account.kind === 'admin' ? { role: 'admin' } : { role: 'branch', branchId: account.branchId },
+      result.scope.kind === 'admin'
+        ? { role: 'admin' }
+        : { role: 'branch', branchId: result.scope.branchId },
     ),
     {
       httpOnly: true,
@@ -69,14 +61,16 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     },
   );
 
-  // Ayni kisi hep ayni hesaba giriyor; secimi hatirlayip bir dokunus
+  // Ayni kisi hep ayni subeye giriyor; secimi hatirlayip bir dokunus
   // kazandiriyoruz. Gizli bir bilgi degil, httpOnly olmasi gerekmiyor.
-  store.set(LAST_ACCOUNT_COOKIE, accountId, {
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  if (branchId) {
+    store.set(LAST_ACCOUNT_COOKIE, branchId, {
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: SESSION_MAX_AGE_SECONDS,
+    });
+  }
 
   redirect('/');
 }
