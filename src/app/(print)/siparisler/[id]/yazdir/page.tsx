@@ -71,7 +71,10 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
           {order.lines.map((line) => (
             <tr key={line.id} className="border-b border-neutral-200 align-top">
               <td className="py-2">
-                <div className="font-medium">{line.description}</div>
+                <div className="font-medium">
+                  {line.description}
+                  {line.isGift ? <span className="ml-2 font-normal">(Hediye)</span> : null}
+                </div>
                 {line.components.length > 0 ? (
                   <ul className="mt-0.5 text-xs text-neutral-600">
                     {line.components.map((component) => (
@@ -85,8 +88,13 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
                 ) : null}
               </td>
               <td className="py-2 text-right tabular-nums">{line.quantity}</td>
-              <td className="py-2 text-right tabular-nums">{formatKurus(line.unitPriceKurus)}</td>
-              <td className="py-2 text-right tabular-nums">{formatKurus(line.lineTotalKurus)}</td>
+              {/* Musteriye giden kagitta "0,00 TL" degil "Hediye" yaziyor. */}
+              <td className="py-2 text-right tabular-nums">
+                {line.isGift ? '—' : formatKurus(line.unitPriceKurus)}
+              </td>
+              <td className="py-2 text-right tabular-nums">
+                {line.isGift ? 'Hediye' : formatKurus(line.lineTotalKurus)}
+              </td>
             </tr>
           ))}
         </tbody>

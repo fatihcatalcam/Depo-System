@@ -22,6 +22,8 @@ interface LineRow {
   label: string;
   quantity: number;
   unitPrice: string;
+  /** Hediye satir: musteriden para alinmaz, mal yine cikar. */
+  isGift: boolean;
 }
 
 interface CustomerHit {
@@ -114,7 +116,15 @@ export function OrderForm() {
     setStockHits([]);
   }
 
-  const subtotal = lines.reduce((sum, line) => sum + safeKurus(line.unitPrice) * line.quantity, 0);
+  // Hediye satirlar ara toplama girmez; degerleri yine de kaydediliyor.
+  const subtotal = lines.reduce(
+    (sum, line) => sum + (line.isGift ? 0 : safeKurus(line.unitPrice) * line.quantity),
+    0,
+  );
+  const giftValue = lines.reduce(
+    (sum, line) => sum + (line.isGift ? safeKurus(line.unitPrice) * line.quantity : 0),
+    0,
+  );
   const discountKurus = safeKurus(discount);
   const total = Math.max(0, subtotal - discountKurus);
 
@@ -144,6 +154,7 @@ export function OrderForm() {
               stockItemId: line.stockItemId,
               quantity: line.quantity,
               unitPrice: line.unitPrice,
+              isGift: line.isGift,
             })),
           });
 
@@ -326,6 +337,7 @@ export function OrderForm() {
                         label: product.name,
                         quantity: 1,
                         unitPrice: toTlInput(product.defaultPriceKurus),
+                        isGift: false,
                       })
                     }
                     className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
@@ -360,6 +372,7 @@ export function OrderForm() {
                           .join(' · '),
                         quantity: 1,
                         unitPrice: '',
+                        isGift: false,
                       })
                     }
                     className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
@@ -405,11 +418,37 @@ export function OrderForm() {
                     )
                   }
                   placeholder="Birim fiyat"
-                  className="h-10 w-32"
+                  // Hediyede fiyat degistirilemez ama gorunur kalir: "bu
+                  // yastik 850 TL ama veriyoruz" bilgisi kayda geciyor.
+                  disabled={line.isGift}
+                  className="h-10 w-32 disabled:bg-neutral-50 disabled:text-neutral-400"
                   aria-label="Birim fiyat"
                 />
+
+                <label className="flex select-none items-center gap-1.5 whitespace-nowrap text-sm">
+                  <input
+                    type="checkbox"
+                    checked={line.isGift}
+                    onChange={(event) =>
+                      setLines((rows) =>
+                        rows.map((row, i) =>
+                          i === index ? { ...row, isGift: event.target.checked } : row,
+                        ),
+                      )
+                    }
+                    className="size-4 accent-neutral-900"
+                  />
+                  Hediye
+                </label>
+
                 <span className="w-28 text-right text-sm tabular-nums">
-                  {formatKurus(safeKurus(line.unitPrice) * line.quantity)}
+                  {line.isGift ? (
+                    <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
+                      Hediye
+                    </span>
+                  ) : (
+                    formatKurus(safeKurus(line.unitPrice) * line.quantity)
+                  )}
                 </span>
                 <Button
                   type="button"
@@ -430,6 +469,14 @@ export function OrderForm() {
           <span className="text-neutral-600">Ara toplam</span>
           <span className="tabular-nums">{formatKurus(subtotal)}</span>
         </div>
+        {giftValue > 0 ? (
+          // Hediyenin bedeli musteriye yansimiyor ama patrona yansiyor;
+          // toplamin yaninda gormek karari bilincli kiliyor.
+          <div className="flex items-center justify-between text-sm text-green-700">
+            <span>Hediye edilen</span>
+            <span className="tabular-nums">{formatKurus(giftValue)}</span>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-3 text-sm">
           <Label htmlFor="discount" className="text-neutral-600">
             Iskonto

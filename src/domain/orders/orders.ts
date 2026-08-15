@@ -43,7 +43,19 @@ export interface OrderLineInput {
   productId?: string | null;
   stockItemId?: string | null;
   quantity: number;
+  /**
+   * Hediye satirlarda da gonderilebilir; urunun degeri olarak saklanir ama
+   * satir toplamina girmez.
+   */
   unitPriceKurus: number;
+  /**
+   * Hediye. Musteriden para alinmaz; mal yine cikar.
+   *
+   * Fiyata 0 yazmaktan farki: niyet kayda geciyor (0 bir veri girisi hatasi da
+   * olabilir), ciktida "Hediye" yaziyor ve verilen urunun degeri
+   * `unitPriceKurus` icinde korunuyor.
+   */
+  isGift?: boolean;
 }
 
 export interface NewCustomerInput {
@@ -302,6 +314,7 @@ export interface OrderLineDetail {
   quantity: number;
   unitPriceKurus: number;
   lineTotalKurus: number;
+  isGift: boolean;
   components: OrderComponentDetail[];
 }
 
@@ -374,6 +387,7 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
       quantity: line.quantity,
       unitPriceKurus: line.unitPriceKurus,
       lineTotalKurus: line.lineTotalKurus,
+      isGift: line.isGift,
       components: components
         .filter((entry) => entry.component.orderLineId === line.id)
         .map((entry) => ({
@@ -558,7 +572,11 @@ async function resolveLines(tx: Tx, lines: OrderLineInput[]): Promise<ResolvedLi
       description = [item.name, item.sizeLabel, item.variantLabel].filter(Boolean).join(' · ');
     }
 
-    return { ...line, description, lineTotalKurus: line.unitPriceKurus * line.quantity };
+    // Hediye satirin toplami her zaman sifir; birim fiyat urunun degeri
+    // olarak duruyor.
+    const lineTotalKurus = line.isGift ? 0 : line.unitPriceKurus * line.quantity;
+
+    return { ...line, description, lineTotalKurus };
   });
 }
 
@@ -574,6 +592,7 @@ async function insertLines(tx: Tx, orderId: string, lines: ResolvedLine[]) {
       quantity: line.quantity,
       unitPriceKurus: line.unitPriceKurus,
       lineTotalKurus: line.lineTotalKurus,
+      isGift: line.isGift ?? false,
     })),
   );
 }

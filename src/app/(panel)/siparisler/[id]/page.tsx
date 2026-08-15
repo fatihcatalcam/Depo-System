@@ -116,13 +116,20 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="text-sm font-medium">
                       {line.quantity} × {line.description}
+                      {line.isGift ? (
+                        <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
+                          Hediye
+                        </span>
+                      ) : null}
                     </span>
                     <span className="text-sm tabular-nums">
                       {formatKurus(line.lineTotalKurus)}
                     </span>
                   </div>
                   <div className="text-xs text-neutral-400">
-                    birim {formatKurus(line.unitPriceKurus)}
+                    {line.isGift
+                      ? `hediye · degeri ${formatKurus(line.unitPriceKurus * line.quantity)}`
+                      : `birim ${formatKurus(line.unitPriceKurus)}`}
                   </div>
 
                   {line.components.length > 0 ? (

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   date,
   index,
@@ -107,12 +108,26 @@ export const orderLines = pgTable(
     stockItemId: uuid('stock_item_id').references(() => stockItems.id, { onDelete: 'restrict' }),
     description: text('description').notNull(),
     quantity: integer('quantity').notNull(),
+    /**
+     * Hediye satirlarda da dolu kalir: urunun degeri kaydedilsin diye. Satirin
+     * musteriye yansiyan tutari `lineTotalKurus`, o sifirlanir. Boylece
+     * "bu ay ne kadar hediye verdik" sorusu sonradan cevaplanabilir.
+     */
     unitPriceKurus: bigint('unit_price_kurus', { mode: 'number' }).notNull().default(0),
     lineTotalKurus: bigint('line_total_kurus', { mode: 'number' }).notNull().default(0),
+    /**
+     * Hediye satir. Musteriden para alinmaz ama mal cikar: stoktan duser,
+     * rezerve edilir, toplama listesinde ve sofor kagidinda gorunur. Hediye
+     * olmasi bedava olmasi demek, yok sayilmasi degil.
+     */
+    isGift: boolean('is_gift').notNull().default(false),
   },
   (t) => [
     index('order_lines_order_idx').on(t.orderId),
     check('order_lines_qty_chk', sql`${t.quantity} > 0`),
+    // Hediye satirin musteriye yansiyan tutari her zaman sifir olmali;
+    // arayuzde bir yerde unutulursa veritabani kabul etmesin.
+    check('order_lines_gift_total_chk', sql`NOT ${t.isGift} OR ${t.lineTotalKurus} = 0`),
     check(
       'order_lines_item_ref_chk',
       sql`(${t.itemType} = 'product' AND ${t.productId} IS NOT NULL AND ${t.stockItemId} IS NULL)
