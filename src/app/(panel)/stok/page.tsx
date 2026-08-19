@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { listCategoryTree } from '@/domain/catalog/categories';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
 import { QuickAdjust } from './quick-adjust';
+import { QuickNote } from './quick-note';
 import { StockFilters } from './stock-filters';
 
 interface PageProps {
@@ -39,7 +40,7 @@ export default async function StokPage({ searchParams }: PageProps) {
       </Suspense>
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
               <th className="p-3">Parca</th>
@@ -47,6 +48,7 @@ export default async function StokPage({ searchParams }: PageProps) {
               <th className="p-3 text-center">Mevcut</th>
               <th className="p-3 text-right">Rezerve</th>
               <th className="p-3 text-right">Serbest</th>
+              <th className="p-3">Not</th>
             </tr>
           </thead>
           <tbody>
@@ -78,6 +80,13 @@ export default async function StokPage({ searchParams }: PageProps) {
                   }`}
                 >
                   {item.available}
+                </td>
+                <td className="w-56 p-2 align-top">
+                  <QuickNote
+                    stockItemId={item.id}
+                    stockItemName={item.name}
+                    note={item.notes}
+                  />
                 </td>
               </tr>
             ))}

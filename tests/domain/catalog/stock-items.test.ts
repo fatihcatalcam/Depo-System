@@ -158,3 +158,42 @@ describe('listStockItemsWithAvailability', () => {
     );
   });
 });
+
+/**
+ * Not, stok listesinden satir ici yaziliyor: "2. subeye odunc verildi",
+ * "bu partinin rengi koyu". Nadir durumlar icin ayri alan acmak yerine
+ * serbest metin tutuluyor.
+ */
+describe('stok karti notu', () => {
+  it('not yazilir ve listede geri okunur', async () => {
+    const item = await createStockItem(ctx.db, { name: 'Notlu Parca' });
+    expect(item.notes).toBeNull();
+
+    await updateStockItem(ctx.db, item.id, { notes: '2 adet 2. subeye odunc verildi' });
+
+    const [row] = await listStockItemsWithAvailability(ctx.db, { query: 'Notlu Parca' });
+    expect(row.notes).toBe('2 adet 2. subeye odunc verildi');
+  });
+
+  it('not temizlenebilir', async () => {
+    const item = await createStockItem(ctx.db, { name: 'Notu Silinen', notes: 'gecici not' });
+    await updateStockItem(ctx.db, item.id, { notes: null });
+
+    const [row] = await listStockItemsWithAvailability(ctx.db, { query: 'Notu Silinen' });
+    expect(row.notes).toBeNull();
+  });
+
+  /** Not adet degil: yazmak stok hareketi uretmemeli. */
+  it('not yazmak stogu ve hareket defterini degistirmez', async () => {
+    const item = await createStockItem(ctx.db, { name: 'Hareketsiz Notlu' });
+    await applyMovements(ctx.db, [
+      { stockItemId: item.id, quantityChange: 4, movementType: 'goods_receipt' },
+    ]);
+
+    await updateStockItem(ctx.db, item.id, { notes: 'rengi biraz koyu' });
+
+    const [row] = await listStockItemsWithAvailability(ctx.db, { query: 'Hareketsiz Notlu' });
+    expect(row.onHand).toBe(4);
+    expect(row.notes).toBe('rengi biraz koyu');
+  });
+});

@@ -115,6 +115,35 @@ export async function quickAdjustStockAction(
   }
 }
 
+const noteSchema = z
+  .string()
+  .max(200, 'Not en fazla 200 karakter olabilir.')
+  .transform((value) => value.trim());
+
+/**
+ * Stok listesinden satir ici not. Notlar anlik ve siktir ("2. subeye odunc
+ * verildi", "bu partinin rengi koyu"); kart acmayi gerektirmemeli.
+ *
+ * Hareket defterine yazilmiyor: not bir stok hareketi degil, kartin uzerindeki
+ * bir aciklama. Adet degismiyor.
+ */
+export async function updateStockNoteAction(
+  stockItemId: string,
+  note: unknown,
+): Promise<ActionResult> {
+  const parsed = noteSchema.safeParse(note);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+
+  try {
+    await updateStockItem(db, stockItemId, { notes: parsed.data || null });
+    revalidatePath('/stok');
+    revalidatePath(`/stok/${stockItemId}`);
+    return { ok: true, id: stockItemId };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
 export async function adjustStockCountAction(
   stockItemId: string,
   input: unknown,
