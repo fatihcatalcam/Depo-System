@@ -88,6 +88,26 @@ Ayrıntılı adımlar: `docs/superpowers/plans/2026-08-11-plan-5-subeler.md`
 **Kalan tek adım (kullanıcıda):** Ayarlar → Şubeler'den iki şubeye parola ver.
 Parola verilene kadar giriş ekranında şube düğmesi çıkmaz.
 
+## Uyco katalogu ve örnek veri — tamamlandı (2026-08-22)
+
+- [x] PDF'ten katalog çıkarıldı (`scripts/catalog-data.ts`): 22 model, 3 modüler seri, 20 komodin
+- [x] `npm run db:catalog` → 567 stok kartı, 180 set, 5 kategori
+- [x] Stok listesinde satır içi **not** alanı (ödünç verme, renk farkı gibi nadir durumlar)
+- [x] `npm run db:demo` → 3 tedarikçi, 5 müşteri, 3 mal kabul, 7 sipariş, 3 ödeme
+- [x] `reset.ts` artık `app_settings`'i **silmiyor** — yönetici parolası ve firma anteni korunuyor
+
+### Veritabanı komutları
+
+| Komut | Ne yapar |
+|---|---|
+| `npm run db:backup` | Tüm tabloları JSON'a yazar (`backups/`, git dışında) |
+| `npm run db:reset` | İş verisini siler; şube ve ayarlar kalır |
+| `npm run db:catalog` | Uyco kataloğunu yükler (stok boş kartlar) |
+| `npm run db:demo` | Örnek müşteri/sipariş/teslimat/ödeme yükler |
+
+Gerçek kullanıma geçerken: `db:reset` + `db:catalog`, sonra gerçek adetleri
+mal kabul ya da sayımla gir.
+
 ---
 
 ## Açık konular
