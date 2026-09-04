@@ -105,10 +105,17 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
                   </Link>
                 </div>
                 <p className="text-sm text-neutral-600">{stop.deliveryAddress}</p>
-                <p className="text-xs text-neutral-500">
-                  {stop.deliveryPhone ?? stop.customerPhone ?? 'telefon yok'}
-                  {stop.deliveryNotes ? ` · ${stop.deliveryNotes}` : ''}
+                <p className="text-sm font-semibold tabular-nums text-neutral-800">
+                  {[
+                    stop.deliveryPhone ?? stop.customerPhone,
+                    stop.deliveryPhone2 ?? stop.customerPhone2,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'telefon yok'}
                 </p>
+                {stop.deliveryNotes ? (
+                  <p className="text-xs text-neutral-500">{stop.deliveryNotes}</p>
+                ) : null}
 
                 <ul className="mt-2 space-y-0.5">
                   {stop.items.map((item) => (

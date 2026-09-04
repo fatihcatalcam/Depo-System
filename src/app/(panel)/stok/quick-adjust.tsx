@@ -10,6 +10,8 @@ interface Props {
   stockItemId: string;
   stockItemName: string;
   onHand: number;
+  /** Stok kilidi acikken dugmeler calismaz. Sunucu da ayrica kontrol eder. */
+  locked: boolean;
 }
 
 /** Son dokunustan sonra sunucuya yazmadan once beklenen sure. */
@@ -27,7 +29,7 @@ const FLUSH_DELAY_MS = 500;
  * Yazma basarisiz olursa (ornegin stok eksiye duserse) sadece o dokunuslar
  * geri alinir.
  */
-export function QuickAdjust({ stockItemId, stockItemName, onHand }: Props) {
+export function QuickAdjust({ stockItemId, stockItemName, onHand, locked }: Props) {
   // Sunucunun dogruladigi son bakiye. `onHand` prop'u router.refresh()
   // tamamlanana kadar eski kalir; onay gelir gelmez buraya yaziyoruz ki sayi
   // once dusup sonra geri zipllamasin.
@@ -123,7 +125,7 @@ export function QuickAdjust({ stockItemId, stockItemName, onHand }: Props) {
       <button
         type="button"
         aria-label={`${stockItemName} stogunu bir azalt`}
-        disabled={displayed <= 0}
+        disabled={locked || displayed <= 0}
         onClick={() => adjust(-1)}
         className="flex size-9 items-center justify-center rounded-md border border-neutral-300 text-neutral-700 hover:border-neutral-500 active:bg-neutral-100 disabled:opacity-40"
       >
@@ -141,6 +143,7 @@ export function QuickAdjust({ stockItemId, stockItemName, onHand }: Props) {
       <button
         type="button"
         aria-label={`${stockItemName} stogunu bir artir`}
+        disabled={locked}
         onClick={() => adjust(1)}
         className="flex size-9 items-center justify-center rounded-md border border-neutral-300 text-neutral-700 hover:border-neutral-500 active:bg-neutral-100"
       >

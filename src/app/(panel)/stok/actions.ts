@@ -6,6 +6,8 @@ import { db } from '@/db/client';
 import { createStockItem, updateStockItem } from '@/domain/catalog/stock-items';
 import { adjustStockCount } from '@/domain/stock/counting';
 import { applyMovements } from '@/domain/stock/movements';
+import { currentScope } from '@/lib/auth/current';
+import { isStockLocked } from '@/lib/auth/locks';
 import { DomainError } from '@/lib/errors';
 import { parseTlInput } from '@/lib/money';
 
@@ -18,6 +20,19 @@ export interface ActionResult {
 export interface QuickAdjustResult extends ActionResult {
   /** Islemden sonraki kesin bakiye — istemci ekrani buna gore duzeltir. */
   onHand?: number;
+}
+
+/**
+ * Kilit kontrolu her yazma eyleminde tekrarlaniyor.
+ *
+ * Arayuzde dugmeleri kapatmak yeterli degil: sunucu eylemleri dogrudan
+ * cagrilabilir. Kilidin anlami olmasi icin kararin sunucuda verilmesi sart.
+ */
+async function assertStockUnlocked(): Promise<ActionResult | null> {
+  if (await isStockLocked(await currentScope())) {
+    return { ok: false, error: 'Stok kilitli. Once kilidi acin.' };
+  }
+  return null;
 }
 
 function toResult(error: unknown): ActionResult {
@@ -41,6 +56,9 @@ const stockItemSchema = z.object({
 });
 
 export async function createStockItemAction(input: unknown): Promise<ActionResult> {
+  const locked = await assertStockUnlocked();
+  if (locked) return locked;
+
   const parsed = stockItemSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -58,6 +76,9 @@ export async function createStockItemAction(input: unknown): Promise<ActionResul
 }
 
 export async function updateStockItemAction(id: string, input: unknown): Promise<ActionResult> {
+  const locked = await assertStockUnlocked();
+  if (locked) return locked;
+
   const parsed = stockItemSchema.partial().safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -93,6 +114,9 @@ export async function quickAdjustStockAction(
   stockItemId: string,
   delta: number,
 ): Promise<QuickAdjustResult> {
+  const locked = await assertStockUnlocked();
+  if (locked) return locked;
+
   if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 1000) {
     return { ok: false, error: 'Gecersiz miktar.' };
   }
@@ -131,6 +155,9 @@ export async function updateStockNoteAction(
   stockItemId: string,
   note: unknown,
 ): Promise<ActionResult> {
+  const locked = await assertStockUnlocked();
+  if (locked) return locked;
+
   const parsed = noteSchema.safeParse(note);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -148,6 +175,9 @@ export async function adjustStockCountAction(
   stockItemId: string,
   input: unknown,
 ): Promise<ActionResult> {
+  const locked = await assertStockUnlocked();
+  if (locked) return locked;
+
   const parsed = countSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 

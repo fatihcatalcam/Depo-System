@@ -1,8 +1,15 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { branches } from '@/db/schema';
-import { authenticate, changeOwnPassword, login, type Account } from '@/domain/auth';
+import {
+  authenticate,
+  changeOwnPassword,
+  login,
+  verifyUnlockPassword,
+  type Account,
+} from '@/domain/auth';
 import { listBranches, listLoginableBranches, renameBranch, setBranchPassword } from '@/domain/branches';
+import { branchScope, adminScope } from '@/domain/scope';
 import { ensureSettings } from '@/domain/settings';
 import { createTestDb, type TestDb } from '../helpers/test-db';
 
@@ -317,6 +324,43 @@ describe('sube yonetimi', () => {
       .where(eq(branches.id, (s1 as { branchId: string }).branchId));
 
     await expect(authenticate(ctx.db, s1, 'sube1parola')).rejects.toThrow('Bu sube kapali');
+    await ctx.close();
+  });
+});
+
+/**
+ * Ekran kilitleri. Hangi parolanin gectigi kimin calisabilecegini belirliyor,
+ * bu yuzden ayrica test ediliyor.
+ */
+describe('kilit parolalari', () => {
+  it('raporlar yalnizca yonetici parolasiyla acilir', async () => {
+    const { ctx, s1 } = await setupAccounts();
+    const scope = branchScope((s1 as { branchId: string }).branchId, 'S1');
+
+    expect(await verifyUnlockPassword(ctx.db, scope, 'yoneticiparola', 'admin')).toBe(true);
+    // Sube kendi parolasiyla acabilseydi kilidin anlami kalmazdi.
+    expect(await verifyUnlockPassword(ctx.db, scope, 'sube1parola', 'admin')).toBe(false);
+    expect(await verifyUnlockPassword(ctx.db, scope, 'yanlis', 'admin')).toBe(false);
+
+    await ctx.close();
+  });
+
+  it('stok kilidi kendi sube parolasiyla da acilir', async () => {
+    const { ctx, s1 } = await setupAccounts();
+    const scope = branchScope((s1 as { branchId: string }).branchId, 'S1');
+
+    expect(await verifyUnlockPassword(ctx.db, scope, 'sube1parola', 'own')).toBe(true);
+    expect(await verifyUnlockPassword(ctx.db, scope, 'yoneticiparola', 'own')).toBe(true);
+    // Diger subenin parolasi gecmez.
+    expect(await verifyUnlockPassword(ctx.db, scope, 'sube2parola', 'own')).toBe(false);
+
+    await ctx.close();
+  });
+
+  it('yonetici oturumunda stok kilidi yonetici parolasiyla acilir', async () => {
+    const { ctx } = await setupAccounts();
+    expect(await verifyUnlockPassword(ctx.db, adminScope, 'yoneticiparola', 'own')).toBe(true);
+    expect(await verifyUnlockPassword(ctx.db, adminScope, 'sube1parola', 'own')).toBe(false);
     await ctx.close();
   });
 });

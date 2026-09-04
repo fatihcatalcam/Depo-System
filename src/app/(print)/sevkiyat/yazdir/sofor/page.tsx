@@ -49,11 +49,28 @@ export default async function SoforKagidiPage({ searchParams }: PageProps) {
               <div className="grid gap-1 py-2 text-sm sm:grid-cols-[1fr_auto]">
                 <div>
                   <div>{stop.deliveryAddress}</div>
-                  <div className="text-xs text-neutral-600">
-                    Tel: {stop.deliveryPhone ?? stop.customerPhone ?? '—'}
+
+                  {/* Telefon sofor icin bu kagittaki en islevsel bilgi: arac
+                      sokakta, adres bulunamadiginda aranan numara bu. Kucuk ve
+                      gri basmak, tam ihtiyac aninda okunamamasi demek. */}
+                  <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                    {[
+                      stop.deliveryPhone ?? stop.customerPhone,
+                      stop.deliveryPhone2 ?? stop.customerPhone2,
+                    ]
+                      .filter((phone): phone is string => Boolean(phone))
+                      .map((phone) => (
+                        <span key={phone} className="text-lg font-bold tabular-nums">
+                          {phone}
+                        </span>
+                      ))}
+                    {!stop.deliveryPhone && !stop.customerPhone ? (
+                      <span className="text-sm text-neutral-600">Telefon yok</span>
+                    ) : null}
                   </div>
+
                   {stop.deliveryNotes ? (
-                    <div className="text-xs font-medium">Not: {stop.deliveryNotes}</div>
+                    <div className="mt-0.5 text-xs font-medium">Not: {stop.deliveryNotes}</div>
                   ) : null}
                 </div>
                 <div className="text-right">

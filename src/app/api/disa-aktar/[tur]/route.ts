@@ -8,6 +8,7 @@ import {
   exportStockWorkbook,
 } from '@/domain/excel';
 import { currentScope } from '@/lib/auth/current';
+import { isReportsUnlocked } from '@/lib/auth/locks';
 import { todayInIstanbul } from '@/lib/dates';
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -38,6 +39,10 @@ export async function GET(
       filename = `siparisler-${today}.xlsx`;
       break;
     case 'rapor': {
+      // Excel indirme rapor kilidini atlatmamali: ayni rakamlar.
+      if (!(await isReportsUnlocked(scope))) {
+        return NextResponse.json({ error: 'Raporlar kilitli.' }, { status: 403 });
+      }
       const from = request.nextUrl.searchParams.get('from') ?? today;
       const to = request.nextUrl.searchParams.get('to') ?? today;
       buffer = await exportReportWorkbook(db, scope, from, to);

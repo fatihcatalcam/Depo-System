@@ -11,7 +11,8 @@ import type { DbOrTx } from '@/db/types';
 import { scopeFilter, type Scope } from './scope';
 
 export interface ShipmentItem {
-  stockItemId: string;
+  /** Serbest satirda bos: katalogda karsiligi olan bir stok karti yok. */
+  stockItemId: string | null;
   stockItemName: string;
   stockItemSku: string;
   sizeLabel: string | null;
@@ -24,8 +25,10 @@ export interface ShipmentStop {
   orderNo: string;
   customerName: string;
   customerPhone: string | null;
+  customerPhone2: string | null;
   deliveryAddress: string;
   deliveryPhone: string | null;
+  deliveryPhone2: string | null;
   deliveryNotes: string | null;
   /** Bu adrese inecek, henuz teslim edilmemis parcalar. */
   items: ShipmentItem[];
@@ -64,6 +67,7 @@ export async function getDailyShipment(
       order: orders,
       customerName: customers.name,
       customerPhone: customers.phone,
+      customerPhone2: customers.phone2,
       paid: sql<number>`coalesce((
         select sum(${payments.amountKurus}) from ${payments}
         where ${payments.orderId} = ${orders.id}
@@ -87,7 +91,9 @@ export async function getDailyShipment(
   const componentRows = await db
     .select({
       orderId: orderLines.orderId,
+      componentId: orderLineComponents.id,
       stockItemId: orderLineComponents.stockItemId,
+      lineDescription: orderLines.description,
       remaining: sql<number>`(${orderLineComponents.totalQuantity} - ${orderLineComponents.deliveredQuantity})::int`,
       stockItemName: stockItems.name,
       stockItemSku: stockItems.sku,
@@ -96,7 +102,9 @@ export async function getDailyShipment(
     })
     .from(orderLineComponents)
     .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
-    .innerJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
+    // leftJoin: serbest satirin stok karti yok ama sofor onu da goturuyor.
+    // innerJoin olsaydi disaridan yaptirilan urun toplama listesinden duserdi.
+    .leftJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
     .where(
       and(
         inArray(
@@ -114,15 +122,18 @@ export async function getDailyShipment(
     const merged = new Map<string, ShipmentItem>();
 
     for (const component of componentRows.filter((c) => c.orderId === row.order.id)) {
-      const existing = merged.get(component.stockItemId);
+      // Serbest satirlar stok kartina gore birlestirilemez (karti yok);
+      // her biri kendi bilesen kimligiyle ayri satir kaliyor.
+      const key = component.stockItemId ?? `serbest:${component.componentId}`;
+      const existing = merged.get(key);
       if (existing) {
         existing.quantity += Number(component.remaining);
         continue;
       }
-      merged.set(component.stockItemId, {
+      merged.set(key, {
         stockItemId: component.stockItemId,
-        stockItemName: component.stockItemName,
-        stockItemSku: component.stockItemSku,
+        stockItemName: component.stockItemName ?? component.lineDescription,
+        stockItemSku: component.stockItemSku ?? '',
         sizeLabel: component.sizeLabel,
         variantLabel: component.variantLabel,
         quantity: Number(component.remaining),
@@ -135,8 +146,10 @@ export async function getDailyShipment(
       orderNo: row.order.orderNo,
       customerName: row.customerName,
       customerPhone: row.customerPhone,
+      customerPhone2: row.customerPhone2,
       deliveryAddress: row.order.deliveryAddress,
       deliveryPhone: row.order.deliveryPhone,
+      deliveryPhone2: row.order.deliveryPhone2,
       deliveryNotes: row.order.deliveryNotes,
       items: [...merged.values()],
       totalKurus: row.order.totalKurus,
@@ -148,9 +161,12 @@ export async function getDailyShipment(
   const picking = new Map<string, ShipmentItem>();
   for (const stop of stops) {
     for (const item of stop.items) {
-      const existing = picking.get(item.stockItemId);
+      // Farkli siparislerdeki ayni serbest urun adini birlestiriyoruz;
+      // depocu icin "2 adet ozel sehpa" tek satir olmali.
+      const key = item.stockItemId ?? `serbest:${item.stockItemName}`;
+      const existing = picking.get(key);
       if (existing) existing.quantity += item.quantity;
-      else picking.set(item.stockItemId, { ...item });
+      else picking.set(key, { ...item });
     }
   }
 

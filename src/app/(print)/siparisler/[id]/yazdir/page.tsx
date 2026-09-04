@@ -37,8 +37,10 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
         <div>
           <div className="text-xs font-semibold uppercase text-neutral-600">Teslimat adresi</div>
           <div>{order.deliveryAddress}</div>
-          {order.deliveryPhone ? (
-            <div className="text-xs text-neutral-600">Tel: {order.deliveryPhone}</div>
+          {order.deliveryPhone || order.deliveryPhone2 ? (
+            <div className="text-xs text-neutral-600">
+              Tel: {[order.deliveryPhone, order.deliveryPhone2].filter(Boolean).join(' · ')}
+            </div>
           ) : null}
           {order.deliveryNotes ? (
             <div className="text-xs text-neutral-600">{order.deliveryNotes}</div>

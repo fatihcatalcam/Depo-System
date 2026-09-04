@@ -2,7 +2,9 @@ import { PrintHeader } from '@/components/print-header';
 import { db } from '@/db/client';
 import { getPeriodSummary, periodRange, type PeriodPreset } from '@/domain/reports';
 import { formatDate, todayInIstanbul } from '@/lib/dates';
+import { UnlockScreen } from '@/components/unlock-screen';
 import { currentScope } from '@/lib/auth/current';
+import { isReportsUnlocked } from '@/lib/auth/locks';
 import { formatKurus } from '@/lib/money';
 
 const PRESET_LABELS: Record<PeriodPreset, string> = {
@@ -27,7 +29,20 @@ export default async function RaporYazdirPage({ searchParams }: PageProps) {
     : todayInIstanbul();
 
   const { from, to } = periodRange(preset, reference);
-  const summary = await getPeriodSummary(db, await currentScope(), from, to);
+  const scope = await currentScope();
+
+  // Yazdirma sayfasi rapor ekraninin kilidini atlatmamali.
+  if (!(await isReportsUnlocked(scope))) {
+    return (
+      <UnlockScreen
+        area="raporlar"
+        title="Raporlar kilitli"
+        description="Ciro, tahsilat ve alacak bilgileri icin yonetici parolasi gerekir."
+      />
+    );
+  }
+
+  const summary = await getPeriodSummary(db, scope, from, to);
 
   return (
     <>

@@ -78,6 +78,8 @@ export const orders = pgTable(
     // gittiyse orada kalir.
     deliveryAddress: text('delivery_address').notNull(),
     deliveryPhone: text('delivery_phone'),
+    /** Ikinci telefon: ev/is ya da esin numarasi. Sofor birine ulasamazsa digerini arar. */
+    deliveryPhone2: text('delivery_phone2'),
     deliveryNotes: text('delivery_notes'),
     status: orderStatusEnum('status').notNull().default('draft'),
     subtotalKurus: bigint('subtotal_kurus', { mode: 'number' }).notNull().default(0),
@@ -128,10 +130,20 @@ export const orderLines = pgTable(
     // Hediye satirin musteriye yansiyan tutari her zaman sifir olmali;
     // arayuzde bir yerde unutulursa veritabani kabul etmesin.
     check('order_lines_gift_total_chk', sql`NOT ${t.isGift} OR ${t.lineTotalKurus} = 0`),
+    /**
+     * Karsilastirmalar `::text` ile yapiliyor, enum degeriyle degil.
+     *
+     * Sebebi Postgres'in bir kurali: yeni eklenen bir enum degeri ayni
+     * transaction icinde KULLANILAMAZ (`check_safe_enum_use`). Goc dosyasi
+     * hem `ADD VALUE 'custom'` hem bu kisiti tasidigi icin, kisit enum
+     * literali kullansaydi goc reddedilirdi. Metne cevirince karsilastirma
+     * enum degerine dokunmuyor ve ikisi tek gocte gecebiliyor.
+     */
     check(
       'order_lines_item_ref_chk',
-      sql`(${t.itemType} = 'product' AND ${t.productId} IS NOT NULL AND ${t.stockItemId} IS NULL)
-          OR (${t.itemType} = 'stock_item' AND ${t.stockItemId} IS NOT NULL AND ${t.productId} IS NULL)`,
+      sql`(${t.itemType}::text = 'product' AND ${t.productId} IS NOT NULL AND ${t.stockItemId} IS NULL)
+          OR (${t.itemType}::text = 'stock_item' AND ${t.stockItemId} IS NOT NULL AND ${t.productId} IS NULL)
+          OR (${t.itemType}::text = 'custom' AND ${t.productId} IS NULL AND ${t.stockItemId} IS NULL)`,
     ),
   ],
 );
@@ -148,9 +160,14 @@ export const orderLineComponents = pgTable(
     orderLineId: uuid('order_line_id')
       .notNull()
       .references(() => orderLines.id, { onDelete: 'cascade' }),
-    stockItemId: uuid('stock_item_id')
-      .notNull()
-      .references(() => stockItems.id, { onDelete: 'restrict' }),
+    /**
+     * Serbest satirlarda (katalogda olmayan urun) bos kalir: stok karti yok.
+     * Bilesen satiri yine de yaziliyor ki teslimat ve durum hesabi tek yoldan
+     * yurusun; stok hareketi uretilmiyor, o kadar.
+     */
+    stockItemId: uuid('stock_item_id').references(() => stockItems.id, {
+      onDelete: 'restrict',
+    }),
     quantityPerUnit: integer('quantity_per_unit').notNull(),
     totalQuantity: integer('total_quantity').notNull(),
     deliveredQuantity: integer('delivered_quantity').notNull().default(0),

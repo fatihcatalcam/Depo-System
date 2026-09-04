@@ -19,4 +19,15 @@ export const movementTypeEnum = pgEnum('movement_type', [
   'manual',
 ]);
 
-export const orderLineItemTypeEnum = pgEnum('order_line_item_type', ['product', 'stock_item']);
+/**
+ * Siparis satirinin neyi sattigi.
+ *
+ * `custom`: katalogda olmayan, disaridan yaptirilan urun. Stok karti yok,
+ * dolayisiyla rezervasyon ve stok hareketi de yok — ama teslimati takip
+ * edilir, yoksa siparis hicbir zaman "teslim edildi" olamazdi.
+ */
+export const orderLineItemTypeEnum = pgEnum('order_line_item_type', [
+  'product',
+  'stock_item',
+  'custom',
+]);

@@ -97,11 +97,14 @@ export async function createDelivery(
       .select({
         component: orderLineComponents,
         orderId: orderLines.orderId,
+        lineDescription: orderLines.description,
         stockItemName: stockItems.name,
       })
       .from(orderLineComponents)
       .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
-      .innerJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
+      // leftJoin sart: serbest satirin stok karti yok. innerJoin olsaydi
+      // bilesen bulunamaz, teslimat "Siparis bileseni bulunamadi" derdi.
+      .leftJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
       .where(inArray(orderLineComponents.id, componentIds));
 
     if (components.length !== componentIds.length) {
@@ -116,7 +119,8 @@ export async function createDelivery(
       const remaining = entry.component.totalQuantity - entry.component.deliveredQuantity;
       if (requested > remaining) {
         throw new DomainError(
-          `${entry.stockItemName} icin kalan ${remaining} adet, ${requested} adet teslim edilemez.`,
+          `${entry.stockItemName ?? entry.lineDescription} icin kalan ${remaining} adet, ` +
+            `${requested} adet teslim edilemez.`,
           'OVER_DELIVERY',
         );
       }
@@ -155,17 +159,24 @@ export async function createDelivery(
         .where(eq(orderLineComponents.id, entry.component.id));
     }
 
-    await applyMovements(
-      tx,
-      components.map((entry) => ({
-        stockItemId: entry.component.stockItemId,
-        quantityChange: -(merged.get(entry.component.id) as number),
-        movementType: 'delivery' as const,
-        referenceType: 'delivery',
-        referenceId: delivery.id,
-      })),
-      { allowNegative: input.allowNegativeStock ?? false },
+    // Serbest satirlarin stok karti yok; teslim edildi olarak isaretlenir ama
+    // stoktan dusecek bir sey yoktur.
+    const stockMoves = components.flatMap((entry) =>
+      entry.component.stockItemId === null
+        ? []
+        : [
+            {
+              stockItemId: entry.component.stockItemId,
+              quantityChange: -(merged.get(entry.component.id) as number),
+              movementType: 'delivery' as const,
+              referenceType: 'delivery',
+              referenceId: delivery.id,
+            },
+          ],
     );
+    await applyMovements(tx, stockMoves, {
+      allowNegative: input.allowNegativeStock ?? false,
+    });
 
     await recalcOrderStatus(tx, input.orderId);
 
@@ -209,6 +220,7 @@ export async function listDeliveriesForOrder(
       deliveryId: deliveryLines.deliveryId,
       quantity: deliveryLines.quantity,
       stockItemName: stockItems.name,
+      lineDescription: orderLines.description,
       sizeLabel: stockItems.sizeLabel,
     })
     .from(deliveryLines)
@@ -216,7 +228,9 @@ export async function listDeliveriesForOrder(
       orderLineComponents,
       eq(orderLineComponents.id, deliveryLines.orderLineComponentId),
     )
-    .innerJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
+    .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
+    // Serbest satir teslimat gecmisinde de gorunmeli; adi siparis satirindan.
+    .leftJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
     .where(
       inArray(
         deliveryLines.deliveryId,
@@ -230,7 +244,7 @@ export async function listDeliveriesForOrder(
       .filter((line) => line.deliveryId === row.id)
       .map((line) => ({
         id: line.id,
-        stockItemName: line.stockItemName,
+        stockItemName: line.stockItemName ?? line.lineDescription,
         sizeLabel: line.sizeLabel,
         quantity: line.quantity,
       })),

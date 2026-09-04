@@ -46,9 +46,11 @@ function refresh(orderId?: string) {
 }
 
 const lineSchema = z.object({
-  itemType: z.enum(['product', 'stock_item']),
+  itemType: z.enum(['product', 'stock_item', 'custom']),
   productId: z.uuid().nullable().optional(),
   stockItemId: z.uuid().nullable().optional(),
+  /** Yalnizca serbest satirda dolu. */
+  description: z.string().optional(),
   quantity: z.coerce.number().int().min(1),
   unitPrice: z.string(),
   isGift: z.boolean().optional(),
@@ -62,6 +64,7 @@ const orderSchema = z.object({
   plannedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   deliveryAddress: z.string().min(1, 'Teslimat adresi girin.'),
   deliveryPhone: z.string().optional(),
+  deliveryPhone2: z.string().optional(),
   deliveryNotes: z.string().optional(),
   discount: z.string().optional(),
   notes: z.string().optional(),
@@ -93,6 +96,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
       plannedDeliveryDate: parsed.data.plannedDeliveryDate ?? null,
       deliveryAddress: parsed.data.deliveryAddress,
       deliveryPhone: parsed.data.deliveryPhone,
+      deliveryPhone2: parsed.data.deliveryPhone2,
       deliveryNotes: parsed.data.deliveryNotes,
       notes: parsed.data.notes,
       discountKurus: parsed.data.discount ? parseTlInput(parsed.data.discount) : 0,
@@ -100,6 +104,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
         itemType: line.itemType,
         productId: line.productId ?? null,
         stockItemId: line.stockItemId ?? null,
+        description: line.description,
         quantity: line.quantity,
         unitPriceKurus: parseTlInput(line.unitPrice || '0'),
         isGift: line.isGift ?? false,
@@ -120,6 +125,10 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
  * aksi halde adres degistirmek siparisin iskontosunu sifirlardi.
  */
 const orderPatchSchema = z.object({
+  orderDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.')
+    .optional(),
   plannedDeliveryDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -127,6 +136,7 @@ const orderPatchSchema = z.object({
     .optional(),
   deliveryAddress: z.string().min(1, 'Teslimat adresi girin.').optional(),
   deliveryPhone: z.string().optional(),
+  deliveryPhone2: z.string().optional(),
   deliveryNotes: z.string().optional(),
   discount: z.string().optional(),
   notes: z.string().optional(),
@@ -139,9 +149,11 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
 
   try {
     await updateOrder(db, await currentScope(), id, {
+      orderDate: parsed.data.orderDate,
       plannedDeliveryDate: parsed.data.plannedDeliveryDate,
       deliveryAddress: parsed.data.deliveryAddress,
       deliveryPhone: parsed.data.deliveryPhone,
+      deliveryPhone2: parsed.data.deliveryPhone2,
       deliveryNotes: parsed.data.deliveryNotes,
       notes: parsed.data.notes,
       discountKurus:
@@ -150,6 +162,7 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
         itemType: line.itemType,
         productId: line.productId ?? null,
         stockItemId: line.stockItemId ?? null,
+        description: line.description,
         quantity: line.quantity,
         unitPriceKurus: parseTlInput(line.unitPrice || '0'),
         isGift: line.isGift ?? false,

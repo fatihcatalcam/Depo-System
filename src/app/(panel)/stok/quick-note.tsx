@@ -8,6 +8,8 @@ interface Props {
   stockItemId: string;
   stockItemName: string;
   note: string | null;
+  /** Stok kilidi acikken not de degistirilemez. */
+  locked: boolean;
 }
 
 const MAX_LENGTH = 200;
@@ -26,7 +28,7 @@ const MAX_LENGTH = 200;
  *
  * Kaydetme kutudan cikinca oluyor; Enter da kaydediyor, Escape vazgeciyor.
  */
-export function QuickNote({ stockItemId, stockItemName, note }: Props) {
+export function QuickNote({ stockItemId, stockItemName, note, locked }: Props) {
   const [text, setText] = useState(note ?? '');
   const [saved, setSaved] = useState(note ?? '');
   const [pending, setPending] = useState(false);
@@ -75,7 +77,7 @@ export function QuickNote({ stockItemId, stockItemName, note }: Props) {
       type="text"
       value={text}
       maxLength={MAX_LENGTH}
-      disabled={pending}
+      disabled={pending || locked}
       onChange={(event) => setText(event.target.value)}
       onBlur={(event) => void commit(event.target.value)}
       onKeyDown={(event) => {
@@ -87,7 +89,7 @@ export function QuickNote({ stockItemId, stockItemName, note }: Props) {
           event.currentTarget.blur();
         }
       }}
-      placeholder="Not ekle"
+      placeholder={locked ? '' : 'Not ekle'}
       aria-label={`${stockItemName} notu`}
       title={text || undefined}
       className="w-full rounded-md border border-transparent bg-transparent p-1.5 text-xs text-neutral-700 outline-none placeholder:text-neutral-300 hover:border-neutral-200 focus:border-neutral-900 focus:bg-white disabled:opacity-50"

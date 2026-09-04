@@ -170,6 +170,35 @@ export async function login(
   return shouldLock ? { ok: false, lockedMinutes: LOCK_MINUTES } : { ok: false };
 }
 
+/**
+ * Ekran kilidini acmak icin parola dogrulamasi.
+ *
+ * `admin`: yalnizca yonetici parolasi gecer (raporlar). Sube kendi
+ * parolasiyla acabilseydi kilidin bir anlami kalmazdi.
+ *
+ * `own`: kendi sube parolasi ya da yonetici parolasi gecer (stok). Amac
+ * yetki degil dikkat: depocu yanlislikla stok degistirmesin ama her
+ * duzeltme icin patronu aramak zorunda da kalmasin.
+ *
+ * Kilitlenme sayaci isletilmiyor: burada yanlis yazmak kullanicinin
+ * uygulamadan tamamen kilitlenmesine yol acmamali. Deneme hizini scrypt'in
+ * kendi maliyeti sinirliyor.
+ */
+export async function verifyUnlockPassword(
+  db: DbOrTx,
+  scope: Scope,
+  password: string,
+  level: 'own' | 'admin',
+): Promise<boolean> {
+  const admin = await readCredential(db, { kind: 'admin' });
+  if (admin.passwordHash && (await verifyPassword(password, admin.passwordHash))) return true;
+
+  if (level === 'admin' || scope.kind !== 'branch') return false;
+
+  const branch = await readCredential(db, { kind: 'branch', branchId: scope.branchId });
+  return branch.passwordHash ? verifyPassword(password, branch.passwordHash) : false;
+}
+
 /** Hesabin kendi parolasini degistirmesi — mevcut parola sorulur. */
 export async function changeOwnPassword(
   db: DbOrTx,

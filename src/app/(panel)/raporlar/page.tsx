@@ -3,7 +3,9 @@ import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
 import { getPeriodSummary, periodRange, type PeriodPreset } from '@/domain/reports';
 import { formatDate, todayInIstanbul } from '@/lib/dates';
+import { UnlockScreen } from '@/components/unlock-screen';
 import { currentUser } from '@/lib/auth/current';
+import { isReportsUnlocked } from '@/lib/auth/locks';
 import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +30,19 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
 
   const { from, to } = periodRange(preset, reference);
   const user = await currentUser();
+
+  // Ciro, tahsilat ve alacak yalnizca yoneticiye acik. Veriyi hic
+  // sorgulamiyoruz: kilitliyken sayfa kaynagina da bir sey dusmesin.
+  if (!(await isReportsUnlocked(user.scope))) {
+    return (
+      <UnlockScreen
+        area="raporlar"
+        title="Raporlar kilitli"
+        description="Ciro, tahsilat ve alacak bilgileri icin yonetici parolasi gerekir."
+      />
+    );
+  }
+
   const summary = await getPeriodSummary(db, user.scope, from, to);
 
   return (

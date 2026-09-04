@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { LockToggle } from '@/components/lock-toggle';
 import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
+import { currentScope } from '@/lib/auth/current';
+import { isStockLocked } from '@/lib/auth/locks';
 import { cn } from '@/lib/utils';
 import { listCategoryTree } from '@/domain/catalog/categories';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
@@ -15,6 +18,7 @@ interface PageProps {
 
 export default async function StokPage({ searchParams }: PageProps) {
   const params = await searchParams;
+  const locked = await isStockLocked(await currentScope());
   const [categories, items] = await Promise.all([
     listCategoryTree(db),
     listStockItemsWithAvailability(db, {
@@ -30,9 +34,12 @@ export default async function StokPage({ searchParams }: PageProps) {
           <h1 className="text-lg font-semibold">Stok</h1>
           <p className="text-sm text-neutral-500">{items.length} parca listeleniyor</p>
         </div>
-        <Link href="/stok/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
-          Yeni parca
-        </Link>
+        <div className="flex items-center gap-2">
+          <LockToggle locked={locked} />
+          <Link href="/stok/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
+            Yeni parca
+          </Link>
+        </div>
       </div>
 
       <Suspense fallback={<div className="h-11" />}>
@@ -71,6 +78,7 @@ export default async function StokPage({ searchParams }: PageProps) {
                     stockItemId={item.id}
                     stockItemName={item.name}
                     onHand={item.onHand}
+                    locked={locked}
                   />
                 </td>
                 <td className="p-3 text-right tabular-nums text-neutral-500">{item.reserved}</td>
@@ -86,6 +94,7 @@ export default async function StokPage({ searchParams }: PageProps) {
                     stockItemId={item.id}
                     stockItemName={item.name}
                     note={item.notes}
+                    locked={locked}
                   />
                 </td>
               </tr>

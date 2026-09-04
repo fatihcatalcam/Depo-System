@@ -13,6 +13,7 @@ interface Props {
   plannedDeliveryDate: string | null;
   deliveryAddress: string;
   deliveryPhone: string | null;
+  deliveryPhone2: string | null;
   deliveryNotes: string | null;
 }
 
@@ -25,12 +26,14 @@ export function DeliveryPlan({
   plannedDeliveryDate,
   deliveryAddress,
   deliveryPhone,
+  deliveryPhone2,
   deliveryNotes,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(plannedDeliveryDate ?? '');
   const [address, setAddress] = useState(deliveryAddress);
   const [phone, setPhone] = useState(deliveryPhone ?? '');
+  const [phone2, setPhone2] = useState(deliveryPhone2 ?? '');
   const [notes, setNotes] = useState(deliveryNotes ?? '');
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -51,6 +54,7 @@ export function DeliveryPlan({
         startTransition(async () => {
           const result = await updateOrderAction(orderId, {
             plannedDeliveryDate: date || null,
+            deliveryPhone2: phone2,
             deliveryAddress: address,
             deliveryPhone: phone || undefined,
             deliveryNotes: notes || undefined,
@@ -82,6 +86,16 @@ export function DeliveryPlan({
             id="plan-phone"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
+            className="h-11"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="plan-phone2">Ikinci telefon</Label>
+          <Input
+            id="plan-phone2"
+            value={phone2}
+            onChange={(event) => setPhone2(event.target.value)}
+            placeholder="Es, ev ya da is numarasi"
             className="h-11"
           />
         </div>

@@ -38,10 +38,15 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
 };
 
 export interface OrderLineInput {
-  itemType: 'product' | 'stock_item';
-  /** itemType'a gore biri dolu olmali. */
+  itemType: 'product' | 'stock_item' | 'custom';
+  /** itemType'a gore biri dolu olmali; `custom` satirda ikisi de bos. */
   productId?: string | null;
   stockItemId?: string | null;
+  /**
+   * Yalnizca `custom` satirlarda zorunlu: katalogda olmayan, disaridan
+   * yaptirilan urunun adi. Diger tiplerde urun/parca adindan turetilir.
+   */
+  description?: string;
   quantity: number;
   /**
    * Hediye satirlarda da gonderilebilir; urunun degeri olarak saklanir ama
@@ -78,6 +83,8 @@ export interface CreateOrderInput {
   plannedDeliveryDate?: string | null;
   deliveryAddress: string;
   deliveryPhone?: string | null;
+  /** Ikinci telefon: sofor birine ulasamazsa digerini arar. */
+  deliveryPhone2?: string | null;
   deliveryNotes?: string | null;
   discountKurus?: number;
   notes?: string | null;
@@ -116,6 +123,7 @@ export async function createOrder(
         plannedDeliveryDate: input.plannedDeliveryDate ?? null,
         deliveryAddress: address,
         deliveryPhone: input.deliveryPhone?.trim() || null,
+        deliveryPhone2: input.deliveryPhone2?.trim() || null,
         deliveryNotes: input.deliveryNotes?.trim() || null,
         notes: input.notes?.trim() || null,
         discountKurus: input.discountKurus ?? 0,
@@ -130,9 +138,12 @@ export async function createOrder(
 }
 
 export interface UpdateOrderInput {
+  /** ISO tarih (YYYY-MM-DD). */
+  orderDate?: string;
   plannedDeliveryDate?: string | null;
   deliveryAddress?: string;
   deliveryPhone?: string | null;
+  deliveryPhone2?: string | null;
   deliveryNotes?: string | null;
   discountKurus?: number;
   notes?: string | null;
@@ -185,6 +196,7 @@ export async function updateOrder(
     const [order] = await tx
       .update(orders)
       .set({
+        orderDate: input.orderDate ?? existing.orderDate,
         plannedDeliveryDate:
           input.plannedDeliveryDate !== undefined
             ? input.plannedDeliveryDate
@@ -194,6 +206,10 @@ export async function updateOrder(
           input.deliveryPhone !== undefined
             ? input.deliveryPhone?.trim() || null
             : existing.deliveryPhone,
+        deliveryPhone2:
+          input.deliveryPhone2 !== undefined
+            ? input.deliveryPhone2?.trim() || null
+            : existing.deliveryPhone2,
         deliveryNotes:
           input.deliveryNotes !== undefined
             ? input.deliveryNotes?.trim() || null
@@ -260,16 +276,23 @@ export async function cancelOrder(db: DbOrTx, scope: Scope, id: string): Promise
       .where(and(eq(orderLines.orderId, id), sql`${orderLineComponents.deliveredQuantity} > 0`));
 
     if (delivered.length > 0) {
+      // Serbest satirda iade alinacak stok yok.
       await applyMovements(
         tx,
-        delivered.map((row) => ({
-          stockItemId: row.stockItemId,
-          quantityChange: row.deliveredQuantity,
-          movementType: 'return' as const,
-          referenceType: 'order',
-          referenceId: id,
-          notes: `${existing.orderNo} iptal edildi, teslim edilen mal iade alindi.`,
-        })),
+        delivered.flatMap((row) =>
+          row.stockItemId === null
+            ? []
+            : [
+                {
+                  stockItemId: row.stockItemId,
+                  quantityChange: row.deliveredQuantity,
+                  movementType: 'return' as const,
+                  referenceType: 'order',
+                  referenceId: id,
+                  notes: `${existing.orderNo} iptal edildi, teslim edilen mal iade alindi.`,
+                },
+              ],
+        ),
       );
 
       for (const row of delivered) {
@@ -291,9 +314,12 @@ export async function cancelOrder(db: DbOrTx, scope: Scope, id: string): Promise
 
 export interface OrderComponentDetail {
   id: string;
-  stockItemId: string;
+  /** Serbest satirda bos: katalogda karsiligi olan bir stok karti yok. */
+  stockItemId: string | null;
   stockItemName: string;
   stockItemSku: string;
+  /** Katalogda olmayan, disaridan yaptirilan urun. Stogu takip edilmez. */
+  isCustom: boolean;
   sizeLabel: string | null;
   variantLabel: string | null;
   quantityPerUnit: number;
@@ -307,7 +333,7 @@ export interface OrderComponentDetail {
 export interface OrderLineDetail {
   id: string;
   lineNo: number;
-  itemType: 'product' | 'stock_item';
+  itemType: 'product' | 'stock_item' | 'custom';
   productId: string | null;
   stockItemId: string | null;
   description: string;
@@ -353,7 +379,8 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
           onHand: stockItems.quantityOnHand,
         })
         .from(orderLineComponents)
-        .innerJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
+        // leftJoin: serbest satirin stok karti yok, satir yine de gorunmeli.
+        .leftJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
         .where(
           inArray(
             orderLineComponents.orderLineId,
@@ -364,7 +391,9 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
 
   const reserved = await getReservedQuantities(
     db,
-    components.map((entry) => entry.component.stockItemId),
+    components.flatMap((entry) =>
+      entry.component.stockItemId === null ? [] : [entry.component.stockItemId],
+    ),
   );
 
   const paidKurus = await getPaidTotal(db, id);
@@ -390,20 +419,32 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
       isGift: line.isGift,
       components: components
         .filter((entry) => entry.component.orderLineId === line.id)
-        .map((entry) => ({
-          id: entry.component.id,
-          stockItemId: entry.component.stockItemId,
-          stockItemName: entry.stockItemName,
-          stockItemSku: entry.stockItemSku,
-          sizeLabel: entry.sizeLabel,
-          variantLabel: entry.variantLabel,
-          quantityPerUnit: entry.component.quantityPerUnit,
-          totalQuantity: entry.component.totalQuantity,
-          deliveredQuantity: entry.component.deliveredQuantity,
-          remainingQuantity: entry.component.totalQuantity - entry.component.deliveredQuantity,
-          availableQuantity:
-            entry.onHand - (reserved.get(entry.component.stockItemId) ?? 0),
-        })),
+        .map((entry) => {
+          const stockItemId = entry.component.stockItemId;
+          const isCustom = stockItemId === null;
+          const remainingQuantity =
+            entry.component.totalQuantity - entry.component.deliveredQuantity;
+
+          return {
+            id: entry.component.id,
+            stockItemId,
+            // Serbest satirin stok karti yok; adi siparis satirindan geliyor.
+            stockItemName: entry.stockItemName ?? line.description,
+            stockItemSku: entry.stockItemSku ?? '',
+            isCustom,
+            sizeLabel: entry.sizeLabel,
+            variantLabel: entry.variantLabel,
+            quantityPerUnit: entry.component.quantityPerUnit,
+            totalQuantity: entry.component.totalQuantity,
+            deliveredQuantity: entry.component.deliveredQuantity,
+            remainingQuantity,
+            // Serbest satirda "yetersiz stok" uyarisi anlamsiz olurdu:
+            // takip edilen bir stok yok. Kalan adet kadar musait sayiyoruz.
+            availableQuantity: isCustom
+              ? remainingQuantity
+              : (entry.onHand ?? 0) - (reserved.get(stockItemId) ?? 0),
+          };
+        }),
     })),
   };
 }
@@ -562,7 +603,10 @@ async function resolveLines(tx: Tx, lines: OrderLineInput[]): Promise<ResolvedLi
   return lines.map((line) => {
     let description: string;
 
-    if (line.itemType === 'product') {
+    if (line.itemType === 'custom') {
+      // Katalogda karsiligi yok; ad dogrudan kullanicinin yazdigi metin.
+      description = (line.description ?? '').trim();
+    } else if (line.itemType === 'product') {
       const product = productRows.find((row) => row.id === line.productId);
       if (!product) throw new NotFoundError('Urun');
       description = product.name;
@@ -620,6 +664,19 @@ async function freezeComponents(tx: Tx, orderId: string) {
   const values: (typeof orderLineComponents.$inferInsert)[] = [];
 
   for (const line of lines) {
+    if (line.itemType === 'custom') {
+      // Stok karti olmasa da bilesen satiri yaziyoruz: teslimat takibi ve
+      // durum hesabi bu tablodan yuruyor. Yazilmasaydi yalnizca serbest
+      // satirdan olusan bir siparis hicbir zaman "teslim edildi" olamazdi.
+      values.push({
+        orderLineId: line.id,
+        stockItemId: null,
+        quantityPerUnit: 1,
+        totalQuantity: line.quantity,
+      });
+      continue;
+    }
+
     if (line.itemType === 'stock_item') {
       // Tek parca satisinda da bilesen yaziyoruz; teslimat mantigi tek yoldan isler.
       values.push({
@@ -691,6 +748,9 @@ function validateLines(lines: OrderLineInput[]) {
     }
     if (line.itemType === 'stock_item' && !line.stockItemId) {
       throw new DomainError('Parca satirinda parca secilmeli.', 'INVALID_LINE');
+    }
+    if (line.itemType === 'custom' && !line.description?.trim()) {
+      throw new DomainError('Serbest satirda urun adi yazilmali.', 'INVALID_LINE');
     }
   }
 }

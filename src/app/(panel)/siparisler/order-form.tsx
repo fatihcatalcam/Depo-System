@@ -16,7 +16,7 @@ import {
 
 interface LineRow {
   key: string;
-  itemType: 'product' | 'stock_item';
+  itemType: 'product' | 'stock_item' | 'custom';
   productId: string | null;
   stockItemId: string | null;
   label: string;
@@ -55,18 +55,66 @@ function safeKurus(value: string): number {
   }
 }
 
-export function OrderForm() {
-  const [customer, setCustomer] = useState<SelectedCustomer | null>(null);
+export interface OrderFormValues {
+  customer: SelectedCustomer;
+  orderDate: string;
+  plannedDeliveryDate: string;
+  address: string;
+  phone: string;
+  phone2: string;
+  deliveryNotes: string;
+  discount: string;
+  notes: string;
+  lines: LineRow[];
+}
+
+interface OrderFormProps {
+  /** Doluysa form duzenleme kipinde acilir. */
+  initial?: OrderFormValues;
+  submitLabel?: string;
+  onSubmit?: (input: OrderSubmitInput) => Promise<{ ok: boolean; error?: string; id?: string }>;
+}
+
+export interface OrderSubmitInput {
+  customerId?: string;
+  newCustomerName?: string;
+  orderDate: string;
+  plannedDeliveryDate: string | null;
+  deliveryAddress: string;
+  deliveryPhone?: string;
+  deliveryPhone2?: string;
+  deliveryNotes?: string;
+  discount?: string;
+  notes?: string;
+  lines: {
+    itemType: 'product' | 'stock_item' | 'custom';
+    productId: string | null;
+    stockItemId: string | null;
+    description?: string;
+    quantity: number;
+    unitPrice: string;
+    isGift: boolean;
+  }[];
+}
+
+export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {}) {
+  const [customer, setCustomer] = useState<SelectedCustomer | null>(initial?.customer ?? null);
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerHits, setCustomerHits] = useState<CustomerHit[]>([]);
-  const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [plannedDeliveryDate, setPlannedDeliveryDate] = useState('');
-  const [address, setAddress] = useState('');
-  const [phone, setPhone] = useState('');
-  const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [discount, setDiscount] = useState('');
-  const [notes, setNotes] = useState('');
-  const [lines, setLines] = useState<LineRow[]>([]);
+  const [orderDate, setOrderDate] = useState(
+    initial?.orderDate ?? new Date().toISOString().slice(0, 10),
+  );
+  const [plannedDeliveryDate, setPlannedDeliveryDate] = useState(
+    initial?.plannedDeliveryDate ?? '',
+  );
+  const [address, setAddress] = useState(initial?.address ?? '');
+  const [phone, setPhone] = useState(initial?.phone ?? '');
+  const [phone2, setPhone2] = useState(initial?.phone2 ?? '');
+  const [deliveryNotes, setDeliveryNotes] = useState(initial?.deliveryNotes ?? '');
+  const [discount, setDiscount] = useState(initial?.discount ?? '');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [lines, setLines] = useState<LineRow[]>(initial?.lines ?? []);
+  const [customName, setCustomName] = useState('');
   const [itemQuery, setItemQuery] = useState('');
   const [productHits, setProductHits] = useState<
     { id: string; name: string; code: string; defaultPriceKurus: number | null }[]
@@ -116,6 +164,22 @@ export function OrderForm() {
     setStockHits([]);
   }
 
+  /** Katalogda olmayan urun: adi elle yaziliyor, stok karti aranmiyor. */
+  function addCustomLine() {
+    const name = customName.trim();
+    if (name === '') return;
+    addLine({
+      itemType: 'custom',
+      productId: null,
+      stockItemId: null,
+      label: name,
+      quantity: 1,
+      unitPrice: '',
+      isGift: false,
+    });
+    setCustomName('');
+  }
+
   // Hediye satirlar ara toplama girmez; degerleri yine de kaydediliyor.
   const subtotal = lines.reduce(
     (sum, line) => sum + (line.isGift ? 0 : safeKurus(line.unitPrice) * line.quantity),
@@ -138,13 +202,14 @@ export function OrderForm() {
           return;
         }
         startTransition(async () => {
-          const result = await createOrderAction({
+          const input: OrderSubmitInput = {
             customerId: customer.kind === 'existing' ? customer.id : undefined,
             newCustomerName: customer.kind === 'new' ? customer.name : undefined,
             orderDate,
             plannedDeliveryDate: plannedDeliveryDate || null,
             deliveryAddress: address,
             deliveryPhone: phone || undefined,
+            deliveryPhone2: phone2 || undefined,
             deliveryNotes: deliveryNotes || undefined,
             discount: discount || undefined,
             notes: notes || undefined,
@@ -152,17 +217,22 @@ export function OrderForm() {
               itemType: line.itemType,
               productId: line.productId,
               stockItemId: line.stockItemId,
+              // Serbest satirin adi kullanicinin yazdigi metin; katalogdan
+              // turetilecek bir sey yok.
+              description: line.itemType === 'custom' ? line.label : undefined,
               quantity: line.quantity,
               unitPrice: line.unitPrice,
               isGift: line.isGift,
             })),
-          });
+          };
+
+          const result = onSubmit ? await onSubmit(input) : await createOrderAction(input);
 
           if (!result.ok) {
-            toast.error(result.error ?? 'Siparis olusturulamadi.');
+            toast.error(result.error ?? 'Siparis kaydedilemedi.');
             return;
           }
-          toast.success('Siparis taslak olarak olusturuldu.');
+          toast.success(initial ? 'Siparis guncellendi.' : 'Siparis taslak olarak olusturuldu.');
           router.push(`/siparisler/${result.id}`);
           router.refresh();
         });
@@ -295,6 +365,21 @@ export function OrderForm() {
             />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="delivery-phone2">Ikinci telefon</Label>
+            <Input
+              id="delivery-phone2"
+              value={phone2}
+              onChange={(event) => setPhone2(event.target.value)}
+              placeholder="Es, ev ya da is numarasi"
+              className="h-11"
+            />
+            <p className="text-xs text-neutral-500">
+              Sofor birine ulasamazsa digerini arar.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
             <Label htmlFor="delivery-notes">Teslimat notu</Label>
             <Input
               id="delivery-notes"
@@ -317,6 +402,33 @@ export function OrderForm() {
           placeholder="Urun seti veya tek parca ara"
           className="h-11"
         />
+
+        {/* Katalogda olmayan urun. Bazen disaridan yaptiriliyor; stok karti
+            acmak zorunda kalmadan siparise yazilabilmeli. */}
+        <div className="flex gap-2">
+          <Input
+            value={customName}
+            onChange={(event) => setCustomName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                addCustomLine();
+              }
+            }}
+            placeholder="Stokta olmayan urun (disaridan yaptirilacak)"
+            aria-label="Stokta olmayan urun adi"
+            className="h-11 flex-1"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 whitespace-nowrap"
+            disabled={customName.trim() === ''}
+            onClick={addCustomLine}
+          >
+            Satir ekle
+          </Button>
+        </div>
 
         {productHits.length > 0 || stockHits.length > 0 ? (
           <div className="max-h-64 overflow-y-auto rounded-lg border border-neutral-200 bg-white">
@@ -397,9 +509,15 @@ export function OrderForm() {
               >
                 <span className="min-w-0 flex-1 text-sm">
                   {line.label}
-                  <span className="ml-2 text-xs text-neutral-400">
-                    {line.itemType === 'product' ? 'set' : 'parca'}
-                  </span>
+                  {line.itemType === 'custom' ? (
+                    <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-800">
+                      stok disi
+                    </span>
+                  ) : (
+                    <span className="ml-2 text-xs text-neutral-400">
+                      {line.itemType === 'product' ? 'set' : 'parca'}
+                    </span>
+                  )}
                 </span>
                 <QuantityInput
                   value={line.quantity}
@@ -510,7 +628,7 @@ export function OrderForm() {
         disabled={pending || lines.length === 0 || !customer}
         className="h-11 w-full sm:w-auto"
       >
-        {pending ? 'Kaydediliyor...' : 'Taslak siparisi olustur'}
+        {pending ? 'Kaydediliyor...' : (submitLabel ?? 'Taslak siparisi olustur')}
       </Button>
       <p className="text-xs text-neutral-500">
         Taslak siparis stogu etkilemez. Onayladiginizda malzemeler rezerve edilir.

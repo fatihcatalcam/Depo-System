@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { customers, orderLineComponents, orderLines, orders, stockItems } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { isInScope, type Scope } from '@/domain/scope';
@@ -35,7 +35,12 @@ export async function getReservedQuantities(
 ): Promise<Map<string, number>> {
   if (stockItemIds && stockItemIds.length === 0) return new Map();
 
-  const conditions = [inArray(orders.status, [...RESERVING_STATUSES])];
+  // Serbest satirlarin (katalogda olmayan urun) stok karti yok; rezervasyon
+  // hesabina hic girmemeleri gerekiyor, yoksa gruplama null bir anahtar uretir.
+  const conditions = [
+    inArray(orders.status, [...RESERVING_STATUSES]),
+    isNotNull(orderLineComponents.stockItemId),
+  ];
   if (stockItemIds) {
     conditions.push(inArray(orderLineComponents.stockItemId, stockItemIds));
   }
@@ -51,7 +56,7 @@ export async function getReservedQuantities(
     .where(and(...conditions))
     .groupBy(orderLineComponents.stockItemId);
 
-  return new Map(rows.map((row) => [row.stockItemId, Number(row.reserved)]));
+  return new Map(rows.map((row) => [row.stockItemId as string, Number(row.reserved)]));
 }
 
 export interface ReservationLine {

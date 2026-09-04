@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
 import { listDeliveriesForOrder } from '@/domain/orders/deliveries';
 import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
@@ -60,7 +61,19 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
             {ORDER_STATUS_LABELS[order.status]}
           </p>
         </div>
-        <OrderActions orderId={order.id} status={order.status} />
+        <div className="flex items-center gap-2">
+          {order.status === 'draft' ||
+          order.status === 'confirmed' ||
+          order.status === 'partially_delivered' ? (
+            <Link
+              href={`/siparisler/${order.id}/duzenle`}
+              className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
+            >
+              Duzenle
+            </Link>
+          ) : null}
+          <OrderActions orderId={order.id} status={order.status} />
+        </div>
       </div>
 
       <section className="rounded-lg border border-neutral-200 bg-white p-4 text-sm">
@@ -101,6 +114,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
             plannedDeliveryDate={order.plannedDeliveryDate}
             deliveryAddress={order.deliveryAddress}
             deliveryPhone={order.deliveryPhone}
+            deliveryPhone2={order.deliveryPhone2}
             deliveryNotes={order.deliveryNotes}
           />
         ) : null}
