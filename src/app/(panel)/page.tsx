@@ -48,7 +48,11 @@ export default async function AnaSayfa() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card label="Bugun teslimat" value={String(todaysDeliveries.length)} href="/siparisler" />
-        <Card label="Bekleyen siparis" value={String(active.length)} href="/siparisler" />
+        <Card
+          label="Bekleyen siparis"
+          value={String(active.length)}
+          href="/siparisler/bekleyen"
+        />
         <Card
           label="Kalan alacak"
           value={formatKurus(openBalance)}

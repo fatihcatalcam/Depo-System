@@ -19,6 +19,8 @@ export interface AddPaymentInput {
   orderId: string;
   amountKurus: number;
   method: PaymentMethod;
+  /** Kapora: mal teslim edilmeden once alinan ucret. */
+  isDeposit?: boolean;
   /** ISO tarih (YYYY-MM-DD). */
   paidAt: string;
   notes?: string | null;
@@ -51,11 +53,18 @@ export async function addPayment(
     .where(and(eq(orders.id, input.orderId), eq(orders.branchId, branch.id)));
   if (!order) throw new NotFoundError('Siparis');
 
-  if (order.status === 'draft') {
+  // Taslak siparise odeme eklenmez — ama kapora istisna. Musteri parayi
+  // siparisi verirken birakiyor; siparis o anda henuz onaylanmamis oluyor.
+  // Yasak, mal cikmadan once yazilan siradan tahsilatlari kastediyor.
+  if (order.status === 'draft' && !input.isDeposit) {
     throw new DomainError(
-      'Taslak siparise odeme eklenemez, once siparisi onaylayin.',
+      'Taslak siparise yalnizca kapora eklenebilir. Once siparisi onaylayin.',
       'INVALID_STATUS',
     );
+  }
+
+  if (order.status === 'cancelled') {
+    throw new DomainError('Iptal edilmis siparise odeme eklenemez.', 'INVALID_STATUS');
   }
 
   const [payment] = await db
@@ -64,6 +73,7 @@ export async function addPayment(
       orderId: input.orderId,
       amountKurus: input.amountKurus,
       method: input.method,
+      isDeposit: input.isDeposit ?? false,
       paidAt: input.paidAt,
       notes: input.notes?.trim() || null,
     })

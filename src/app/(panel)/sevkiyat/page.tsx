@@ -7,6 +7,7 @@ import { currentUser } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { DatePicker } from './date-picker';
+import { DeliverStopButton } from './deliver-stop-button';
 
 interface PageProps {
   searchParams: Promise<{ tarih?: string }>;
@@ -93,16 +94,24 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
             <h2 className="text-sm font-semibold">Duraklar</h2>
             {shipment.stops.map((stop, index) => (
               <div key={stop.orderId} className="rounded-lg border border-neutral-200 bg-white p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-medium">
                     {index + 1}. {stop.customerName}
+                    <Link
+                      href={`/siparisler/${stop.orderId}`}
+                      className="ml-2 text-xs font-normal text-neutral-500 hover:underline"
+                    >
+                      {stop.orderNo}
+                    </Link>
                   </span>
-                  <Link
-                    href={`/siparisler/${stop.orderId}`}
-                    className="text-xs text-neutral-500 hover:underline"
-                  >
-                    {stop.orderNo}
-                  </Link>
+                  {/* Yonetici teslimat kaydedemez (sube isi); dugmeyi gostermiyoruz. */}
+                  {user.isAdmin ? null : (
+                    <DeliverStopButton
+                      orderId={stop.orderId}
+                      customerName={stop.customerName}
+                      pieces={stop.items.reduce((sum, item) => sum + item.quantity, 0)}
+                    />
+                  )}
                 </div>
                 <p className="text-sm text-neutral-600">{stop.deliveryAddress}</p>
                 <p className="text-sm font-semibold tabular-nums text-neutral-800">

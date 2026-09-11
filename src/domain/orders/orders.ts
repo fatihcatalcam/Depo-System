@@ -63,13 +63,39 @@ export interface OrderLineInput {
   isGift?: boolean;
 }
 
+/**
+ * Fatura bilgisi. Hepsi istege bagli: cogu siparis faturasiz gidiyor, fatura
+ * isteyen musteri icin sonradan dolduruluyor.
+ */
+export interface InvoiceInput {
+  /** Fatura unvani: sahis adi ya da sirket unvani. */
+  invoiceTitle?: string | null;
+  invoiceTaxOffice?: string | null;
+  /** Sirkette VKN, sahista TCKN. Tek alanda tutuluyor. */
+  invoiceTaxNumber?: string | null;
+  invoiceAddress?: string | null;
+  /** Fatura kesildikten sonra girilir. */
+  invoiceNo?: string | null;
+  /** ISO tarih (YYYY-MM-DD). */
+  invoiceDate?: string | null;
+}
+
+/** Kapora: siparis alinirken pesin alinan ucret. */
+export interface DepositInput {
+  amountKurus: number;
+  method: 'nakit' | 'havale' | 'kart' | 'cek';
+  /** ISO tarih (YYYY-MM-DD). Bos birakilirsa siparis tarihi kullanilir. */
+  paidAt?: string;
+  notes?: string | null;
+}
+
 export interface NewCustomerInput {
   name: string;
   phone?: string | null;
   address?: string | null;
 }
 
-export interface CreateOrderInput {
+export interface CreateOrderInput extends InvoiceInput {
   /** Kayitli musteri. Yoksa `newCustomer` verilmeli. */
   customerId?: string;
   /**
@@ -87,6 +113,13 @@ export interface CreateOrderInput {
   deliveryPhone2?: string | null;
   deliveryNotes?: string | null;
   discountKurus?: number;
+  /**
+   * Elle yazilan genel toplam. Verilirse iskonto ve satir fiyatlari toplami
+   * yok sayilir; musteriye soylenen rakam budur.
+   */
+  manualTotalKurus?: number | null;
+  /** Siparis alinirken pesin alinan ucret; ayni transaction'a yazilir. */
+  deposit?: DepositInput | null;
   notes?: string | null;
   lines: OrderLineInput[];
 }
@@ -111,7 +144,7 @@ export async function createOrder(
       year: Number(input.orderDate.slice(0, 4)),
     });
     const resolved = await resolveLines(tx, input.lines);
-    const totals = computeTotals(resolved, input.discountKurus ?? 0);
+    const totals = computeTotals(resolved, input.discountKurus ?? 0, input.manualTotalKurus);
 
     const [order] = await tx
       .insert(orders)
@@ -126,18 +159,75 @@ export async function createOrder(
         deliveryPhone2: input.deliveryPhone2?.trim() || null,
         deliveryNotes: input.deliveryNotes?.trim() || null,
         notes: input.notes?.trim() || null,
-        discountKurus: input.discountKurus ?? 0,
+        discountKurus: totals.discount,
         subtotalKurus: totals.subtotal,
+        manualTotalKurus: totals.manualTotal,
         totalKurus: totals.total,
+        ...invoiceValues(input),
       })
       .returning();
 
     await insertLines(tx, order.id, resolved);
+
+    if (input.deposit && input.deposit.amountKurus > 0) {
+      // Kapora siparisle ayni transaction'a yaziliyor. Taslak siparise odeme
+      // eklenmesi normalde yasak — ama kapora tam olarak bunun icin var:
+      // musteri parayi siparis verirken birakiyor, siparis henuz onaylanmamis
+      // oluyor. Yasak, sonradan gelen odemeleri kastediyor.
+      const deposit = input.deposit;
+      if (!Number.isInteger(deposit.amountKurus) || deposit.amountKurus <= 0) {
+        throw new DomainError('Kapora tutari sifirdan buyuk olmali.', 'INVALID_AMOUNT');
+      }
+      if (deposit.amountKurus > totals.total) {
+        throw new DomainError('Kapora siparis tutarindan buyuk olamaz.', 'INVALID_AMOUNT');
+      }
+      await tx.insert(payments).values({
+        orderId: order.id,
+        amountKurus: deposit.amountKurus,
+        method: deposit.method,
+        isDeposit: true,
+        paidAt: deposit.paidAt ?? input.orderDate,
+        notes: deposit.notes?.trim() || null,
+      });
+    }
+
     return order;
   });
 }
 
-export interface UpdateOrderInput {
+/**
+ * Fatura alanlarinin kismi guncellemesi: yalnizca gonderilenler degisir.
+ * Gonderilmeyeni null'a cevirseydik, teslimat planini duzenlemek faturayi
+ * silerdi.
+ */
+function invoicePatch(existing: Order, input: InvoiceInput) {
+  const pick = (value: string | null | undefined, current: string | null) =>
+    value !== undefined ? value?.trim() || null : current;
+
+  return {
+    invoiceTitle: pick(input.invoiceTitle, existing.invoiceTitle),
+    invoiceTaxOffice: pick(input.invoiceTaxOffice, existing.invoiceTaxOffice),
+    invoiceTaxNumber: pick(input.invoiceTaxNumber, existing.invoiceTaxNumber),
+    invoiceAddress: pick(input.invoiceAddress, existing.invoiceAddress),
+    invoiceNo: pick(input.invoiceNo, existing.invoiceNo),
+    invoiceDate:
+      input.invoiceDate !== undefined ? input.invoiceDate || null : existing.invoiceDate,
+  };
+}
+
+/** Bos metinleri null'a cevirip fatura alanlarini tek yerden hazirlar. */
+function invoiceValues(input: InvoiceInput) {
+  return {
+    invoiceTitle: input.invoiceTitle?.trim() || null,
+    invoiceTaxOffice: input.invoiceTaxOffice?.trim() || null,
+    invoiceTaxNumber: input.invoiceTaxNumber?.trim() || null,
+    invoiceAddress: input.invoiceAddress?.trim() || null,
+    invoiceNo: input.invoiceNo?.trim() || null,
+    invoiceDate: input.invoiceDate || null,
+  };
+}
+
+export interface UpdateOrderInput extends InvoiceInput {
   /** ISO tarih (YYYY-MM-DD). */
   orderDate?: string;
   plannedDeliveryDate?: string | null;
@@ -146,6 +236,11 @@ export interface UpdateOrderInput {
   deliveryPhone2?: string | null;
   deliveryNotes?: string | null;
   discountKurus?: number;
+  /**
+   * Elle yazilan genel toplam. `null` gonderilirse otomatik hesaba donulur
+   * (satir toplami eksi iskonto); gonderilmezse mevcut deger korunur.
+   */
+  manualTotalKurus?: number | null;
   notes?: string | null;
   /** Verilirse satirlar tamamen bununla degistirilir. */
   lines?: OrderLineInput[];
@@ -184,14 +279,14 @@ export async function updateOrder(
       await tx.delete(orderLines).where(eq(orderLines.orderId, id));
       await insertLines(tx, id, resolved);
       if (existing.status !== 'draft') await freezeComponents(tx, id);
-      subtotal = computeTotals(resolved, 0).subtotal;
+      subtotal = sumLines(resolved);
     }
 
-    const discount = input.discountKurus ?? existing.discountKurus;
-    if (discount < 0) throw new DomainError('Iskonto negatif olamaz.', 'INVALID_DISCOUNT');
-    if (discount > subtotal) {
-      throw new DomainError('Iskonto ara toplamdan buyuk olamaz.', 'INVALID_DISCOUNT');
-    }
+    const totals = resolveTotals(
+      subtotal,
+      input.discountKurus ?? existing.discountKurus,
+      input.manualTotalKurus !== undefined ? input.manualTotalKurus : existing.manualTotalKurus,
+    );
 
     const [order] = await tx
       .update(orders)
@@ -215,9 +310,11 @@ export async function updateOrder(
             ? input.deliveryNotes?.trim() || null
             : existing.deliveryNotes,
         notes: input.notes !== undefined ? input.notes?.trim() || null : existing.notes,
-        discountKurus: discount,
-        subtotalKurus: subtotal,
-        totalKurus: subtotal - discount,
+        discountKurus: totals.discount,
+        subtotalKurus: totals.subtotal,
+        manualTotalKurus: totals.manualTotal,
+        totalKurus: totals.total,
+        ...invoicePatch(existing, input),
         updatedAt: sql`now()`,
       })
       .where(eq(orders.id, id))
@@ -349,6 +446,8 @@ export interface OrderDetail extends Order {
   customerPhone: string | null;
   lines: OrderLineDetail[];
   paidKurus: number;
+  /** Odenenin kapora olarak alinmis kismi; kagitta ayri satirda gosteriliyor. */
+  depositKurus: number;
   balanceKurus: number;
   paymentStatus: PaymentStatus;
 }
@@ -396,7 +495,10 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
     ),
   );
 
-  const paidKurus = await getPaidTotal(db, id);
+  const [paidKurus, depositKurus] = await Promise.all([
+    getPaidTotal(db, id),
+    getDepositTotal(db, id),
+  ]);
   const balanceKurus = row.order.totalKurus - paidKurus;
 
   return {
@@ -404,6 +506,7 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     paidKurus,
+    depositKurus,
     balanceKurus,
     paymentStatus: derivePaymentStatus(row.order.totalKurus, paidKurus),
     lines: lines.map((line) => ({
@@ -517,6 +620,15 @@ export async function getPaidTotal(db: DbOrTx, orderId: string): Promise<number>
     .select({ total: sql<number>`coalesce(sum(${payments.amountKurus}), 0)::bigint` })
     .from(payments)
     .where(eq(payments.orderId, orderId));
+  return Number(row?.total ?? 0);
+}
+
+/** Yalnizca kapora olarak isaretlenmis odemelerin toplami. */
+export async function getDepositTotal(db: DbOrTx, orderId: string): Promise<number> {
+  const [row] = await db
+    .select({ total: sql<number>`coalesce(sum(${payments.amountKurus}), 0)::bigint` })
+    .from(payments)
+    .where(and(eq(payments.orderId, orderId), eq(payments.isDeposit, true)));
   return Number(row?.total ?? 0);
 }
 
@@ -724,13 +836,48 @@ async function assertNothingDelivered(tx: Tx, orderId: string) {
   }
 }
 
-function computeTotals(lines: ResolvedLine[], discountKurus: number) {
-  const subtotal = lines.reduce((sum, line) => sum + line.lineTotalKurus, 0);
+function sumLines(lines: ResolvedLine[]): number {
+  return lines.reduce((sum, line) => sum + line.lineTotalKurus, 0);
+}
+
+/**
+ * Siparis toplamlarinin tek hesaplandigi yer.
+ *
+ * Iki mod var ve ikisi ayni anda anlamli degil: ya satirlar fiyatlandirilir ve
+ * iskonto dusulur, ya da genel toplam elle yazilir. Elle yazildiginda iskonto
+ * sifirlanir — aksi halde ayni indirimi iki kere ifade etmis olurduk ve
+ * hangisinin dogru oldugu belirsiz kalirdi.
+ */
+function computeTotals(
+  lines: ResolvedLine[],
+  discountKurus: number,
+  manualTotalKurus?: number | null,
+) {
+  return resolveTotals(sumLines(lines), discountKurus, manualTotalKurus);
+}
+
+function resolveTotals(
+  subtotal: number,
+  discountKurus: number,
+  manualTotalKurus?: number | null,
+) {
+  if (manualTotalKurus != null) {
+    if (!Number.isInteger(manualTotalKurus) || manualTotalKurus < 0) {
+      throw new DomainError('Genel toplam negatif olamaz.', 'INVALID_TOTAL');
+    }
+    return { subtotal, discount: 0, manualTotal: manualTotalKurus, total: manualTotalKurus };
+  }
+
   if (discountKurus < 0) throw new DomainError('Iskonto negatif olamaz.', 'INVALID_DISCOUNT');
   if (discountKurus > subtotal) {
     throw new DomainError('Iskonto ara toplamdan buyuk olamaz.', 'INVALID_DISCOUNT');
   }
-  return { subtotal, total: subtotal - discountKurus };
+  return {
+    subtotal,
+    discount: discountKurus,
+    manualTotal: null,
+    total: subtotal - discountKurus,
+  };
 }
 
 function validateLines(lines: OrderLineInput[]) {

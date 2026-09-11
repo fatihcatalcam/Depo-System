@@ -55,6 +55,38 @@ function safeKurus(value: string): number {
   }
 }
 
+/** Fatura bilgisi: hepsi istege bagli, cogu siparis faturasiz gidiyor. */
+export interface InvoiceFields {
+  title: string;
+  taxOffice: string;
+  taxNumber: string;
+  address: string;
+  no: string;
+  date: string;
+}
+
+const EMPTY_INVOICE: InvoiceFields = {
+  title: '',
+  taxOffice: '',
+  taxNumber: '',
+  address: '',
+  no: '',
+  date: '',
+};
+
+function hasInvoice(invoice: InvoiceFields): boolean {
+  return Object.values(invoice).some((value) => value.trim() !== '');
+}
+
+const DEPOSIT_METHODS = {
+  nakit: 'Nakit',
+  havale: 'Havale / EFT',
+  kart: 'Kredi karti',
+  cek: 'Cek',
+} as const;
+
+type DepositMethod = keyof typeof DEPOSIT_METHODS;
+
 export interface OrderFormValues {
   customer: SelectedCustomer;
   orderDate: string;
@@ -64,6 +96,9 @@ export interface OrderFormValues {
   phone2: string;
   deliveryNotes: string;
   discount: string;
+  /** Bos ise genel toplam satirlardan hesaplanir. */
+  manualTotal: string;
+  invoice: InvoiceFields;
   notes: string;
   lines: LineRow[];
 }
@@ -85,6 +120,15 @@ export interface OrderSubmitInput {
   deliveryPhone2?: string;
   deliveryNotes?: string;
   discount?: string;
+  manualTotal?: string;
+  invoiceTitle?: string;
+  invoiceTaxOffice?: string;
+  invoiceTaxNumber?: string;
+  invoiceAddress?: string;
+  invoiceNo?: string;
+  invoiceDate?: string;
+  /** Yalnizca yeni sipariste: pesin alinan ucret. */
+  deposit?: { amount: string; method: DepositMethod };
   notes?: string;
   lines: {
     itemType: 'product' | 'stock_item' | 'custom';
@@ -112,6 +156,10 @@ export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {
   const [phone2, setPhone2] = useState(initial?.phone2 ?? '');
   const [deliveryNotes, setDeliveryNotes] = useState(initial?.deliveryNotes ?? '');
   const [discount, setDiscount] = useState(initial?.discount ?? '');
+  const [manualTotal, setManualTotal] = useState(initial?.manualTotal ?? '');
+  const [invoice, setInvoice] = useState<InvoiceFields>(initial?.invoice ?? EMPTY_INVOICE);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositMethod, setDepositMethod] = useState<DepositMethod>('nakit');
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [lines, setLines] = useState<LineRow[]>(initial?.lines ?? []);
   const [customName, setCustomName] = useState('');
@@ -190,7 +238,12 @@ export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {
     0,
   );
   const discountKurus = safeKurus(discount);
-  const total = Math.max(0, subtotal - discountKurus);
+  const autoTotal = Math.max(0, subtotal - discountKurus);
+  // Bos alan "satirlardan hesapla" demek; dolu alan "musteriye soylenen rakam
+  // bu" demek. Iki mod ayni anda gecerli degil.
+  const manualTotalKurus = manualTotal.trim() === '' ? null : safeKurus(manualTotal);
+  const total = manualTotalKurus ?? autoTotal;
+  const depositKurus = safeKurus(depositAmount);
 
   return (
     <form
@@ -212,6 +265,21 @@ export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {
             deliveryPhone2: phone2 || undefined,
             deliveryNotes: deliveryNotes || undefined,
             discount: discount || undefined,
+            // Her zaman gonderiliyor: bos string "otomatige don" demek.
+            // Gondermeseydik elle yazilan toplam silinemezdi.
+            manualTotal,
+            invoiceTitle: invoice.title,
+            invoiceTaxOffice: invoice.taxOffice,
+            invoiceTaxNumber: invoice.taxNumber,
+            invoiceAddress: invoice.address,
+            invoiceNo: invoice.no,
+            invoiceDate: invoice.date,
+            // Kapora yalnizca yeni sipariste alinir; sonrakiler odeme
+            // panelinden girilir.
+            deposit:
+              !initial && depositKurus > 0
+                ? { amount: depositAmount, method: depositMethod }
+                : undefined,
             notes: notes || undefined,
             lines: lines.map((line) => ({
               itemType: line.itemType,
@@ -604,14 +672,175 @@ export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {
             value={discount}
             onChange={(event) => setDiscount(event.target.value)}
             placeholder="0,00"
-            className="h-10 w-32 text-right"
+            // Genel toplam elle yazildiginda iskonto anlamini yitirir: ayni
+            // indirimi iki kere ifade etmis olurduk.
+            disabled={manualTotalKurus !== null}
+            className="h-10 w-32 text-right disabled:bg-neutral-50 disabled:text-neutral-400"
           />
         </div>
-        <div className="flex items-center justify-between border-t border-neutral-200 pt-3 text-base font-semibold">
-          <span>Genel toplam</span>
-          <span className="tabular-nums">{formatKurus(total)}</span>
+
+        {/* Satirlari tek tek fiyatlandirmak zorunlu degil: musteriye cogu
+            zaman "hepsi su kadar" deniyor. Bos birakilirsa satirlardan
+            hesaplanir. */}
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-200 pt-3">
+          <Label htmlFor="manual-total" className="text-base font-semibold">
+            Genel toplam
+          </Label>
+          <div className="flex items-center gap-2">
+            {manualTotalKurus !== null ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 px-2 text-xs"
+                onClick={() => setManualTotal('')}
+              >
+                Otomatige don
+              </Button>
+            ) : null}
+            <Input
+              id="manual-total"
+              value={manualTotal}
+              onChange={(event) => setManualTotal(event.target.value)}
+              placeholder={kurusToTl(autoTotal).toFixed(2).replace('.', ',')}
+              aria-label="Genel toplam"
+              className="h-11 w-40 text-right text-base font-semibold"
+            />
+          </div>
         </div>
+        <p className="text-right text-xs text-neutral-500">
+          {manualTotalKurus !== null
+            ? `Elle yazildi - satir toplami ${formatKurus(subtotal)}`
+            : 'Bos birakirsaniz satirlardan hesaplanir.'}
+        </p>
       </section>
+
+      {/* Kapora: musteri parayi siparisi verirken birakiyor. Siparisle ayni
+          anda kaydediliyor ki "aldik mi almadik mi" sorusu hic dogmasin. */}
+      {initial ? null : (
+        <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
+          <h2 className="text-sm font-semibold">Alinan ucret (kapora)</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="deposit-amount">Tutar</Label>
+              <Input
+                id="deposit-amount"
+                value={depositAmount}
+                onChange={(event) => setDepositAmount(event.target.value)}
+                placeholder="0,00"
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="deposit-method">Yontem</Label>
+              <select
+                id="deposit-method"
+                value={depositMethod}
+                onChange={(event) => setDepositMethod(event.target.value as DepositMethod)}
+                className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm"
+              >
+                {Object.entries(DEPOSIT_METHODS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {depositKurus > 0 ? (
+            <p className="text-sm text-neutral-600">
+              Kalan:{' '}
+              <strong className="tabular-nums">
+                {formatKurus(Math.max(0, total - depositKurus))}
+              </strong>
+            </p>
+          ) : (
+            <p className="text-xs text-neutral-500">
+              Pesin alinan yoksa bos birakin. Sonraki tahsilatlar siparis
+              sayfasindaki odeme bolumunden girilir.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Fatura bilgisi siparisin anlik kopyasi: ayni musteri bir siparisi
+          sahsina, digerini sirketine kestirebiliyor. */}
+      <details
+        className="rounded-lg border border-neutral-200 bg-white p-4"
+        open={hasInvoice(invoice)}
+      >
+        <summary className="cursor-pointer list-none text-sm font-semibold">
+          Fatura bilgisi
+          <span className="ml-2 font-normal text-neutral-500">
+            {hasInvoice(invoice) ? 'dolu' : 'istege bagli'}
+          </span>
+        </summary>
+
+        <div className="mt-3 space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="invoice-title">Fatura unvani</Label>
+            <Input
+              id="invoice-title"
+              value={invoice.title}
+              onChange={(event) => setInvoice((v) => ({ ...v, title: event.target.value }))}
+              placeholder="Sahis adi ya da sirket unvani"
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice-tax-number">VKN / TCKN</Label>
+              <Input
+                id="invoice-tax-number"
+                value={invoice.taxNumber}
+                onChange={(event) => setInvoice((v) => ({ ...v, taxNumber: event.target.value }))}
+                inputMode="numeric"
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice-tax-office">Vergi dairesi</Label>
+              <Input
+                id="invoice-tax-office"
+                value={invoice.taxOffice}
+                onChange={(event) => setInvoice((v) => ({ ...v, taxOffice: event.target.value }))}
+                className="h-11"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="invoice-address">Fatura adresi</Label>
+            <Input
+              id="invoice-address"
+              value={invoice.address}
+              onChange={(event) => setInvoice((v) => ({ ...v, address: event.target.value }))}
+              placeholder="Teslimat adresinden farkliysa"
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice-no">Fatura no</Label>
+              <Input
+                id="invoice-no"
+                value={invoice.no}
+                onChange={(event) => setInvoice((v) => ({ ...v, no: event.target.value }))}
+                placeholder="Kesildikten sonra"
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice-date">Fatura tarihi</Label>
+              <Input
+                id="invoice-date"
+                type="date"
+                value={invoice.date}
+                onChange={(event) => setInvoice((v) => ({ ...v, date: event.target.value }))}
+                className="h-11"
+              />
+            </div>
+          </div>
+        </div>
+      </details>
 
       <div className="space-y-1.5">
         <Label htmlFor="order-notes">Siparis notu</Label>

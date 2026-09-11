@@ -19,21 +19,31 @@ interface Props {
   orderId: string;
   totalKurus: number;
   paidKurus: number;
+  /** Odenenin kapora olarak alinmis kismi. */
+  depositKurus: number;
   balanceKurus: number;
   payments: Payment[];
   canAddPayment: boolean;
+  /**
+   * Taslak sipariste yalnizca kapora alinabilir. Siradan tahsilat, mal
+   * cikmadan ve siparis onaylanmadan once yazilmamali.
+   */
+  depositOnly: boolean;
 }
 
 export function PaymentPanel({
   orderId,
   totalKurus,
   paidKurus,
+  depositKurus,
   balanceKurus,
   payments,
   canAddPayment,
+  depositOnly,
 }: Props) {
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('nakit');
+  const [isDeposit, setIsDeposit] = useState(depositOnly);
   const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [pending, startTransition] = useTransition();
@@ -48,6 +58,12 @@ export function PaymentPanel({
           <dt className="text-neutral-600">Siparis tutari</dt>
           <dd className="tabular-nums">{formatKurus(totalKurus)}</dd>
         </div>
+        {depositKurus > 0 ? (
+          <div className="flex justify-between">
+            <dt className="text-neutral-600">Alinan ucret (kapora)</dt>
+            <dd className="tabular-nums text-green-700">{formatKurus(depositKurus)}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between">
           <dt className="text-neutral-600">Odenen</dt>
           <dd className="tabular-nums text-green-700">{formatKurus(paidKurus)}</dd>
@@ -66,6 +82,11 @@ export function PaymentPanel({
             <li key={payment.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="min-w-0">
                 <span className="tabular-nums">{formatKurus(payment.amountKurus)}</span>
+                {payment.isDeposit ? (
+                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+                    Kapora
+                  </span>
+                ) : null}
                 <span className="ml-2 text-xs text-neutral-500">
                   {PAYMENT_METHOD_LABELS[payment.method]} ·{' '}
                   {dateFormatter.format(new Date(`${payment.paidAt}T00:00:00Z`))}
@@ -109,11 +130,12 @@ export function PaymentPanel({
               const result = await addPaymentAction(orderId, {
                 amount,
                 method,
+                isDeposit,
                 paidAt,
                 notes: notes || undefined,
               });
               if (result.ok) {
-                toast.success('Odeme kaydedildi.');
+                toast.success(isDeposit ? 'Kapora kaydedildi.' : 'Odeme kaydedildi.');
                 setAmount('');
                 setNotes('');
                 router.refresh();
@@ -176,6 +198,25 @@ export function PaymentPanel({
             </div>
           </div>
 
+          <label className="flex select-none items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isDeposit}
+              onChange={(event) => setIsDeposit(event.target.checked)}
+              // Taslak sipariste zaten tek secenek; kapatilamamasi kurali
+              // gorunur kiliyor.
+              disabled={depositOnly}
+              className="size-4 accent-neutral-900"
+            />
+            Alinan ucret (kapora)
+          </label>
+          {depositOnly ? (
+            <p className="text-xs text-neutral-500">
+              Siparis henuz taslak. Bu asamada yalnizca kapora alinabilir;
+              kalan tahsilat siparis onaylandiktan sonra girilir.
+            </p>
+          ) : null}
+
           <div className="space-y-1.5">
             <Label htmlFor="payment-notes">Not</Label>
             <Input
@@ -187,12 +228,12 @@ export function PaymentPanel({
           </div>
 
           <Button type="submit" disabled={pending} className="h-11 w-full">
-            {pending ? 'Kaydediliyor...' : 'Odeme ekle'}
+            {pending ? 'Kaydediliyor...' : isDeposit ? 'Kapora ekle' : 'Odeme ekle'}
           </Button>
         </form>
       ) : (
         <p className="border-t border-neutral-200 pt-3 text-xs text-neutral-500">
-          Taslak siparise odeme eklenemez. Once siparisi onaylayin.
+          Iptal edilmis siparise odeme eklenemez.
         </p>
       )}
     </div>

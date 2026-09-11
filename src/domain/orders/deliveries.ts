@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   deliveries,
   deliveryLines,
@@ -181,6 +181,64 @@ export async function createDelivery(
     await recalcOrderStatus(tx, input.orderId);
 
     return delivery;
+  });
+}
+
+export interface DeliverRemainingOptions {
+  deliveredBy?: string | null;
+  receiverName?: string | null;
+  idempotencyKey?: string | null;
+  allowNegativeStock?: boolean;
+}
+
+/**
+ * Sipariste teslim edilmemis ne varsa hepsini tek hamlede teslim eder.
+ *
+ * Sevkiyat ekranindaki "Teslim edildi" dugmesinin karsiligi: arac dondugunde
+ * durak durak parca isaretlemek yerine tek tiklama. Kismi teslimat gerektiginde
+ * siparis detayindaki ayrintili form kullanilmaya devam ediyor.
+ *
+ * Okuma ve yazma ayni transaction icinde: arada baska bir teslimat girilirse
+ * iki kere dusmus olmayalim.
+ */
+export async function deliverRemaining(
+  db: DbOrTx,
+  scope: Scope,
+  orderId: string,
+  options: DeliverRemainingOptions = {},
+): Promise<Delivery> {
+  return runInTransaction(db, async (tx) => {
+    const rows = await tx
+      .select({
+        id: orderLineComponents.id,
+        remaining: sql<number>`(${orderLineComponents.totalQuantity} - ${orderLineComponents.deliveredQuantity})::int`,
+      })
+      .from(orderLineComponents)
+      .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
+      .innerJoin(orders, eq(orders.id, orderLines.orderId))
+      .where(
+        and(
+          eq(orderLines.orderId, orderId),
+          scopeFilter(scope, orders.branchId),
+          sql`${orderLineComponents.totalQuantity} > ${orderLineComponents.deliveredQuantity}`,
+        ),
+      );
+
+    if (rows.length === 0) {
+      throw new DomainError('Bu sipariste teslim edilecek parca kalmadi.', 'NOTHING_TO_DELIVER');
+    }
+
+    return createDelivery(tx, scope, {
+      orderId,
+      deliveredBy: options.deliveredBy,
+      receiverName: options.receiverName,
+      idempotencyKey: options.idempotencyKey,
+      allowNegativeStock: options.allowNegativeStock,
+      lines: rows.map((row) => ({
+        orderLineComponentId: row.id,
+        quantity: Number(row.remaining),
+      })),
+    });
   });
 }
 

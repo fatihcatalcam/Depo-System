@@ -24,6 +24,14 @@ export function EditOrderForm({ orderId, initial, linesLocked }: Props) {
       deliveryPhone2: input.deliveryPhone2 ?? '',
       deliveryNotes: input.deliveryNotes ?? '',
       discount: input.discount ?? '',
+      // Bos string bilerek gonderiliyor: "otomatik hesaba don" demek.
+      manualTotal: input.manualTotal ?? '',
+      invoiceTitle: input.invoiceTitle ?? '',
+      invoiceTaxOffice: input.invoiceTaxOffice ?? '',
+      invoiceTaxNumber: input.invoiceTaxNumber ?? '',
+      invoiceAddress: input.invoiceAddress ?? '',
+      invoiceNo: input.invoiceNo ?? '',
+      invoiceDate: input.invoiceDate ?? '',
       notes: input.notes ?? '',
       // Teslimat baslamissa satirlari hic gondermiyoruz: alan katmani zaten
       // reddederdi, ama gondermemek hatayi bastan onluyor ve kullanicinin

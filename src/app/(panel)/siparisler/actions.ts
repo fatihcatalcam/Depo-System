@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { db } from '@/db/client';
 import { listProducts } from '@/domain/catalog/products';
 import { searchStockItems } from '@/domain/catalog/stock-items';
-import { createDelivery } from '@/domain/orders/deliveries';
+import { createDelivery, deliverRemaining } from '@/domain/orders/deliveries';
 import {
   cancelOrder,
   confirmOrder,
@@ -40,6 +40,9 @@ function toResult(error: unknown): ActionResult {
 
 function refresh(orderId?: string) {
   revalidatePath('/siparisler');
+  revalidatePath('/siparisler/bekleyen');
+  // Teslimat ve iptal gunluk sevkiyat listesini de degistiriyor.
+  revalidatePath('/sevkiyat');
   revalidatePath('/stok');
   revalidatePath('/');
   if (orderId) revalidatePath(`/siparisler/${orderId}`);
@@ -56,7 +59,32 @@ const lineSchema = z.object({
   isGift: z.boolean().optional(),
 });
 
+/** Fatura alanlari hem olusturmada hem duzenlemede ayni. */
+const invoiceShape = {
+  invoiceTitle: z.string().optional(),
+  invoiceTaxOffice: z.string().optional(),
+  invoiceTaxNumber: z.string().optional(),
+  invoiceAddress: z.string().optional(),
+  invoiceNo: z.string().optional(),
+  invoiceDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fatura tarihi gecersiz.')
+    .or(z.literal(''))
+    .optional(),
+};
+
+/**
+ * Bos metin "otomatik hesapla" demek, gonderilmemesi "dokunma" demek.
+ * Ikisini ayirmak sart: teslimat planini duzenlemek elle yazilan toplami
+ * silmemeli.
+ */
+function parseManualTotal(value: string | undefined): number | null | undefined {
+  if (value === undefined) return undefined;
+  return value.trim() === '' ? null : parseTlInput(value);
+}
+
 const orderSchema = z.object({
+  ...invoiceShape,
   // Ikisinden biri: kayitli musteri ya da yeni musteri adi.
   customerId: z.uuid().optional(),
   newCustomerName: z.string().optional(),
@@ -67,6 +95,14 @@ const orderSchema = z.object({
   deliveryPhone2: z.string().optional(),
   deliveryNotes: z.string().optional(),
   discount: z.string().optional(),
+  manualTotal: z.string().optional(),
+  /** Siparis alinirken pesin alinan ucret. */
+  deposit: z
+    .object({
+      amount: z.string().min(1),
+      method: z.enum(['nakit', 'havale', 'kart', 'cek']),
+    })
+    .optional(),
   notes: z.string().optional(),
   lines: z.array(lineSchema).min(1, 'En az bir satir ekleyin.'),
 });
@@ -100,6 +136,21 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
       deliveryNotes: parsed.data.deliveryNotes,
       notes: parsed.data.notes,
       discountKurus: parsed.data.discount ? parseTlInput(parsed.data.discount) : 0,
+      manualTotalKurus: parseManualTotal(parsed.data.manualTotal),
+      invoiceTitle: parsed.data.invoiceTitle,
+      invoiceTaxOffice: parsed.data.invoiceTaxOffice,
+      invoiceTaxNumber: parsed.data.invoiceTaxNumber,
+      invoiceAddress: parsed.data.invoiceAddress,
+      invoiceNo: parsed.data.invoiceNo,
+      invoiceDate: parsed.data.invoiceDate,
+      deposit: parsed.data.deposit
+        ? {
+            amountKurus: parseTlInput(parsed.data.deposit.amount),
+            method: parsed.data.deposit.method,
+            paidAt: parsed.data.orderDate,
+            notes: 'Kapora',
+          }
+        : null,
       lines: parsed.data.lines.map((line) => ({
         itemType: line.itemType,
         productId: line.productId ?? null,
@@ -125,6 +176,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
  * aksi halde adres degistirmek siparisin iskontosunu sifirlardi.
  */
 const orderPatchSchema = z.object({
+  ...invoiceShape,
   orderDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.')
@@ -139,6 +191,7 @@ const orderPatchSchema = z.object({
   deliveryPhone2: z.string().optional(),
   deliveryNotes: z.string().optional(),
   discount: z.string().optional(),
+  manualTotal: z.string().optional(),
   notes: z.string().optional(),
   lines: z.array(lineSchema).min(1, 'En az bir satir ekleyin.').optional(),
 });
@@ -158,6 +211,13 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
       notes: parsed.data.notes,
       discountKurus:
         parsed.data.discount !== undefined ? parseTlInput(parsed.data.discount || '0') : undefined,
+      manualTotalKurus: parseManualTotal(parsed.data.manualTotal),
+      invoiceTitle: parsed.data.invoiceTitle,
+      invoiceTaxOffice: parsed.data.invoiceTaxOffice,
+      invoiceTaxNumber: parsed.data.invoiceTaxNumber,
+      invoiceAddress: parsed.data.invoiceAddress,
+      invoiceNo: parsed.data.invoiceNo,
+      invoiceDate: parsed.data.invoiceDate,
       lines: parsed.data.lines?.map((line) => ({
         itemType: line.itemType,
         productId: line.productId ?? null,
@@ -222,9 +282,31 @@ export async function createDeliveryAction(
   }
 }
 
+/**
+ * Sevkiyat ekranindaki "Teslim edildi": sipariste kalan ne varsa hepsini
+ * teslim eder. Stok yetmiyorsa `needsStockOverride` ile geri doner, kullanici
+ * onaylarsa ayni cagri `allowNegativeStock` ile tekrarlanir.
+ */
+export async function deliverStopAction(
+  orderId: string,
+  input: { allowNegativeStock?: boolean; receiverName?: string } = {},
+): Promise<ActionResult> {
+  try {
+    const delivery = await deliverRemaining(db, await currentScope(), orderId, {
+      allowNegativeStock: input.allowNegativeStock ?? false,
+      receiverName: input.receiverName,
+    });
+    refresh(orderId);
+    return { ok: true, id: delivery.id };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
 const paymentSchema = z.object({
   amount: z.string().min(1, 'Tutar girin.'),
   method: z.enum(['nakit', 'havale', 'kart', 'cek']),
+  isDeposit: z.boolean().optional(),
   paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.'),
   notes: z.string().optional(),
 });
@@ -238,6 +320,7 @@ export async function addPaymentAction(orderId: string, input: unknown): Promise
       orderId,
       amountKurus: parseTlInput(parsed.data.amount),
       method: parsed.data.method,
+      isDeposit: parsed.data.isDeposit ?? false,
       paidAt: parsed.data.paidAt,
       notes: parsed.data.notes,
     });

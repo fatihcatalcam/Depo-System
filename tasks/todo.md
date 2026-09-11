@@ -141,3 +141,33 @@ Plan yürütülürken düzeltilen sapmalar planın kendisine işlendi; en öneml
 Next.js 16'da `middleware.ts` → `proxy.ts`, hareket defterine monoton `seq` sütunu,
 panel rotalarının `force-dynamic` yapılması (statik üretim stok rakamlarını donduruyordu),
 shadcn Button'ın Base UI tabanlı olması nedeniyle `asChild` yerine `buttonVariants`.
+
+## Plan 7 — El notundaki yedi madde — tamamlandi (2026-09-11)
+
+- [x] 1. Bekleyen siparisler ekrani: her musterinin bekleyen urunleri acilir liste
+- [x] 2. Ayni ekranda "tum bekleyen urunler" toplu dokumu (eksik stok uyarisiyla)
+- [x] 3. Siparis formuna "Alinan ucret (kapora)"; odemede kapora etiketi
+- [x] 4. Sevkiyat durak kartina "Teslim edildi" butonu (kalan her seyi teslim et, stoktan dus)
+- [x] 5. Siparis formuna fatura bilgisi bolumu (unvan, VKN/TCKN, vergi dairesi, adres, fatura no/tarihi)
+- [x] 6. Siparis listesinden "Taslak" filtresini kaldir
+- [x] 7. Satir fiyati zorunlu degil; genel toplam elle yazilabilir
+
+### Notlar
+
+- **Elle yazilan toplam ayri sutunda** (`orders.manual_total_kurus`). Iskontoyla
+  ifade edilemezdi: iskonto ara toplamdan buyuk olamaz, satirlar fiyatsizken ara
+  toplam sifir kaliyor. Dolu oldugunda iskonto sifirlaniyor — ayni indirimi iki
+  kere ifade etmemek icin. Musteriye giden kagitta birim/tutar sutunlari hic
+  basilmiyor; bir sutun dolusu "0,00 TL" yerine tek toplam kaliyor.
+- **Kapora taslak siparise eklenebilen tek odeme.** Musteri parayi siparisi
+  verirken birakiyor, siparis o anda henuz onaylanmamis oluyor. Siradan tahsilat
+  yasagi duruyor.
+- **Fatura bilgisi siparisin anlik kopyasi**, musteri kartina bagli degil: ayni
+  musteri bir siparisi sahsina, digerini sirketine kestirebiliyor. Kismi
+  guncelleme: gonderilmeyen alan silinmiyor, yoksa fatura no girmek unvani
+  silerdi.
+- **"Teslim edildi" kalan her bileseni tek islemde teslim ediyor**; okuma ve
+  yazma ayni transaction'da, arada baska teslimat girilirse iki kere dusmesin
+  diye. Stok yetmiyorsa reddediyor ve kullaniciya soruyor.
+- Bekleyen dokumunde serbest satirlarin eksik hesabi yapilmiyor: takip edilen
+  bir stoklari yok.

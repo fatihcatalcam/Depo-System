@@ -22,6 +22,14 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
 
   const payments = await listPayments(db, scope, id);
 
+  /**
+   * Genel toplam elle yazildiysa satir fiyatlari anlamsizdir — cogu zaman
+   * hepsi sifirdir. Musteriye giden kagitta bir sutun dolusu "0,00 TL"
+   * basmaktansa sutunlari hic gostermiyoruz: kagitta ne geldigi ve tek bir
+   * toplam kaliyor.
+   */
+  const showLinePrices = order.manualTotalKurus == null;
+
   return (
     <>
       <PrintHeader title="Siparis Formu" subtitle={order.orderNo} />
@@ -60,13 +68,38 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
         </div>
       </section>
 
+      {/* Fatura bilgisi cogu sipariste bos; girilmisse kagida da gecmeli. */}
+      {order.invoiceTitle || order.invoiceNo ? (
+        <section className="mb-4 border-t border-neutral-300 pt-2 text-sm">
+          <div className="text-xs font-semibold uppercase text-neutral-600">Fatura bilgisi</div>
+          <div>
+            {order.invoiceTitle ?? '—'}
+            {order.invoiceTaxNumber ? ` · ${order.invoiceTaxNumber}` : ''}
+            {order.invoiceTaxOffice ? ` · ${order.invoiceTaxOffice}` : ''}
+          </div>
+          {order.invoiceAddress ? (
+            <div className="text-xs text-neutral-600">{order.invoiceAddress}</div>
+          ) : null}
+          {order.invoiceNo ? (
+            <div className="text-xs text-neutral-600">
+              Fatura no {order.invoiceNo}
+              {order.invoiceDate ? ` · ${formatDate(order.invoiceDate)}` : ''}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-neutral-400 text-left">
             <th className="py-1.5">Malzeme</th>
             <th className="w-16 py-1.5 text-right">Adet</th>
-            <th className="w-28 py-1.5 text-right">Birim</th>
-            <th className="w-28 py-1.5 text-right">Tutar</th>
+            {showLinePrices ? (
+              <>
+                <th className="w-28 py-1.5 text-right">Birim</th>
+                <th className="w-28 py-1.5 text-right">Tutar</th>
+              </>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -90,13 +123,17 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
                 ) : null}
               </td>
               <td className="py-2 text-right tabular-nums">{line.quantity}</td>
-              {/* Musteriye giden kagitta "0,00 TL" degil "Hediye" yaziyor. */}
-              <td className="py-2 text-right tabular-nums">
-                {line.isGift ? '—' : formatKurus(line.unitPriceKurus)}
-              </td>
-              <td className="py-2 text-right tabular-nums">
-                {line.isGift ? 'Hediye' : formatKurus(line.lineTotalKurus)}
-              </td>
+              {showLinePrices ? (
+                <>
+                  {/* Musteriye giden kagitta "0,00 TL" degil "Hediye" yaziyor. */}
+                  <td className="py-2 text-right tabular-nums">
+                    {line.isGift ? '—' : formatKurus(line.unitPriceKurus)}
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {line.isGift ? 'Hediye' : formatKurus(line.lineTotalKurus)}
+                  </td>
+                </>
+              ) : null}
             </tr>
           ))}
         </tbody>
@@ -104,20 +141,32 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
 
       <div className="mt-3 flex justify-end">
         <dl className="w-64 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <dt>Ara toplam</dt>
-            <dd className="tabular-nums">{formatKurus(order.subtotalKurus)}</dd>
-          </div>
-          {order.discountKurus > 0 ? (
-            <div className="flex justify-between">
-              <dt>Iskonto</dt>
-              <dd className="tabular-nums">-{formatKurus(order.discountKurus)}</dd>
-            </div>
+          {/* Toplam elle yazilmissa satir toplamini basmiyoruz: musterinin
+              eline iki farkli rakam gecmesin. */}
+          {showLinePrices ? (
+            <>
+              <div className="flex justify-between">
+                <dt>Ara toplam</dt>
+                <dd className="tabular-nums">{formatKurus(order.subtotalKurus)}</dd>
+              </div>
+              {order.discountKurus > 0 ? (
+                <div className="flex justify-between">
+                  <dt>Iskonto</dt>
+                  <dd className="tabular-nums">-{formatKurus(order.discountKurus)}</dd>
+                </div>
+              ) : null}
+            </>
           ) : null}
           <div className="flex justify-between border-t border-neutral-400 pt-1 font-bold">
             <dt>Genel toplam</dt>
             <dd className="tabular-nums">{formatKurus(order.totalKurus)}</dd>
           </div>
+          {order.depositKurus > 0 ? (
+            <div className="flex justify-between">
+              <dt>Alinan ucret (kapora)</dt>
+              <dd className="tabular-nums">{formatKurus(order.depositKurus)}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <dt>Odenen</dt>
             <dd className="tabular-nums">{formatKurus(order.paidKurus)}</dd>

@@ -82,6 +82,20 @@ export default async function SiparisDuzenlePage({
           phone2: order.deliveryPhone2 ?? '',
           deliveryNotes: order.deliveryNotes ?? '',
           discount: toTlInput(order.discountKurus),
+          // toTlInput sifiri bos string yapiyor; elle yazilmis "0" toplam
+          // bos gorunup otomatige donmesin diye burada dogrudan bicimliyoruz.
+          manualTotal:
+            order.manualTotalKurus == null
+              ? ''
+              : kurusToTl(order.manualTotalKurus).toFixed(2).replace('.', ','),
+          invoice: {
+            title: order.invoiceTitle ?? '',
+            taxOffice: order.invoiceTaxOffice ?? '',
+            taxNumber: order.invoiceTaxNumber ?? '',
+            address: order.invoiceAddress ?? '',
+            no: order.invoiceNo ?? '',
+            date: order.invoiceDate ?? '',
+          },
           notes: order.notes ?? '',
           lines: order.lines.map((line) => ({
             key: line.id,

@@ -29,9 +29,12 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   cancelled: 'bg-neutral-200 text-neutral-500 line-through',
 };
 
+/**
+ * "Taslak" bilerek yok: taslak siparis stogu etkilemiyor ve gunluk isin
+ * parcasi degil. Taslaklar "Tumu" altinda gorunmeye devam ediyor.
+ */
 const FILTERS: { value: string; label: string }[] = [
   { value: '', label: 'Tumu' },
-  { value: 'draft', label: 'Taslak' },
   { value: 'confirmed', label: 'Onaylandi' },
   { value: 'partially_delivered', label: 'Kismen teslim' },
   { value: 'delivered', label: 'Teslim edildi' },
@@ -63,9 +66,17 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
             <strong className="text-neutral-900">{formatKurus(openBalance)}</strong>
           </p>
         </div>
-        <Link href="/siparisler/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
-          Yeni siparis
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/siparisler/bekleyen"
+            className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
+          >
+            Bekleyen urunler
+          </Link>
+          <Link href="/siparisler/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
+            Yeni siparis
+          </Link>
+        </div>
       </div>
 
       <nav className="flex flex-wrap gap-2">

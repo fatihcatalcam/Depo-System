@@ -106,6 +106,26 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
               <dd>{order.notes}</dd>
             </div>
           ) : null}
+          {/* Fatura bilgisi cogu sipariste bos; doluysa gosteriliyor. */}
+          {order.invoiceTitle || order.invoiceNo ? (
+            <div className="sm:col-span-2 border-t border-neutral-100 pt-2">
+              <dt className="text-xs uppercase text-neutral-500">Fatura</dt>
+              <dd>
+                {order.invoiceTitle ?? '—'}
+                {order.invoiceTaxNumber ? ` · ${order.invoiceTaxNumber}` : ''}
+                {order.invoiceTaxOffice ? ` · ${order.invoiceTaxOffice}` : ''}
+              </dd>
+              {order.invoiceAddress ? (
+                <dd className="text-neutral-600">{order.invoiceAddress}</dd>
+              ) : null}
+              {order.invoiceNo ? (
+                <dd className="text-neutral-600">
+                  Fatura no {order.invoiceNo}
+                  {order.invoiceDate ? ` · ${formatDate(order.invoiceDate)}` : ''}
+                </dd>
+              ) : null}
+            </div>
+          ) : null}
         </dl>
 
         {order.status !== 'cancelled' && order.status !== 'delivered' ? (
@@ -195,7 +215,16 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                 </div>
               ) : null}
               <div className="flex justify-between font-semibold">
-                <span>Genel toplam</span>
+                <span>
+                  Genel toplam
+                  {/* Satir toplamiyla uyusmamasi hata degil; sebebini
+                      yazmazsak oyle gorunur. */}
+                  {order.manualTotalKurus != null ? (
+                    <span className="ml-2 rounded bg-neutral-200 px-1.5 py-0.5 text-xs font-normal text-neutral-700">
+                      elle yazildi
+                    </span>
+                  ) : null}
+                </span>
                 <span className="tabular-nums">{formatKurus(order.totalKurus)}</span>
               </div>
             </div>
@@ -243,9 +272,13 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
           orderId={order.id}
           totalKurus={order.totalKurus}
           paidKurus={order.paidKurus}
+          depositKurus={order.depositKurus}
           balanceKurus={order.balanceKurus}
           payments={payments}
-          canAddPayment={!isDraft && order.status !== 'cancelled'}
+          canAddPayment={order.status !== 'cancelled'}
+          // Taslak sipariste yalnizca kapora alinabilir: musteri parayi
+          // siparisi verirken birakiyor, siparis henuz onaylanmamis oluyor.
+          depositOnly={isDraft}
         />
       </div>
 

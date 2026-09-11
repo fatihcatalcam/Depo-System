@@ -84,7 +84,28 @@ export const orders = pgTable(
     status: orderStatusEnum('status').notNull().default('draft'),
     subtotalKurus: bigint('subtotal_kurus', { mode: 'number' }).notNull().default(0),
     discountKurus: bigint('discount_kurus', { mode: 'number' }).notNull().default(0),
+    /**
+     * Elle yazilan genel toplam. Dolu oldugunda `totalKurus` bundan gelir ve
+     * iskonto sifirlanir.
+     *
+     * Sebebi: satirlari tek tek fiyatlandirmak her zaman mumkun olmuyor —
+     * musteriye "hepsi 50.000" deniyor. Boyle bir sipariste ara toplam sifir
+     * kalir; iskontoyla ifade edilemez, cunku iskonto ara toplamdan buyuk
+     * olamaz. Bu yuzden toplam ayri bir alanda tutuluyor. `totalKurus` yine de
+     * yaziliyor: raporlar tek yerden okumaya devam ediyor.
+     */
+    manualTotalKurus: bigint('manual_total_kurus', { mode: 'number' }),
     totalKurus: bigint('total_kurus', { mode: 'number' }).notNull().default(0),
+    /**
+     * Fatura bilgisi siparisin anlik kopyasidir, musteri kartina bagli degil:
+     * ayni musteri bir siparisi sahsina, digerini sirketine kestirebiliyor.
+     */
+    invoiceTitle: text('invoice_title'),
+    invoiceTaxOffice: text('invoice_tax_office'),
+    invoiceTaxNumber: text('invoice_tax_number'),
+    invoiceAddress: text('invoice_address'),
+    invoiceNo: text('invoice_no'),
+    invoiceDate: date('invoice_date'),
     notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -94,6 +115,10 @@ export const orders = pgTable(
     index('orders_status_delivery_idx').on(t.status, t.plannedDeliveryDate),
     index('orders_customer_idx').on(t.customerId),
     check('orders_discount_chk', sql`${t.discountKurus} >= 0`),
+    check(
+      'orders_manual_total_chk',
+      sql`${t.manualTotalKurus} IS NULL OR ${t.manualTotalKurus} >= 0`,
+    ),
   ],
 );
 
@@ -222,6 +247,12 @@ export const payments = pgTable(
       .references(() => orders.id, { onDelete: 'restrict' }),
     amountKurus: bigint('amount_kurus', { mode: 'number' }).notNull(),
     method: paymentMethodEnum('method').notNull(),
+    /**
+     * Kapora: mal teslim edilmeden onceden alinan ucret. Tutar ve yontem
+     * acisindan siradan bir odemedir; ayri tutmamizin sebebi kagida ve ekrana
+     * "alinan ucret" diye yazilabilmesi.
+     */
+    isDeposit: boolean('is_deposit').notNull().default(false),
     paidAt: date('paid_at').notNull(),
     notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

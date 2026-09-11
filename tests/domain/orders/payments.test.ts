@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { confirmOrder, createOrder, getOrder, listOrders } from '@/domain/orders/orders';
+import {
+  cancelOrder,
+  confirmOrder,
+  createOrder,
+  getOrder,
+  listOrders,
+} from '@/domain/orders/orders';
 import { addPayment, deletePayment, listPayments } from '@/domain/orders/payments';
 import { makeBedSet, makeOrderCustomer } from '../../helpers/order-fixtures';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
@@ -113,7 +119,7 @@ describe('addPayment', () => {
     ).rejects.toThrow('Odeme tutari sifirdan buyuk olmali');
   });
 
-  it('taslak siparise odeme eklenemez', async () => {
+  it('taslak siparise siradan odeme eklenemez', async () => {
     const order = await orderWorth(1_000_000, false);
     await expect(
       addPayment(ctx.db, ctx.scope, {
@@ -122,7 +128,66 @@ describe('addPayment', () => {
         method: 'nakit',
         paidAt: '2026-08-08',
       }),
-    ).rejects.toThrow('Taslak siparise odeme eklenemez');
+    ).rejects.toThrow('yalnizca kapora');
+  });
+
+  /**
+   * Kapora istisnasi: musteri parayi siparisi verirken birakiyor, siparis o
+   * anda henuz onaylanmamis oluyor. Yasak sonradan gelen tahsilatlar icin.
+   */
+  it('taslak siparise kapora eklenebilir', async () => {
+    const order = await orderWorth(1_000_000, false);
+
+    const result = await addPayment(ctx.db, ctx.scope, {
+      orderId: order.id,
+      amountKurus: 300_000,
+      method: 'nakit',
+      isDeposit: true,
+      paidAt: '2026-08-08',
+    });
+
+    expect(result.paidKurus).toBe(300_000);
+    expect(result.balanceKurus).toBe(700_000);
+
+    const detail = await getOrder(ctx.db, ctx.scope, order.id);
+    expect(detail.depositKurus).toBe(300_000);
+    expect(detail.status).toBe('draft');
+  });
+
+  it('kapora isareti odeme kaydinda kaliyor', async () => {
+    const order = await orderWorth(1_000_000);
+    await addPayment(ctx.db, ctx.scope, {
+      orderId: order.id,
+      amountKurus: 100_000,
+      method: 'havale',
+      isDeposit: true,
+      paidAt: '2026-08-08',
+    });
+    await addPayment(ctx.db, ctx.scope, {
+      orderId: order.id,
+      amountKurus: 250_000,
+      method: 'nakit',
+      paidAt: '2026-08-09',
+    });
+
+    const detail = await getOrder(ctx.db, ctx.scope, order.id);
+    // Kapora odenenin bir parcasi, ayrica sayilan bir sey degil.
+    expect(detail.paidKurus).toBe(350_000);
+    expect(detail.depositKurus).toBe(100_000);
+  });
+
+  it('iptal edilmis siparise odeme eklenemez', async () => {
+    const order = await orderWorth(1_000_000);
+    await cancelOrder(ctx.db, ctx.scope, order.id);
+
+    await expect(
+      addPayment(ctx.db, ctx.scope, {
+        orderId: order.id,
+        amountKurus: 100_000,
+        method: 'nakit',
+        paidAt: '2026-08-08',
+      }),
+    ).rejects.toThrow('Iptal edilmis');
   });
 
   it('odeme yontemi kaydedilir', async () => {
