@@ -100,7 +100,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
         <p className="text-sm text-neutral-500">Kayit bulunamadi.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[940px] text-sm">
             <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-xs uppercase text-neutral-500">
               <tr>
                 <th className="p-3">Siparis</th>
@@ -108,6 +108,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                     tekrarlamanin anlami yok. */}
                 {user.isAdmin ? <th className="p-3">Sube</th> : null}
                 <th className="p-3">Musteri</th>
+                <th className="p-3">Satici</th>
                 <th className="p-3">Teslimat</th>
                 <th className="p-3">Durum</th>
                 <th className="p-3 text-right">Toplam</th>
@@ -130,6 +131,9 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                     <td className="whitespace-nowrap p-3 text-neutral-600">{order.branchName}</td>
                   ) : null}
                   <td className="p-3">{order.customerName}</td>
+                  <td className="whitespace-nowrap p-3 text-neutral-600">
+                    {order.salespersonName ?? '—'}
+                  </td>
                   <td className="whitespace-nowrap p-3 text-neutral-600">
                     {formatDate(order.plannedDeliveryDate)}
                   </td>

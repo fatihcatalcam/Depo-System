@@ -121,6 +121,8 @@ export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Bu
     { header: 'Siparis no', key: 'no', width: 16 },
     { header: 'Tarih', key: 'date', width: 12 },
     { header: 'Musteri', key: 'customer', width: 30 },
+    // Prim hesabi bu sutunla yapiliyor: Excel'de saticiya gore suzulebilsin.
+    { header: 'Satici', key: 'salesperson', width: 22 },
     { header: 'Planlanan teslimat', key: 'delivery', width: 18 },
     { header: 'Durum', key: 'status', width: 18 },
     { header: 'Toplam', key: 'total', width: 14, style: { numFmt: MONEY_FORMAT } },
@@ -133,6 +135,7 @@ export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Bu
       no: order.orderNo,
       date: order.orderDate,
       customer: order.customerName,
+      salesperson: order.salespersonName ?? '',
       delivery: order.plannedDeliveryDate ?? '',
       status: order.status,
       total: kurusToTl(order.totalKurus),

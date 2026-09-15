@@ -87,8 +87,15 @@ const DEPOSIT_METHODS = {
 
 type DepositMethod = keyof typeof DEPOSIT_METHODS;
 
+export interface SalespersonOption {
+  id: string;
+  name: string;
+}
+
 export interface OrderFormValues {
   customer: SelectedCustomer;
+  /** Bos string: eski sipariste satici kaydedilmemis. */
+  salespersonId: string;
   orderDate: string;
   plannedDeliveryDate: string;
   address: string;
@@ -104,6 +111,8 @@ export interface OrderFormValues {
 }
 
 interface OrderFormProps {
+  /** Secilebilecek saticilar; sunucu sayfasi getiriyor. */
+  salespeople: SalespersonOption[];
   /** Doluysa form duzenleme kipinde acilir. */
   initial?: OrderFormValues;
   submitLabel?: string;
@@ -113,6 +122,7 @@ interface OrderFormProps {
 export interface OrderSubmitInput {
   customerId?: string;
   newCustomerName?: string;
+  salespersonId: string;
   orderDate: string;
   plannedDeliveryDate: string | null;
   deliveryAddress: string;
@@ -141,8 +151,9 @@ export interface OrderSubmitInput {
   }[];
 }
 
-export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {}) {
+export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: OrderFormProps) {
   const [customer, setCustomer] = useState<SelectedCustomer | null>(initial?.customer ?? null);
+  const [salespersonId, setSalespersonId] = useState(initial?.salespersonId ?? '');
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerHits, setCustomerHits] = useState<CustomerHit[]>([]);
   const [orderDate, setOrderDate] = useState(
@@ -254,10 +265,17 @@ export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {
           toast.error('Musteri secin.');
           return;
         }
+        // Yeni sipariste satici zorunlu: prim buna gore hesaplaniyor.
+        // Duzenlemede eski siparislerin saticisi bos olabiliyor.
+        if (!initial && !salespersonId) {
+          toast.error('Satici secin.');
+          return;
+        }
         startTransition(async () => {
           const input: OrderSubmitInput = {
             customerId: customer.kind === 'existing' ? customer.id : undefined,
             newCustomerName: customer.kind === 'new' ? customer.name : undefined,
+            salespersonId,
             orderDate,
             plannedDeliveryDate: plannedDeliveryDate || null,
             deliveryAddress: address,
@@ -384,6 +402,25 @@ export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {
             </p>
           </>
         )}
+      </section>
+
+      <section className="space-y-1.5">
+        <Label htmlFor="salesperson">Satici</Label>
+        <select
+          id="salesperson"
+          value={salespersonId}
+          onChange={(event) => setSalespersonId(event.target.value)}
+          required={!initial}
+          className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm sm:w-80"
+        >
+          <option value="">{initial ? '— secilmedi —' : 'Satici secin'}</option>
+          {salespeople.map((person) => (
+            <option key={person.id} value={person.id}>
+              {person.name}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-neutral-500">Prim bu isme yazilir.</p>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
@@ -854,7 +891,7 @@ export function OrderForm({ initial, submitLabel, onSubmit }: OrderFormProps = {
 
       <Button
         type="submit"
-        disabled={pending || lines.length === 0 || !customer}
+        disabled={pending || lines.length === 0 || !customer || (!initial && !salespersonId)}
         className="h-11 w-full sm:w-auto"
       >
         {pending ? 'Kaydediliyor...' : (submitLabel ?? 'Taslak siparisi olustur')}

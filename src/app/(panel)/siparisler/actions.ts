@@ -85,6 +85,9 @@ function parseManualTotal(value: string | undefined): number | null | undefined 
 
 const orderSchema = z.object({
   ...invoiceShape,
+  // Yeni sipariste zorunlu: prim buna gore hesaplaniyor, sonradan "bunu kim
+  // satmisti" diye hatirlamak mumkun olmuyor.
+  salespersonId: z.uuid({ error: 'Satici secin.' }),
   // Ikisinden biri: kayitli musteri ya da yeni musteri adi.
   customerId: z.uuid().optional(),
   newCustomerName: z.string().optional(),
@@ -129,6 +132,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
           }
         : undefined,
       orderDate: parsed.data.orderDate,
+      salespersonId: parsed.data.salespersonId,
       plannedDeliveryDate: parsed.data.plannedDeliveryDate ?? null,
       deliveryAddress: parsed.data.deliveryAddress,
       deliveryPhone: parsed.data.deliveryPhone,
@@ -177,6 +181,9 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
  */
 const orderPatchSchema = z.object({
   ...invoiceShape,
+  // Duzenlemede bos birakilabilir: alan eklenmeden once acilmis siparislerin
+  // saticisi bilinmiyor, tarih duzeltmek icin satici secmek zorunda kalinmasin.
+  salespersonId: z.uuid().or(z.literal('')).optional(),
   orderDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.')
@@ -203,6 +210,8 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
   try {
     await updateOrder(db, await currentScope(), id, {
       orderDate: parsed.data.orderDate,
+      salespersonId:
+        parsed.data.salespersonId !== undefined ? parsed.data.salespersonId || null : undefined,
       plannedDeliveryDate: parsed.data.plannedDeliveryDate,
       deliveryAddress: parsed.data.deliveryAddress,
       deliveryPhone: parsed.data.deliveryPhone,

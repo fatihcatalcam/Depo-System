@@ -57,6 +57,9 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
         <div>
           <div className="text-xs font-semibold uppercase text-neutral-600">Siparis tarihi</div>
           <div>{formatDate(order.orderDate)}</div>
+          {order.salespersonName ? (
+            <div className="text-xs text-neutral-600">Satici: {order.salespersonName}</div>
+          ) : null}
         </div>
         <div>
           <div className="text-xs font-semibold uppercase text-neutral-600">

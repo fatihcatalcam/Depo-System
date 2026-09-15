@@ -57,6 +57,13 @@
       "when": 1789113786995,
       "tag": "0007_tan_marvex",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789458700816,
+      "tag": "0008_careless_prism",
+      "breakpoints": true
     }
   ]
 }

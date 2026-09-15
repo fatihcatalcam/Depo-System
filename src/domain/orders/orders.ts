@@ -8,6 +8,7 @@ import {
   payments,
   productComponents,
   products,
+  salespeople,
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
@@ -106,6 +107,8 @@ export interface CreateOrderInput extends InvoiceInput {
   newCustomer?: NewCustomerInput;
   /** ISO tarih (YYYY-MM-DD). */
   orderDate: string;
+  /** Siparisi satan calisan; prim buna gore hesaplaniyor. */
+  salespersonId?: string | null;
   plannedDeliveryDate?: string | null;
   deliveryAddress: string;
   deliveryPhone?: string | null;
@@ -138,6 +141,7 @@ export async function createOrder(
 
   return runInTransaction(db, async (tx) => {
     const customerId = await resolveCustomer(tx, scope, input);
+    if (input.salespersonId) await assertActiveSalesperson(tx, input.salespersonId);
 
     const orderNo = await nextDocumentNumber(tx, 'order', {
       branchCode: branch.code,
@@ -153,6 +157,7 @@ export async function createOrder(
         orderNo,
         customerId,
         orderDate: input.orderDate,
+        salespersonId: input.salespersonId || null,
         plannedDeliveryDate: input.plannedDeliveryDate ?? null,
         deliveryAddress: address,
         deliveryPhone: input.deliveryPhone?.trim() || null,
@@ -230,6 +235,8 @@ function invoiceValues(input: InvoiceInput) {
 export interface UpdateOrderInput extends InvoiceInput {
   /** ISO tarih (YYYY-MM-DD). */
   orderDate?: string;
+  /** `null` saticiyi kaldirir; gonderilmezse mevcut korunur. */
+  salespersonId?: string | null;
   plannedDeliveryDate?: string | null;
   deliveryAddress?: string;
   deliveryPhone?: string | null;
@@ -270,6 +277,14 @@ export async function updateOrder(
     const address = input.deliveryAddress?.trim() ?? existing.deliveryAddress;
     if (address === '') throw new DomainError('Teslimat adresi bos olamaz.', 'INVALID_INPUT');
 
+    // Isten ayrilan saticinin eski siparisi duzenlenebilmeli: adi zaten
+    // kayitliysa dokunmuyoruz. Yalnizca yeni atanan satici aktif olmali.
+    const salespersonId =
+      input.salespersonId !== undefined ? input.salespersonId || null : existing.salespersonId;
+    if (salespersonId && salespersonId !== existing.salespersonId) {
+      await assertActiveSalesperson(tx, salespersonId);
+    }
+
     let subtotal = existing.subtotalKurus;
 
     if (input.lines) {
@@ -292,6 +307,7 @@ export async function updateOrder(
       .update(orders)
       .set({
         orderDate: input.orderDate ?? existing.orderDate,
+        salespersonId,
         plannedDeliveryDate:
           input.plannedDeliveryDate !== undefined
             ? input.plannedDeliveryDate
@@ -444,6 +460,7 @@ export interface OrderLineDetail {
 export interface OrderDetail extends Order {
   customerName: string;
   customerPhone: string | null;
+  salespersonName: string | null;
   lines: OrderLineDetail[];
   paidKurus: number;
   /** Odenenin kapora olarak alinmis kismi; kagitta ayri satirda gosteriliyor. */
@@ -454,9 +471,16 @@ export interface OrderDetail extends Order {
 
 export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<OrderDetail> {
   const [row] = await db
-    .select({ order: orders, customerName: customers.name, customerPhone: customers.phone })
+    .select({
+      order: orders,
+      customerName: customers.name,
+      customerPhone: customers.phone,
+      salespersonName: salespeople.name,
+    })
     .from(orders)
     .innerJoin(customers, eq(customers.id, orders.customerId))
+    // leftJoin: eski siparislerin saticisi yok.
+    .leftJoin(salespeople, eq(salespeople.id, orders.salespersonId))
     .where(and(eq(orders.id, id), scopeFilter(scope, orders.branchId)));
 
   if (!row) throw new NotFoundError('Siparis');
@@ -505,6 +529,7 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
     ...row.order,
     customerName: row.customerName,
     customerPhone: row.customerPhone,
+    salespersonName: row.salespersonName,
     paidKurus,
     depositKurus,
     balanceKurus,
@@ -554,6 +579,7 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
 
 export interface OrderSummary extends Order {
   customerName: string;
+  salespersonName: string | null;
   /** Yonetici listesinde sutun olarak gosterilir; sube kendi adini gormez. */
   branchName: string;
   paidKurus: number;
@@ -590,6 +616,7 @@ export async function listOrders(
       order: orders,
       customerName: customers.name,
       branchName: branches.name,
+      salespersonName: salespeople.name,
       paid: sql<number>`coalesce((
         select sum(${payments.amountKurus}) from ${payments}
         where ${payments.orderId} = ${orders.id}
@@ -598,6 +625,7 @@ export async function listOrders(
     .from(orders)
     .innerJoin(customers, eq(customers.id, orders.customerId))
     .innerJoin(branches, eq(branches.id, orders.branchId))
+    .leftJoin(salespeople, eq(salespeople.id, orders.salespersonId))
     .where(and(...conditions))
     .orderBy(desc(orders.orderDate), desc(orders.createdAt))
     .limit(filters.limit ?? 200);
@@ -608,6 +636,7 @@ export async function listOrders(
       ...row.order,
       customerName: row.customerName,
       branchName: row.branchName,
+      salespersonName: row.salespersonName,
       paidKurus,
       balanceKurus: row.order.totalKurus - paidKurus,
       paymentStatus: derivePaymentStatus(row.order.totalKurus, paidKurus),
@@ -694,6 +723,17 @@ async function resolveCustomer(tx: Tx, scope: Scope, input: CreateOrderInput): P
     address: input.newCustomer?.address ?? null,
   });
   return created.id;
+}
+
+async function assertActiveSalesperson(tx: Tx, id: string) {
+  const [row] = await tx
+    .select({ isActive: salespeople.isActive })
+    .from(salespeople)
+    .where(eq(salespeople.id, id));
+  if (!row) throw new NotFoundError('Satici');
+  if (!row.isActive) {
+    throw new DomainError('Bu satici artik aktif degil, siparise atanamaz.', 'INACTIVE_SALESPERSON');
+  }
 }
 
 interface ResolvedLine extends OrderLineInput {

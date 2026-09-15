@@ -50,3 +50,18 @@ export const suppliers = pgTable(
   },
   (t) => [index('suppliers_name_idx').on(t.name)],
 );
+
+/**
+ * Satici. Satis yapan calisanlar primle calisiyor; siparisi kimin sattigi
+ * prim hesabinin tek dayanagi.
+ *
+ * Ortak: iki subede de ayni liste. Isten ayrilan silinmez, pasife alinir —
+ * gecmis siparisler kimin sattigini kaybetmesin, prim hesabi geriye donuk
+ * bozulmasin.
+ */
+export const salespeople = pgTable('salespeople', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  isActive: boolean('is_active').notNull().default(true),
+  ...timestamps,
+});

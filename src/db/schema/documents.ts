@@ -15,7 +15,7 @@ import {
 import { branches } from './branches';
 import { products, stockItems } from './catalog';
 import { orderLineItemTypeEnum, orderStatusEnum, paymentMethodEnum } from './enums';
-import { customers, suppliers } from './parties';
+import { customers, salespeople, suppliers } from './parties';
 
 /**
  * Mal kabul. `branchId` yalnizca "hangi sube kaydetti" bilgisidir; stok tek
@@ -73,6 +73,14 @@ export const orders = pgTable(
       .notNull()
       .references(() => customers.id, { onDelete: 'restrict' }),
     orderDate: date('order_date').notNull(),
+    /**
+     * Siparisi satan calisan; prim buna gore hesaplaniyor. Bos olabilir:
+     * alan eklenmeden once acilmis siparislerin saticisi bilinmiyor. Yeni
+     * sipariste form zorunlu tutuyor.
+     */
+    salespersonId: uuid('salesperson_id').references(() => salespeople.id, {
+      onDelete: 'restrict',
+    }),
     plannedDeliveryDate: date('planned_delivery_date'),
     // Anlik kopya: musteri adresini sonradan degistirse bile siparis nereye
     // gittiyse orada kalir.
@@ -114,6 +122,8 @@ export const orders = pgTable(
     index('orders_branch_status_idx').on(t.branchId, t.status, t.plannedDeliveryDate),
     index('orders_status_delivery_idx').on(t.status, t.plannedDeliveryDate),
     index('orders_customer_idx').on(t.customerId),
+    // Prim hesabi "bu ay kim ne satti" diye soruyor.
+    index('orders_salesperson_date_idx').on(t.salespersonId, t.orderDate),
     check('orders_discount_chk', sql`${t.discountKurus} >= 0`),
     check(
       'orders_manual_total_chk',

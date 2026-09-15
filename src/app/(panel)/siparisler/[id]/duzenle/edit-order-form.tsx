@@ -5,19 +5,23 @@ import {
   OrderForm,
   type OrderFormValues,
   type OrderSubmitInput,
+  type SalespersonOption,
 } from '../../order-form';
 
 interface Props {
   orderId: string;
   initial: OrderFormValues;
+  salespeople: SalespersonOption[];
   /** Teslimati baslamis sipariste satirlar gonderilmez. */
   linesLocked: boolean;
 }
 
-export function EditOrderForm({ orderId, initial, linesLocked }: Props) {
+export function EditOrderForm({ orderId, initial, salespeople, linesLocked }: Props) {
   async function submit(input: OrderSubmitInput) {
     return updateOrderAction(orderId, {
       orderDate: input.orderDate,
+      // Bos string bilerek gonderiliyor: saticiyi kaldirmak da bir secim.
+      salespersonId: input.salespersonId,
       plannedDeliveryDate: input.plannedDeliveryDate,
       deliveryAddress: input.deliveryAddress,
       deliveryPhone: input.deliveryPhone ?? '',
@@ -40,5 +44,12 @@ export function EditOrderForm({ orderId, initial, linesLocked }: Props) {
     }).then((result) => ({ ...result, id: orderId }));
   }
 
-  return <OrderForm initial={initial} submitLabel="Degisiklikleri kaydet" onSubmit={submit} />;
+  return (
+    <OrderForm
+      salespeople={salespeople}
+      initial={initial}
+      submitLabel="Degisiklikleri kaydet"
+      onSubmit={submit}
+    />
+  );
 }

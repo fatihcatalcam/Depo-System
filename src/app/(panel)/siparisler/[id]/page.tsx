@@ -91,6 +91,10 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
             <dd>{formatDate(order.orderDate)}</dd>
           </div>
           <div>
+            <dt className="text-xs uppercase text-neutral-500">Satici</dt>
+            <dd>{order.salespersonName ?? '—'}</dd>
+          </div>
+          <div>
             <dt className="text-xs uppercase text-neutral-500">Planlanan teslimat</dt>
             <dd>{formatDate(order.plannedDeliveryDate)}</dd>
           </div>

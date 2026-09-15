@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/db/client';
 import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
+import { listSalespeople } from '@/domain/parties/salespeople';
 import { currentScope } from '@/lib/auth/current';
 import { NotFoundError } from '@/lib/errors';
 import { kurusToTl } from '@/lib/money';
@@ -44,6 +45,12 @@ export default async function SiparisDuzenlePage({
     );
   }
 
+  // Isten ayrilan saticinin eski siparisi acildiginda adi listede kalmali;
+  // yoksa select bos gorunur ve kaydedince satici sessizce silinirdi.
+  const salespeople = (await listSalespeople(db, { includeInactive: true }))
+    .filter((person) => person.isActive || person.id === order.salespersonId)
+    .map((person) => ({ id: person.id, name: person.name }));
+
   const deliveredAny = order.lines.some((line) =>
     line.components.some((component) => component.deliveredQuantity > 0),
   );
@@ -68,6 +75,7 @@ export default async function SiparisDuzenlePage({
       <EditOrderForm
         orderId={id}
         linesLocked={deliveredAny}
+        salespeople={salespeople}
         initial={{
           customer: {
             kind: 'existing',
@@ -75,6 +83,7 @@ export default async function SiparisDuzenlePage({
             name: order.customerName,
             phone: order.customerPhone,
           },
+          salespersonId: order.salespersonId ?? '',
           orderDate: order.orderDate,
           plannedDeliveryDate: order.plannedDeliveryDate ?? '',
           address: order.deliveryAddress,
