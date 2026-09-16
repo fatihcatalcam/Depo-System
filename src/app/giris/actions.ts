@@ -31,6 +31,18 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const result = await login(db, parsed.data.password);
 
   if (!result.ok) {
+    // Cakisma hatali parola degil: parola dogru ama iki hesapta birden
+    // tanimli. "Parola hatali" demek, calisani var olmayan bir hatayi
+    // aramaya gonderir; asil yapilmasi gerekeni yaziyoruz.
+    if (result.ambiguous) {
+      return {
+        error:
+          'Bu parola birden fazla hesapta tanimli; hangi sube oldugu ayirt edilemiyor. ' +
+          'Yonetici parolasiyla girip Ayarlar > Subeler bolumunden her subeye ayri bir ' +
+          'parola verin.',
+      };
+    }
+
     return {
       error: result.lockedMinutes
         ? `Cok fazla hatali deneme. ${result.lockedMinutes} dakika sonra tekrar deneyin.`

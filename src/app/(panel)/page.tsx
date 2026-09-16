@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { db } from '@/db/client';
+import { listBranches } from '@/domain/branches';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
 import { ORDER_STATUS_LABELS, listOrders } from '@/domain/orders/orders';
-import { currentScope } from '@/lib/auth/current';
+import { currentUser } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
@@ -18,12 +19,23 @@ function todayInIstanbul(): string {
 export default async function AnaSayfa() {
   const today = todayInIstanbul();
 
-  const scope = await currentScope();
-  const [items, orders] = await Promise.all([
+  const user = await currentUser();
+  const [items, orders, branches] = await Promise.all([
     // Stok ortak: iki sube de ayni rakamlari gorur.
     listStockItemsWithAvailability(db, {}),
-    listOrders(db, scope, {}),
+    listOrders(db, user.scope, {}),
+    // Yalnizca uyari icin; sube kullanicisinin yapabilecegi bir sey yok.
+    user.isAdmin ? listBranches(db) : Promise.resolve([]),
   ]);
+
+  /**
+   * Parolasi olmayan subeye girilemez. Girilemeyen sube demek, o subenin
+   * calisaninin baska bir hesabin parolasiyla girmesi demek: siparisleri o
+   * hesabin subesine yaziliyor ve iki sube birbirinin siparisini goruyor.
+   * Kurulumdaki bu bosluk Ayarlar'da kucuk bir not olarak duruyordu; artik
+   * yoneticinin ana sayfasinda duruyor.
+   */
+  const passwordless = branches.filter((branch) => branch.isActive && !branch.hasPassword);
 
   const critical = items.filter((item) => item.isBelowMinimum);
   const active = orders.filter(
@@ -45,6 +57,21 @@ export default async function AnaSayfa() {
           {dateFormatter.format(new Date(`${today}T00:00:00Z`))} · gunun ozeti
         </p>
       </div>
+
+      {passwordless.length > 0 ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <strong>
+            {passwordless.map((branch) => branch.name).join(', ')} icin parola belirlenmedi.
+          </strong>{' '}
+          O subeye giris yapilamiyor; calisani baska bir subenin parolasiyla giriyorsa
+          siparisleri o subenin defterine yaziliyor ve iki sube birbirinin siparisini
+          goruyor.{' '}
+          <Link href="/ayarlar" className="font-medium underline">
+            Ayarlar &gt; Subeler
+          </Link>{' '}
+          bolumunden ayri bir parola verin.
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card label="Bugun teslimat" value={String(todaysDeliveries.length)} href="/siparisler" />

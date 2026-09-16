@@ -11,6 +11,7 @@ import {
 import { listBranches, listLoginableBranches, renameBranch, setBranchPassword } from '@/domain/branches';
 import { branchScope, adminScope } from '@/domain/scope';
 import { ensureSettings } from '@/domain/settings';
+import { hashPassword } from '@/lib/auth/password';
 import { createTestDb, type TestDb } from '../helpers/test-db';
 
 const ADMIN: Account = { kind: 'admin' };
@@ -168,6 +169,78 @@ describe('giris ekrani', () => {
     await expect(setBranchPassword(ctx.db, id, 'sube2parola')).rejects.toThrow(
       'subesinde kullaniliyor',
     );
+
+    await ctx.close();
+  });
+});
+
+/**
+ * Cakisma kontrolu yazma tarafina sonradan eklendi; daha once — giriste sube
+ * dugmeleri varken — ayni parola iki subeye verilebiliyordu. O kayitlar
+ * veritabaninda duruyor, bu yuzden giris de kendi kontrolunu yapiyor.
+ *
+ * Testler ozeti dogrudan yaziyor: `setBranchPassword` bugun bu durumu zaten
+ * reddediyor, kurmanin baska yolu yok.
+ */
+describe('onceden yazilmis cakisan parolalar', () => {
+  it('iki sube ayni parolayi tasiyorsa giris hicbirini acmaz', async () => {
+    const ctx = await createTestDb();
+    await ensureSettings(ctx.db, 'yoneticiparola');
+    await ctx.db.update(branches).set({ passwordHash: await hashPassword('ortakparola') });
+
+    // Eskiden kod sirasindaki ilk sube (S1) sessizce aciliyordu: iki subenin
+    // personeli de S1'e giriyor, siparisler tek defterde toplaniyordu.
+    expect(await login(ctx.db, 'ortakparola')).toEqual({ ok: false, ambiguous: true });
+
+    await ctx.close();
+  });
+
+  it('sube parolasi yoneticininkiyle ayniysa giris hicbirini acmaz', async () => {
+    const ctx = await createTestDb();
+    await ensureSettings(ctx.db, 'ortakparola');
+    const [s1] = await ctx.db.select().from(branches).where(eq(branches.code, 'S1'));
+    await ctx.db
+      .update(branches)
+      .set({ passwordHash: await hashPassword('ortakparola') })
+      .where(eq(branches.id, s1.id));
+
+    expect(await login(ctx.db, 'ortakparola')).toEqual({ ok: false, ambiguous: true });
+
+    await ctx.close();
+  });
+
+  it('cakisma hatali deneme sayilmaz', async () => {
+    const ctx = await createTestDb();
+    await ensureSettings(ctx.db, 'yoneticiparola');
+    await ctx.db.update(branches).set({ passwordHash: await hashPassword('ortakparola') });
+
+    for (let i = 0; i < 5; i += 1) await login(ctx.db, 'ortakparola');
+
+    // Parola dogru, kusur kurulumda: giris kilitlenmemeli, yoksa yonetici
+    // durumu duzeltmek icin iceri giremezdi.
+    const [row] = await ctx.db.select().from(appSettings).where(eq(appSettings.id, 1));
+    expect(row.failedAttempts).toBe(0);
+    expect(await login(ctx.db, 'yoneticiparola')).toEqual({ ok: true, scope: { kind: 'admin' } });
+
+    await ctx.close();
+  });
+
+  it('subelerden birine yeni parola verilince giris duzelir', async () => {
+    const ctx = await createTestDb();
+    await ensureSettings(ctx.db, 'yoneticiparola');
+    await ctx.db.update(branches).set({ passwordHash: await hashPassword('ortakparola') });
+    const [s2] = await ctx.db.select().from(branches).where(eq(branches.code, 'S2'));
+
+    await setBranchPassword(ctx.db, s2.id, 'sube2parola');
+
+    expect(await login(ctx.db, 'ortakparola')).toMatchObject({
+      ok: true,
+      scope: { kind: 'branch', branchCode: 'S1' },
+    });
+    expect(await login(ctx.db, 'sube2parola')).toMatchObject({
+      ok: true,
+      scope: { kind: 'branch', branchCode: 'S2' },
+    });
 
     await ctx.close();
   });

@@ -259,3 +259,33 @@ bir sayim, hic sayilmamis olmaktan kotudur.
 Toplu sayim da stok kilidine tabi — kilitliyken karttan tek tek
 degistirilemeyen adet Excel'den topluca degistirilebilseydi kilidin anlami
 kalmazdi. Tarayicida denendi, reddedildi.
+
+## Duzeltme — siparisler yanlis subeye yaziliyordu (2026-09-16)
+
+Sikayet: bir subede olusturulan siparis digerinde de gorunuyor.
+
+Sebep sorgularda degil giriste. Alan fonksiyonlarinin hepsi subeye
+suzuluyor (`branch-isolation.test.ts` capraz okuma/yazmanin tamamini
+kapsiyor); sorun iki kullanicinin ayni hesaba girmesiydi.
+
+Sube dugmeleri kalkinca hesabi parola belirler oldu. Giris ise ilk eslesen
+hesabi aciyordu: iki sube ayni parolayi tasiyorsa (kontrol yazma tarafina
+sonradan eklendi, daha once verilmis parolalar duruyor) herkes kod
+sirasindaki ilk subeye — S1'e — giriyordu. Ikinci subenin siparisleri
+birincinin defterine yaziliyor, iki sube ayni listeyi goruyordu.
+
+- Giris artik butun hesaplari deniyor. Birden fazlasi eslesirse hicbiri
+  acilmiyor; ekran ne yapilmasi gerektigini yaziyor. Sessizce yanlis hesaba
+  girmek, girememekten kotudur.
+- Cakisma hatali deneme sayilmiyor: parola dogru, kusur kurulumda. Sayac
+  isletilseydi yonetici durumu duzeltmek icin iceri giremezdi.
+- Parolasi olmayan sube yoneticinin ana sayfasinda uyari olarak duruyor.
+  Girilemeyen sube demek, calisaninin baska bir parolayla girmesi demek —
+  ayni karisiklik.
+- Yeni siparis formu kaydin hangi sube adina yazilacagini basta soyluyor.
+  Yonetici hesabina da "siparis olusturulamaz" notu eklendi; eskiden bu
+  ancak kaydederken anlasiliyordu.
+
+Kurulum tarafinda yapilmasi gereken: her subeye ayri parola
+(Ayarlar > Subeler ya da `npx tsx scripts/set-password.ts S2 <parola>`).
+Karisma donemindeki siparisler hala S1 defterinde; tasima araci yok.

@@ -27,7 +27,15 @@ const LOGIN_LOCK_MINUTES = 5;
  */
 export type Account = { kind: 'admin' } | { kind: 'branch'; branchId: string };
 
-export type LoginResult = { ok: true; scope: Scope } | { ok: false; lockedMinutes?: number };
+export type LoginResult =
+  | { ok: true; scope: Scope }
+  /**
+   * `ambiguous`: parola birden fazla hesapta tanimli, hangisi oldugu
+   * ayirt edilemiyor. Parola yanlis degil — giris ekrani bunu hatali
+   * deneme gibi degil, duzeltilmesi gereken bir kurulum hatasi gibi
+   * anlatmali.
+   */
+  | { ok: false; lockedMinutes?: number; ambiguous?: true };
 
 interface Credential {
   passwordHash: string | null;
@@ -131,14 +139,24 @@ export async function authenticate(
 /**
  * Giris ekranindan gelen deneme.
  *
- * Sube secimi yok: parola hangi hesabinsa o hesap acilir. Once subeler
- * denenir, sonra yonetici — iki parola yanlislikla ayni olursa daha az
- * yetkili olan kazanmali. `setBranchPassword` ayni parolayi zaten reddediyor;
- * buradaki sira, o kontrolun atlandigi bir durumda son emniyet.
+ * Sube secimi yok: parola hangi hesabinsa o hesap acilir. Bu yuzden parola
+ * hesabin tek isareti — ayni parola iki hesapta duruyorsa hangisine
+ * girilecegi belirlenemez.
+ *
+ * Boyle bir durumda **tahmin etmiyoruz**: butun hesaplar denenir, birden
+ * fazlasi eslesirse giris `ambiguous` ile reddedilir. Eskiden ilk eslesen
+ * (kod sirasina gore en kucuk sube) aciliyordu; iki sube ayni parolayi
+ * kullaninca herkes S1'e giriyor, ikinci subenin siparisleri birincinin
+ * defterine yaziliyor ve iki sube birbirinin siparisini goruyordu. Sessiz
+ * yanlis hesap, kapali girisden kotudur.
+ *
+ * `setBranchPassword` ayni parolayi bugun reddediyor ama kontrol sonradan
+ * eklendi; once yazilmis kayitlar hala cakisabilir. Kontrol burada da var.
  *
  * Kilitlenme sayaci tek: kimin denedigini bilmedigimiz icin hesap basina
  * sayac tutulamiyor. Bes hatali denemeden sonra giris `LOGIN_LOCK_MINUTES`
- * boyunca hepsine kapanir.
+ * boyunca hepsine kapanir. Cakisma hatali deneme sayilmaz: parola dogru,
+ * kusur kurulumda.
  */
 export async function login(db: DbOrTx, password: string): Promise<LoginResult> {
   const admin = await readCredential(db, { kind: 'admin' });
@@ -154,16 +172,27 @@ export async function login(db: DbOrTx, password: string): Promise<LoginResult> 
     .where(eq(branches.isActive, true))
     .orderBy(asc(branches.code));
 
+  // Ilk eslesmede durmuyoruz: cakisma ancak hepsi denenince goruluyor.
+  const matches: Scope[] = [];
+
   for (const row of rows) {
     if (row.passwordHash && (await verifyPassword(password, row.passwordHash))) {
-      await clearLoginLock(db);
-      return { ok: true, scope: branchScope(row.id, row.code) };
+      matches.push(branchScope(row.id, row.code));
     }
   }
 
   if (admin.passwordHash && (await verifyPassword(password, admin.passwordHash))) {
+    matches.push(adminScope);
+  }
+
+  if (matches.length > 1) {
     await clearLoginLock(db);
-    return { ok: true, scope: adminScope };
+    return { ok: false, ambiguous: true };
+  }
+
+  if (matches.length === 1) {
+    await clearLoginLock(db);
+    return { ok: true, scope: matches[0] };
   }
 
   const attempts = admin.failedAttempts + 1;
