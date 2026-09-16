@@ -171,3 +171,46 @@ shadcn Button'ın Base UI tabanlı olması nedeniyle `asChild` yerine `buttonVar
   diye. Stok yetmiyorsa reddediyor ve kullaniciya soruyor.
 - Bekleyen dokumunde serbest satirlarin eksik hesabi yapilmiyor: takip edilen
   bir stoklari yok.
+
+## Plan 9 — Production gecisi (2026-09-16)
+
+- [x] 1. Deneme verisi silindi, katalog korundu
+- [x] 2. Parolalar yenilendi (sube 1, sube 2, yonetici)
+- [x] 3. Giris ekranindan sube secimi kaldirildi
+- [x] 4. Stok kilidi yonetici parolasina baglandi
+
+### Sifirlama
+
+Tek seferlik `scripts/go-live.ts` ile yapildi ve betik sonrasinda silindi.
+Silinenler: 13 siparis, 22 satir, 30 bilesen, 7 teslimat, 17 teslimat satiri,
+7 odeme, 4 mal kabul, 20 mal kabul satiri, 37 stok hareketi, 9 musteri,
+3 tedarikci. Sayaclardan siparis/teslimat/mal kabul/musteri/tedarikci
+sifirlandi; stok karti ve urun sayaclari korundu — kartlar duruyor ve
+kodlari benzersiz olmali.
+
+Korunanlar: 567 stok karti, 180 urun, receteler, 5 kategori, 4 satici,
+subeler ve sistem ayarlari.
+
+Sifirlananlar: kart adetleri, kart notlari, kart alis fiyatlari ve urun
+varsayilan fiyatlari. Hepsi ornek veriden geliyordu; 134 adedin tamami demo
+hareketlerindendi. Yedek: `backups/depo-2026-09-16T07-49-33-233Z.json`.
+
+### Giris
+
+Sube dugmeleri kalkti, tek parola alani kaldi. Parola hangi hesabinsa o hesap
+aciliyor: once subeler, sonra yonetici denenir.
+
+Kilitlenme sayaci artik tek. Parolayi kimin yazdigini bilmedigimiz icin hesap
+basina sayac tutulamiyor; bes hatali denemeden sonra giris herkese kapaniyor.
+Bu yuzden sure 15 degil 5 dakika — bir kisinin yanlis yazmasi artik herkesi
+disarida biraktigi icin kilidin bedeli agirlasti.
+
+Ayni parolanin iki hesapta kullanilmasi engellendi: parola artik hesabin tek
+isareti, ayni olurlarsa birine bir daha girilemez.
+
+### Kilitler
+
+Stok ve raporlarin ikisi de yonetici parolasiyla aciliyor. Sube parolasi
+ikisini de acmiyor — tarayicida denendi, reddedildi.
+
+`scripts/set-password.ts` kaldi: parola unutuldugunda arayuzden cikis yok.

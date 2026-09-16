@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { branches } from '@/db/schema';
+import { appSettings, branches } from '@/db/schema';
 import {
   authenticate,
   changeOwnPassword,
@@ -77,81 +77,55 @@ describe('uc hesap', () => {
 });
 
 /**
- * Giris ekraninda yoneticinin dugmesi yok; parolasi hangi sube secili olursa
- * olsun yonetici hesabini aciyor.
+ * Giris ekraninda sube secimi yok: parola hangi hesabinsa o hesap acilir.
  */
 describe('giris ekrani', () => {
-  function branchIdOf(account: Account) {
-    return account.kind === 'branch' ? account.branchId : '';
-  }
-
   it('sube parolasi o subeyi acar', async () => {
-    const { ctx, s1 } = shared;
-    const result = await login(ctx.db, branchIdOf(s1), 'sube1parola');
-    expect(result).toMatchObject({ ok: true, scope: { kind: 'branch', branchCode: 'S1' } });
-  });
-
-  it('yonetici parolasi hangi sube secili olursa olsun yoneticiyi acar', async () => {
-    const { ctx, s1, s2 } = shared;
-    expect(await login(ctx.db, branchIdOf(s1), 'yoneticiparola')).toEqual({
+    const { ctx } = shared;
+    expect(await login(ctx.db, 'sube1parola')).toMatchObject({
       ok: true,
-      scope: { kind: 'admin' },
+      scope: { kind: 'branch', branchCode: 'S1' },
     });
-    expect(await login(ctx.db, branchIdOf(s2), 'yoneticiparola')).toEqual({
+    expect(await login(ctx.db, 'sube2parola')).toMatchObject({
       ok: true,
-      scope: { kind: 'admin' },
+      scope: { kind: 'branch', branchCode: 'S2' },
     });
   });
 
-  it('bir subenin parolasi digeri secilerek kullanilamaz', async () => {
-    const { ctx, s1 } = shared;
-    expect(await login(ctx.db, branchIdOf(s1), 'sube2parola')).toEqual({ ok: false });
+  it('yonetici parolasi yonetici hesabini acar', async () => {
+    const { ctx } = shared;
+    expect(await login(ctx.db, 'yoneticiparola')).toEqual({ ok: true, scope: { kind: 'admin' } });
+  });
+
+  it('tanimsiz parola reddedilir', async () => {
+    const { ctx } = shared;
+    expect(await login(ctx.db, 'boyle-bir-parola-yok')).toEqual({ ok: false });
   });
 
   it('hicbir sube yapilandirilmamissa parola yoneticiyi acar', async () => {
     const ctx = await createTestDb();
     await ensureSettings(ctx.db, 'yoneticiparola');
 
-    expect(await login(ctx.db, null, 'yoneticiparola')).toEqual({ ok: true, scope: { kind: 'admin' } });
-    expect(await login(ctx.db, null, 'yanlis')).toEqual({ ok: false });
+    expect(await login(ctx.db, 'yoneticiparola')).toEqual({ ok: true, scope: { kind: 'admin' } });
+    expect(await login(ctx.db, 'yanlis')).toEqual({ ok: false });
 
     await ctx.close();
   });
 
   /**
-   * Iki hesabi birden deneyen bir giris, dikkat edilmezse subede yanlis yazan
-   * herkesin patronu kilitlemesine yol acar. Sayac yalnizca subede tutuluyor.
+   * Sayac tek oldugu icin kilit girisin tamamini kapatiyor. Bu bilincli bir
+   * odun: parolayi kimin yazdigini bilmeden hesap basina sayac tutulamaz.
    */
-  it('subedeki yanlis denemeler yoneticiyi kilitlemez', async () => {
-    const { ctx, s1, s2 } = await setupAccounts();
+  it('bes yanlis denemeden sonra giris gecici olarak kapanir', async () => {
+    const { ctx } = await setupAccounts();
 
-    for (let i = 0; i < 5; i += 1) await login(ctx.db, branchIdOf(s1), 'yanlis');
+    for (let i = 0; i < 5; i += 1) await login(ctx.db, 'yanlis');
 
-    // S1 kilitlendi.
-    expect(await login(ctx.db, branchIdOf(s1), 'sube1parola')).toMatchObject({
+    expect(await login(ctx.db, 'sube1parola')).toMatchObject({
       ok: false,
       lockedMinutes: expect.any(Number),
     });
-
-    // Yonetici diger subeden hala girebiliyor.
-    expect(await login(ctx.db, branchIdOf(s2), 'yoneticiparola')).toEqual({
-      ok: true,
-      scope: { kind: 'admin' },
-    });
-
-    await ctx.close();
-  });
-
-  /**
-   * Kilit acikken yonetici parolasi denenseydi, kilit deneme hakkini
-   * sinirlamayan bir sus payina donerdi.
-   */
-  it('kilitli subede yonetici parolasi da denenmez', async () => {
-    const { ctx, s1 } = await setupAccounts();
-
-    for (let i = 0; i < 5; i += 1) await login(ctx.db, branchIdOf(s1), 'yanlis');
-
-    expect(await login(ctx.db, branchIdOf(s1), 'yoneticiparola')).toMatchObject({
+    expect(await login(ctx.db, 'yoneticiparola')).toMatchObject({
       ok: false,
       lockedMinutes: expect.any(Number),
     });
@@ -159,30 +133,41 @@ describe('giris ekrani', () => {
     await ctx.close();
   });
 
-  it('yonetici parolasiyla girmek subenin sayacini sifirlar', async () => {
-    const { ctx, s1 } = await setupAccounts();
-    const id = branchIdOf(s1);
+  it('basarili giris sayaci sifirlar', async () => {
+    const { ctx } = await setupAccounts();
 
-    await login(ctx.db, id, 'yanlis');
-    await login(ctx.db, id, 'yanlis');
-    await login(ctx.db, id, 'yoneticiparola');
+    await login(ctx.db, 'yanlis');
+    await login(ctx.db, 'yanlis');
+    await login(ctx.db, 'sube1parola');
 
-    const [row] = await ctx.db.select().from(branches).where(eq(branches.id, id));
+    const [row] = await ctx.db.select().from(appSettings).where(eq(appSettings.id, 1));
     expect(row.failedAttempts).toBe(0);
 
     await ctx.close();
   });
 
   /**
-   * Sube parolasi once deneniyor. Ikisi ayni olsaydi yonetici hesabina bir
-   * daha girilemezdi; bu yuzden ayni parola bastan reddediliyor.
+   * Parola artik hesabin tek isareti. Iki hesap ayni parolayi kullanirsa
+   * birine bir daha girilemez; ikisi de bastan reddediliyor.
    */
   it('sube parolasi yonetici parolasiyla ayni olamaz', async () => {
     const { ctx, s1 } = await setupAccounts();
+    const id = s1.kind === 'branch' ? s1.branchId : '';
 
-    await expect(
-      setBranchPassword(ctx.db, branchIdOf(s1), 'yoneticiparola'),
-    ).rejects.toThrow('yonetici parolasiyla ayni olamaz');
+    await expect(setBranchPassword(ctx.db, id, 'yoneticiparola')).rejects.toThrow(
+      'yonetici parolasiyla ayni olamaz',
+    );
+
+    await ctx.close();
+  });
+
+  it('sube parolasi diger subeninkiyle ayni olamaz', async () => {
+    const { ctx, s1 } = await setupAccounts();
+    const id = s1.kind === 'branch' ? s1.branchId : '';
+
+    await expect(setBranchPassword(ctx.db, id, 'sube2parola')).rejects.toThrow(
+      'subesinde kullaniliyor',
+    );
 
     await ctx.close();
   });

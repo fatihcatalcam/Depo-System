@@ -7,7 +7,7 @@ import type { Scope } from '@/domain/scope';
  *
  * Iki ayri ihtiyac var:
  *  - **Stok**: yanlislikla degistirmeyi onlemek. Kullanici kendisi kilitler,
- *    acmak icin kendi parolasini girer. Amac yetki degil dikkat.
+ *    acmak icin yonetici parolasi gerekir. Kilitlemek serbest, acmak degil.
  *  - **Raporlar**: ciro, tahsilat ve alacak yalnizca yoneticiye acik. Sube
  *    kendi parolasiyla acamaz, yoksa kilidin bir anlami kalmazdi.
  */

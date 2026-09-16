@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import { appSettings, branches } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { hashPassword, verifyPassword } from '@/lib/auth/password';
@@ -7,6 +7,16 @@ import { adminScope, branchScope, type Scope } from './scope';
 
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
+
+/**
+ * Giris ekraninin kilit suresi, hesap kilidinden kisa.
+ *
+ * Sube secimi kalkinca parolayi kimin yazdigini bilemiyoruz; sayac tek ve
+ * hatali denemeler girisin tamamini kilitliyor. Artik bir kisinin yanlis
+ * yazmasi herkesi disarida biraktigi icin kilidin bedeli agirlasti, suresini
+ * kisalttik. Denemeyi asil yavaslatan zaten scrypt'in maliyeti.
+ */
+const LOGIN_LOCK_MINUTES = 5;
 
 /**
  * Giris yapilabilecek hesap. Uc tane var: iki sube ve yonetici.
@@ -121,53 +131,53 @@ export async function authenticate(
 /**
  * Giris ekranindan gelen deneme.
  *
- * Yoneticinin ayri bir dugmesi yok; kendi parolasi var. Once secili subenin
- * parolasi denenir, tutmazsa yonetici parolasi denenir. Sube once deneniyor
- * cunku iki parola yanlislikla ayni olursa daha az yetkili olan kazanmali.
+ * Sube secimi yok: parola hangi hesabinsa o hesap acilir. Once subeler
+ * denenir, sonra yonetici — iki parola yanlislikla ayni olursa daha az
+ * yetkili olan kazanmali. `setBranchPassword` ayni parolayi zaten reddediyor;
+ * buradaki sira, o kontrolun atlandigi bir durumda son emniyet.
  *
- * Kilitlenme sayaci **yalnizca secili subede** tutulur. Yanlis deneme
- * yoneticinin sayacini da artirsaydi, subede bes kez yanlis yazan biri patronu
- * disarida birakirdi.
- *
- * Sube kilitliyse yonetici parolasi hic denenmez — denenseydi kilit, deneme
- * hakkini sinirsiz kilan bir bosluga donusurdu.
+ * Kilitlenme sayaci tek: kimin denedigini bilmedigimiz icin hesap basina
+ * sayac tutulamiyor. Bes hatali denemeden sonra giris `LOGIN_LOCK_MINUTES`
+ * boyunca hepsine kapanir.
  */
-export async function login(
-  db: DbOrTx,
-  branchId: string | null,
-  password: string,
-): Promise<LoginResult> {
-  // Hicbir subenin parolasi yoksa (ilk kurulum) girilecek tek hesap yonetici.
-  if (!branchId) return authenticate(db, { kind: 'admin' }, password);
+export async function login(db: DbOrTx, password: string): Promise<LoginResult> {
+  const admin = await readCredential(db, { kind: 'admin' });
 
-  const account: Account = { kind: 'branch', branchId };
-  const branch = await readCredential(db, account);
-
-  if (branch.lockedUntil && branch.lockedUntil > new Date()) {
-    const remaining = Math.max(1, Math.ceil((branch.lockedUntil.getTime() - Date.now()) / 60_000));
+  if (admin.lockedUntil && admin.lockedUntil > new Date()) {
+    const remaining = Math.max(1, Math.ceil((admin.lockedUntil.getTime() - Date.now()) / 60_000));
     return { ok: false, lockedMinutes: remaining };
   }
 
-  if (branch.passwordHash && (await verifyPassword(password, branch.passwordHash))) {
-    await writeCredential(db, account, { failedAttempts: 0, lockedUntil: null });
-    return { ok: true, scope: branch.scope };
+  const rows = await db
+    .select({ id: branches.id, code: branches.code, passwordHash: branches.passwordHash })
+    .from(branches)
+    .where(eq(branches.isActive, true))
+    .orderBy(asc(branches.code));
+
+  for (const row of rows) {
+    if (row.passwordHash && (await verifyPassword(password, row.passwordHash))) {
+      await clearLoginLock(db);
+      return { ok: true, scope: branchScope(row.id, row.code) };
+    }
   }
 
-  const admin = await readCredential(db, { kind: 'admin' });
   if (admin.passwordHash && (await verifyPassword(password, admin.passwordHash))) {
-    await writeCredential(db, account, { failedAttempts: 0, lockedUntil: null });
-    await writeCredential(db, { kind: 'admin' }, { failedAttempts: 0, lockedUntil: null });
-    return { ok: true, scope: admin.scope };
+    await clearLoginLock(db);
+    return { ok: true, scope: adminScope };
   }
 
-  const attempts = branch.failedAttempts + 1;
+  const attempts = admin.failedAttempts + 1;
   const shouldLock = attempts >= MAX_ATTEMPTS;
-  await writeCredential(db, account, {
+  await writeCredential(db, { kind: 'admin' }, {
     failedAttempts: shouldLock ? 0 : attempts,
-    lockedUntil: shouldLock ? new Date(Date.now() + LOCK_MINUTES * 60_000) : null,
+    lockedUntil: shouldLock ? new Date(Date.now() + LOGIN_LOCK_MINUTES * 60_000) : null,
   });
 
-  return shouldLock ? { ok: false, lockedMinutes: LOCK_MINUTES } : { ok: false };
+  return shouldLock ? { ok: false, lockedMinutes: LOGIN_LOCK_MINUTES } : { ok: false };
+}
+
+async function clearLoginLock(db: DbOrTx): Promise<void> {
+  await writeCredential(db, { kind: 'admin' }, { failedAttempts: 0, lockedUntil: null });
 }
 
 /**
@@ -176,9 +186,9 @@ export async function login(
  * `admin`: yalnizca yonetici parolasi gecer (raporlar). Sube kendi
  * parolasiyla acabilseydi kilidin bir anlami kalmazdi.
  *
- * `own`: kendi sube parolasi ya da yonetici parolasi gecer (stok). Amac
- * yetki degil dikkat: depocu yanlislikla stok degistirmesin ama her
- * duzeltme icin patronu aramak zorunda da kalmasin.
+ * `own`: kendi sube parolasi ya da yonetici parolasi gecer. Su an hicbir
+ * ekran bu seviyeyi kullanmiyor — stok da yonetici parolasina baglandi —
+ * ama secim politikadan ibaret, kod tarafi duruyor.
  *
  * Kilitlenme sayaci isletilmiyor: burada yanlis yazmak kullanicinin
  * uygulamadan tamamen kilitlenmesine yol acmamali. Deneme hizini scrypt'in

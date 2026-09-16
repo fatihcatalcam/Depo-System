@@ -15,23 +15,21 @@ export interface LockResult {
 const passwordSchema = z.string().min(1, 'Parola girin.');
 
 /**
- * Kilidi acar. Hangi parolanin gectigini alan belirliyor:
- * raporlar yalnizca yonetici parolasiyla, stok kendi parolasiyla da acilir.
+ * Kilidi acar. Iki alan da yonetici parolasini istiyor: patron stok ve rapor
+ * icin tek bir parola verdi, sube parolasi buralari acmiyor.
  */
 export async function unlockAction(area: LockArea, password: unknown): Promise<LockResult> {
   const parsed = passwordSchema.safeParse(password);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   const scope = await currentScope();
-  const level = area === 'raporlar' ? 'admin' : 'own';
 
-  if (!(await verifyUnlockPassword(db, scope, parsed.data, level))) {
+  if (!(await verifyUnlockPassword(db, scope, parsed.data, 'admin'))) {
     return {
       ok: false,
-      error:
-        area === 'raporlar'
-          ? 'Parola hatali. Raporlar yalnizca yonetici parolasiyla acilir.'
-          : 'Parola hatali.',
+      error: `Parola hatali. ${
+        area === 'raporlar' ? 'Raporlar' : 'Stok'
+      } yalnizca yonetici parolasiyla acilir.`,
     };
   }
 

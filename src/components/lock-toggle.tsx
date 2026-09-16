@@ -15,8 +15,9 @@ interface Props {
 /**
  * Stok kilidi dugmesi.
  *
- * Kilitlemek serbest, acmak parola ister. Amac yetki degil dikkat: telefon
- * elden ele dolasirken ya da masada dururken stok yanlislikla degismesin.
+ * Kilitlemek serbest, acmak yonetici parolasini ister. Iki isi birden
+ * goruyor: telefon elden ele dolasirken stok yanlislikla degismesin ve
+ * duzeltmeyi patronun haberi olmadan kimse yapmasin.
  */
 export function LockToggle({ locked }: Props) {
   const [asking, setAsking] = useState(false);

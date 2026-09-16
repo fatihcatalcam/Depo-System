@@ -2,7 +2,6 @@ import { SignJWT, jwtVerify } from 'jose';
 
 export const SESSION_COOKIE = 'depo_oturum';
 /** Giris ekraninda son secilen hesabi hatirlar. Gizli bir sey icermez. */
-export const LAST_ACCOUNT_COOKIE = 'depo_son_hesap';
 
 const SESSION_DAYS = 30;
 

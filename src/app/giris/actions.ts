@@ -7,15 +7,12 @@ import { db } from '@/db/client';
 import { login } from '@/domain/auth';
 import { ensureSettings } from '@/domain/settings';
 import {
-  LAST_ACCOUNT_COOKIE,
   SESSION_COOKIE,
   SESSION_MAX_AGE_SECONDS,
   createSessionToken,
 } from '@/lib/auth/session';
 
 const schema = z.object({
-  /** Secili sube. Hicbir subenin parolasi yoksa bos gelir. */
-  branchId: z.union([z.uuid(), z.literal('')]),
   password: z.string().min(1, 'Parola girin.'),
 });
 
@@ -24,17 +21,14 @@ export interface LoginState {
 }
 
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
-  const parsed = schema.safeParse({
-    branchId: formData.get('branchId'),
-    password: formData.get('password'),
-  });
+  const parsed = schema.safeParse({ password: formData.get('password') });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   // Ilk acilista ayar satirini ve yonetici parolasini olusturur.
   await ensureSettings(db, process.env.INITIAL_APP_PASSWORD ?? 'depo2026');
 
-  const branchId = parsed.data.branchId || null;
-  const result = await login(db, branchId, parsed.data.password);
+  // Parola hangi hesabinsa o hesap acilir; sube secimi yok.
+  const result = await login(db, parsed.data.password);
 
   if (!result.ok) {
     return {
@@ -60,17 +54,6 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
       maxAge: SESSION_MAX_AGE_SECONDS,
     },
   );
-
-  // Ayni kisi hep ayni subeye giriyor; secimi hatirlayip bir dokunus
-  // kazandiriyoruz. Gizli bir bilgi degil, httpOnly olmasi gerekmiyor.
-  if (branchId) {
-    store.set(LAST_ACCOUNT_COOKIE, branchId, {
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: SESSION_MAX_AGE_SECONDS,
-    });
-  }
 
   redirect('/');
 }

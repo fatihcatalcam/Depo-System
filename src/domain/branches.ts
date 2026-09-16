@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, ne } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { appSettings, branches } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
@@ -85,6 +85,18 @@ export async function setBranchPassword(
       'Sube parolasi yonetici parolasiyla ayni olamaz; yonetici hesabina girilemez hale gelir.',
       'PASSWORD_COLLIDES_WITH_ADMIN',
     );
+  }
+
+  // Giriste sube secimi yok: parola hangi subeninse o sube aciliyor. Iki sube
+  // ayni parolayi kullanirsa digerine bir daha girilemez.
+  const others = await db.select().from(branches).where(ne(branches.id, id));
+  for (const other of others) {
+    if (other.passwordHash && (await verifyPassword(newPassword, other.passwordHash))) {
+      throw new DomainError(
+        `Bu parola "${other.name}" subesinde kullaniliyor; girişte subeler ayirt edilemez hale gelir.`,
+        'PASSWORD_COLLIDES_WITH_BRANCH',
+      );
+    }
   }
 
   const result = await db
