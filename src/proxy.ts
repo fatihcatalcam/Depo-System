@@ -21,5 +21,9 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // `_next` tamamen disarida: statik varliklar, goruntu optimizasyonu ve
   // gelistirmedeki HMR websocket'i buradan geciyor. Sayfa degiller.
-  matcher: ['/((?!giris|_next/|favicon.ico|manifest.webmanifest).*)'],
+  //
+  // `api/yedek` de disarida: gunluk yedegi Vercel Cron cagiriyor, oturum
+  // cerezi tasimiyor. Kendi kapisi var — `CRON_SECRET` basligi olmadan
+  // istegi reddediyor.
+  matcher: ['/((?!giris|api/yedek|_next/|favicon.ico|manifest.webmanifest).*)'],
 };

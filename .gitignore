@@ -53,3 +53,5 @@ next-env.d.ts
 # sonra gelmeli, yoksa gecersiz kalir: Vercel CLI her calistiginda dosyanin
 # sonuna bir .env* satiri daha ekliyor, bu yuzden istisna en altta duruyor.
 !.env.example
+
+.env*

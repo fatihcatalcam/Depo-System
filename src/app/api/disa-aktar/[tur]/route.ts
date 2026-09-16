@@ -5,6 +5,7 @@ import {
   exportCustomersWorkbook,
   exportOrdersWorkbook,
   exportReportWorkbook,
+  exportStockCountTemplate,
   exportStockWorkbook,
 } from '@/domain/excel';
 import { currentScope } from '@/lib/auth/current';
@@ -56,6 +57,12 @@ export async function GET(
     case 'sablon-stok':
       buffer = await buildImportTemplate('stok');
       filename = 'stok-sablonu.xlsx';
+      break;
+    // Sayim sablonu bos degil: mevcut kartlar adetleriyle birlikte iniyor,
+    // kullanici yalnizca "Sayilan adet" sutununu dolduruyor.
+    case 'sablon-sayim':
+      buffer = await exportStockCountTemplate(db);
+      filename = `stok-sayim-${today}.xlsx`;
       break;
     default:
       return NextResponse.json({ error: 'Bilinmeyen disa aktarma turu.' }, { status: 404 });

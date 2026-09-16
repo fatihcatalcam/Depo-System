@@ -305,6 +305,13 @@ export function ImportPanel() {
           templateHref="/api/disa-aktar/sablon-musteri"
         />
         <ImportForm kind="stok" label="Stok kartlari" templateHref="/api/disa-aktar/sablon-stok" />
+        <ImportForm
+          kind="sayim"
+          label="Stok sayimi (adet guncelleme)"
+          templateHref="/api/disa-aktar/sablon-sayim"
+          hint="Sablon mevcut kartlarla dolu iner. Yalnizca degistirmek istediginiz satirlarin
+                'Sayilan adet' sutununu doldurun; bos birakilan satira dokunulmaz."
+        />
       </div>
     </Section>
   );
@@ -314,10 +321,12 @@ function ImportForm({
   kind,
   label,
   templateHref,
+  hint,
 }: {
-  kind: 'musteri' | 'stok';
+  kind: 'musteri' | 'stok' | 'sayim';
   label: string;
   templateHref: string;
+  hint?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -347,6 +356,7 @@ function ImportForm({
           Sablonu indir
         </a>
       </div>
+      {hint ? <p className="text-xs text-neutral-500">{hint}</p> : null}
       <div className="flex flex-wrap gap-2">
         <input
           ref={inputRef}

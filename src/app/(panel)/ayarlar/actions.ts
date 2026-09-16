@@ -5,10 +5,12 @@ import { z } from 'zod';
 import { db } from '@/db/client';
 import { changeOwnPassword, type Account } from '@/domain/auth';
 import { renameBranch, setBranchPassword } from '@/domain/branches';
-import { importCustomers, importStockItems, type ImportResult } from '@/domain/excel';
+import { importCustomers, importStockCounts,
+  importStockItems, type ImportResult } from '@/domain/excel';
 import { updateCompanyInfo } from '@/domain/settings';
 import { recalculateStockBalances } from '@/domain/stock/maintenance';
 import { currentScope, currentUser } from '@/lib/auth/current';
+import { isStockLocked } from '@/lib/auth/locks';
 import { DomainError } from '@/lib/errors';
 
 export interface ActionResult {
@@ -156,7 +158,7 @@ export interface ImportActionResult extends ActionResult {
 }
 
 export async function importExcelAction(
-  kind: 'musteri' | 'stok',
+  kind: 'musteri' | 'stok' | 'sayim',
   formData: FormData,
 ): Promise<ImportActionResult> {
   const file = formData.get('file');
@@ -169,6 +171,26 @@ export async function importExcelAction(
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    if (kind === 'sayim') {
+      // Toplu sayim da bir stok yazmasi. Stok kilidi acikken kartlardan tek
+      // tek degistirilemeyen adet, Excel'den topluca degistirilebilseydi
+      // kilidin bir anlami kalmazdi.
+      const scope = await currentScope();
+      if (await isStockLocked(scope)) {
+        return { ok: false, error: 'Stok kilitli. Once stok sayfasindan kilidi acin.' };
+      }
+
+      const counts = await importStockCounts(db, buffer);
+      revalidatePath('/stok');
+      revalidatePath('/');
+
+      const parts = [`${counts.updated} kartin adedi guncellendi`];
+      if (counts.unchanged > 0) parts.push(`${counts.unchanged} kart zaten ayniydi`);
+      if (counts.skipped > 0) parts.push(`${counts.skipped} satir bos birakilmisti`);
+      return { ok: true, message: `${parts.join(', ')}.` };
+    }
+
     const result =
       kind === 'musteri'
         ? await importCustomers(db, await currentScope(), buffer)

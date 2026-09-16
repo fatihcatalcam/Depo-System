@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:backup": "tsx scripts/backup.ts",
+    "db:restore": "tsx scripts/restore.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:catalog": "tsx scripts/seed-catalog.ts",
     "db:demo": "tsx scripts/seed-demo.ts",
@@ -21,6 +22,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
+    "@vercel/blob": "^2.8.0",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "bwip-js": "^4.11.2",

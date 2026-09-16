@@ -6,6 +6,7 @@ import { type Scope } from './scope';
 import { listCategoryTree, type CategoryNode } from '@/domain/catalog/categories';
 import { createStockItem, listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
 import { listOrders } from '@/domain/orders/orders';
+import { adjustStockCount } from '@/domain/stock/counting';
 import { createCustomer, searchCustomers } from '@/domain/parties/parties';
 import { getPeriodSummary } from '@/domain/reports';
 import { DomainError } from '@/lib/errors';
@@ -396,6 +397,154 @@ export async function importStockItems(db: Db, buffer: Buffer): Promise<ImportRe
   });
 
   return { imported: fresh.length, skipped, errors };
+}
+
+export interface StockCountImportResult {
+  /** Adedi degistigi icin sayim hareketi yazilan kart sayisi. */
+  updated: number;
+  /** Sayilan adet mevcutla ayni oldugu icin dokunulmayan satirlar. */
+  unchanged: number;
+  /** Sayim sutunu bos birakilmis satirlar. */
+  skipped: number;
+}
+
+/**
+ * Sayim sablonu: mevcut stok listesi, doldurulacak bir sutunla birlikte.
+ *
+ * Bos bir sablon yerine dolu liste veriliyor — 567 kartin SKU'sunu elle
+ * yazdirmanin alemi yok. Kullanici yalnizca son sutunu dolduruyor.
+ */
+export async function exportStockCountTemplate(db: DbOrTx): Promise<Buffer> {
+  const items = await listStockItemsWithAvailability(db, {});
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Sayim');
+  sheet.columns = [
+    { header: 'SKU', key: 'sku', width: 12 },
+    { header: 'Parca adi', key: 'name', width: 32 },
+    { header: 'Boyut', key: 'size', width: 14 },
+    { header: 'Renk / kumas', key: 'variant', width: 18 },
+    { header: 'Mevcut adet', key: 'onHand', width: 14 },
+    { header: 'Sayilan adet', key: 'counted', width: 14 },
+  ];
+
+  for (const item of items) {
+    sheet.addRow({
+      sku: item.sku,
+      name: item.name,
+      size: item.sizeLabel ?? '',
+      variant: item.variantLabel ?? '',
+      onHand: item.quantityOnHand,
+      counted: '',
+    });
+  }
+
+  styleHeader(sheet);
+  return toBuffer(workbook);
+}
+
+/**
+ * Sayim sablonunu geri okur ve farklari stoga isler.
+ *
+ * Adet dogrudan yazilmiyor: her fark icin `stock_count` hareketi uretiliyor,
+ * boylece "bu adet nereden geldi" sorusu sonradan da cevaplanabiliyor.
+ *
+ * Bos birakilan satir "bu karta dokunma" demek. Sifir yazmak ise gercek bir
+ * degerdir ve karti sifirlar — ikisini karistirmamak icin bos hucre ile 0
+ * ayri ayri ele aliniyor.
+ */
+export async function importStockCounts(
+  db: Db,
+  buffer: Buffer,
+): Promise<StockCountImportResult> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+
+  const sheet = workbook.worksheets[0];
+  if (!sheet) throw new DomainError('Excel dosyasinda sayfa bulunamadi.', 'EMPTY_WORKBOOK');
+
+  const parsed: { sku: string; counted: number; rowNumber: number }[] = [];
+  const errors: string[] = [];
+  let skipped = 0;
+
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+
+    const sku = cellText(row, 1);
+    const countedText = cellText(row, 6);
+
+    if (sku === '') {
+      skipped += 1;
+      return;
+    }
+    if (countedText === '') {
+      skipped += 1;
+      return;
+    }
+
+    const counted = Number(countedText.replace(',', '.'));
+    if (!Number.isFinite(counted) || counted < 0 || !Number.isInteger(counted)) {
+      errors.push(`Satir ${rowNumber}: sayilan adet sifir ya da pozitif tam sayi olmali ("${countedText}").`);
+      return;
+    }
+
+    parsed.push({ sku, counted, rowNumber });
+  });
+
+  if (parsed.length === 0 && errors.length === 0) {
+    throw new DomainError('Dosyada sayilan adet girilmis satir yok.', 'NO_ROWS');
+  }
+
+  const rows = await db
+    .select({ id: stockItems.id, sku: stockItems.sku, onHand: stockItems.quantityOnHand })
+    .from(stockItems);
+  const bySku = new Map(rows.map((row) => [row.sku.toLocaleUpperCase('tr-TR'), row]));
+
+  const targets: { id: string; counted: number; onHand: number }[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of parsed) {
+    const key = entry.sku.toLocaleUpperCase('tr-TR');
+    const card = bySku.get(key);
+    if (!card) {
+      errors.push(`Satir ${entry.rowNumber}: "${entry.sku}" kodlu stok karti yok.`);
+      continue;
+    }
+    if (seen.has(key)) {
+      errors.push(`Satir ${entry.rowNumber}: "${entry.sku}" dosyada birden fazla kez geciyor.`);
+      continue;
+    }
+    seen.add(key);
+    targets.push({ id: card.id, counted: entry.counted, onHand: card.onHand });
+  }
+
+  // Ya hepsi ya hicbiri: yarim islenmis bir sayim, sayilmamis olmaktan kotudur.
+  if (errors.length > 0) {
+    throw new DomainError(
+      `Dosyada duzeltilmesi gereken satirlar var, hicbiri islenmedi:\n${errors.slice(0, 10).join('\n')}`,
+      'INVALID_ROWS',
+    );
+  }
+
+  const changed = targets.filter((row) => row.counted !== row.onHand);
+
+  if (changed.length > 0) {
+    await db.transaction(async (tx) => {
+      for (const row of changed) {
+        await adjustStockCount(tx, {
+          stockItemId: row.id,
+          countedQuantity: row.counted,
+          notes: 'Excel sayim aktarimi',
+        });
+      }
+    });
+  }
+
+  return {
+    updated: changed.length,
+    unchanged: targets.length - changed.length,
+    skipped,
+  };
 }
 
 /** Ice aktarma sablonlari: kullanici indirip doldurur. */

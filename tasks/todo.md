@@ -214,3 +214,48 @@ Stok ve raporlarin ikisi de yonetici parolasiyla aciliyor. Sube parolasi
 ikisini de acmiyor — tarayicida denendi, reddedildi.
 
 `scripts/set-password.ts` kaldi: parola unutuldugunda arayuzden cikis yok.
+
+## Plan 10 — Otomatik yedek ve Excel ile sayim (2026-09-16)
+
+- [x] 1. Gunluk otomatik yedek (Vercel Cron + Blob)
+- [x] 2. Geri yukleme betigi
+- [x] 3. Excel sayim sablonu: mevcut kartlar iner, adet sutunu doldurulup geri yuklenir
+
+### Yedek
+
+`/api/yedek` her gece 01:00 UTC'de (Istanbul 04:00) calisiyor ve veritabaninin
+tamamini JSON olarak Blob deposuna yaziyor. Son 30 dosya saklaniyor.
+
+Depo **private**: yedek musteri adi, telefon ve adresi iceriyor. Dosyanin
+adresi tahmin edilemez olsun yetmez; token'siz istek 403 donuyor (denendi).
+
+Uc nokta `CRON_SECRET` basligi istiyor ve **secret tanimli degilse istegi
+reddediyor**. Acik birakmak, veritabaninin tamamini dokecek bir dugmeyi
+internete koymak olurdu. Proxy'de muaf tutuldu — cron oturum cerezi tasimiyor,
+kendi kapisi var.
+
+Geri yukleme: `npm run db:restore <dosya> --onayliyorum`. Mevcut veriyi silip
+yerine yedegi yaziyor, tek transaction. Bulut yedegi indirilip gercekten geri
+yuklendi ve sonrasinda parolayla giris denendi — calisiyor.
+
+`stock_movements.seq` gibi otomatik artan sutunlar acikca yazildigi icin
+geri yuklemeden sonra sayac ileri aliniyor; yoksa bir sonraki hareket mevcut
+bir seq'i alirdi.
+
+### Excel sayim
+
+Sablon bos degil, mevcut kartlarla dolu iniyor (SKU, ad, boyut, renk, mevcut
+adet) — 567 kartin kodunu elle yazdirmanin alemi yok.
+
+Bos birakilan satira dokunulmuyor, sifir yazmak karti sifirliyor: bos hucre
+ile 0 ayri seyler.
+
+Adet dogrudan yazilmiyor; her fark `stock_count` hareketi uretiyor, boylece
+"bu adet nereden geldi" sorusu sonradan cevaplanabiliyor.
+
+Tanimsiz SKU ya da kesirli adet varsa hicbir satir islenmiyor: yarim islenmis
+bir sayim, hic sayilmamis olmaktan kotudur.
+
+Toplu sayim da stok kilidine tabi — kilitliyken karttan tek tek
+degistirilemeyen adet Excel'den topluca degistirilebilseydi kilidin anlami
+kalmazdi. Tarayicida denendi, reddedildi.
