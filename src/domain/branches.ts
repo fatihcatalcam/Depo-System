@@ -1,6 +1,6 @@
 import { asc, eq, ne } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import { appSettings, branches } from '@/db/schema';
+import { appSettings, branches, customers, orders } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { hashPassword, verifyPassword } from '@/lib/auth/password';
 import { DomainError, NotFoundError } from '@/lib/errors';
@@ -36,6 +36,52 @@ export async function listBranches(db: DbOrTx): Promise<BranchSummary[]> {
 export async function listLoginableBranches(db: DbOrTx): Promise<BranchSummary[]> {
   const rows = await listBranches(db);
   return rows.filter((row) => row.isActive && row.hasPassword);
+}
+
+export interface AccountOverviewBranch extends BranchSummary {
+  orderCount: number;
+  customerCount: number;
+}
+
+export interface AccountOverview {
+  adminHasPassword: boolean;
+  branches: AccountOverviewBranch[];
+}
+
+/**
+ * Hesaplarin durumu: kimin parolasi var, hangi subenin defterinde kac kayit
+ * duruyor.
+ *
+ * "Siparis neden diger subede de gorunuyor" sorusu genelde buradan cozuluyor:
+ * parolasi olmayan bir sube, calisaninin baska bir hesaptan girmesi demektir
+ * ve o hesap yoneticiyse listede iki subenin siparisi birden gorunur.
+ */
+export async function getAccountOverview(db: DbOrTx): Promise<AccountOverview> {
+  const [settings] = await db
+    .select({ passwordHash: appSettings.passwordHash })
+    .from(appSettings)
+    .where(eq(appSettings.id, 1));
+
+  const rows = await listBranches(db);
+
+  const orderCounts = await db
+    .select({ branchId: orders.branchId, count: sql<number>`count(*)::int` })
+    .from(orders)
+    .groupBy(orders.branchId);
+
+  const customerCounts = await db
+    .select({ branchId: customers.branchId, count: sql<number>`count(*)::int` })
+    .from(customers)
+    .groupBy(customers.branchId);
+
+  return {
+    adminHasPassword: settings?.passwordHash != null,
+    branches: rows.map((branch) => ({
+      ...branch,
+      orderCount: Number(orderCounts.find((row) => row.branchId === branch.id)?.count ?? 0),
+      customerCount: Number(customerCounts.find((row) => row.branchId === branch.id)?.count ?? 0),
+    })),
+  };
 }
 
 export async function getBranch(db: DbOrTx, id: string): Promise<Branch> {

@@ -79,6 +79,19 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
         </div>
       </div>
 
+      {/*
+        Yonetici hesabi iki subenin siparislerini birden goruyor. Bunu bilmeyen
+        biri icin ekran "diger subenin siparisi bana gorunuyor" gibi duruyor;
+        listenin basinda yaziyor.
+      */}
+      {user.isAdmin ? (
+        <p className="rounded-lg border border-neutral-200 bg-white p-3 text-sm text-neutral-600">
+          Yonetici hesabi <strong className="text-neutral-900">butun subelerin</strong>{' '}
+          siparislerini gorur; hangisine ait oldugu &quot;Sube&quot; sutununda yazili. Tek
+          subenin listesi icin o subenin kendi parolasiyla girin.
+        </p>
+      ) : null}
+
       <nav className="flex flex-wrap gap-2">
         {FILTERS.map((filter) => (
           <Link

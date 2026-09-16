@@ -5,10 +5,19 @@ import {
   authenticate,
   changeOwnPassword,
   login,
+  matchAccounts,
   verifyUnlockPassword,
   type Account,
 } from '@/domain/auth';
-import { listBranches, listLoginableBranches, renameBranch, setBranchPassword } from '@/domain/branches';
+import {
+  getAccountOverview,
+  listBranches,
+  listLoginableBranches,
+  renameBranch,
+  setBranchPassword,
+} from '@/domain/branches';
+import { createOrder } from '@/domain/orders/orders';
+import { createCustomer } from '@/domain/parties/parties';
 import { branchScope, adminScope } from '@/domain/scope';
 import { ensureSettings } from '@/domain/settings';
 import { hashPassword } from '@/lib/auth/password';
@@ -419,6 +428,63 @@ describe('kilit parolalari', () => {
     const { ctx } = await setupAccounts();
     expect(await verifyUnlockPassword(ctx.db, adminScope, 'yoneticiparola', 'own')).toBe(true);
     expect(await verifyUnlockPassword(ctx.db, adminScope, 'sube1parola', 'own')).toBe(false);
+    await ctx.close();
+  });
+});
+
+/**
+ * `scripts/hesaplar.ts` bu iki fonksiyonun uzerinde duruyor: "hangi parola
+ * hangi hesabi aciyor" ve "hangi subenin defterinde kac kayit var". Teshis
+ * araci yanlis sey soylerse aranan hata bulunamaz; ikisi de test ediliyor.
+ */
+describe('hesap durumu', () => {
+  it('parolanin actigi hesabi bulur', async () => {
+    const { ctx } = shared;
+
+    expect(await matchAccounts(ctx.db, 'sube2parola')).toMatchObject([
+      { label: 'Sube 2 (S2)', scope: { kind: 'branch', branchCode: 'S2' } },
+    ]);
+    expect(await matchAccounts(ctx.db, 'yoneticiparola')).toMatchObject([
+      { label: 'Yonetici', scope: { kind: 'admin' } },
+    ]);
+    expect(await matchAccounts(ctx.db, 'boyle-bir-parola-yok')).toEqual([]);
+  });
+
+  it('cakisan parolada iki hesabi birden doner', async () => {
+    const ctx = await createTestDb();
+    await ensureSettings(ctx.db, 'yoneticiparola');
+    await ctx.db.update(branches).set({ passwordHash: await hashPassword('ortakparola') });
+
+    const matches = await matchAccounts(ctx.db, 'ortakparola');
+    expect(matches.map((match) => match.label)).toEqual(['Sube 1 (S1)', 'Sube 2 (S2)']);
+
+    await ctx.close();
+  });
+
+  it('hangi subede kac kayit oldugunu sayar', async () => {
+    const ctx = await createTestDb();
+    await ensureSettings(ctx.db, 'yoneticiparola');
+
+    const customer = await createCustomer(ctx.db, ctx.scopes.s1, { name: 'Musteri' });
+    await createOrder(ctx.db, ctx.scopes.s1, {
+      customerId: customer.id,
+      orderDate: '2026-09-16',
+      deliveryAddress: 'Ornek Mah.',
+      lines: [
+        { itemType: 'custom', description: 'Ozel olcu sehpa', quantity: 1, unitPriceKurus: 450_000 },
+      ],
+    });
+
+    const overview = await getAccountOverview(ctx.db);
+    const s1 = overview.branches.find((branch) => branch.code === 'S1');
+    const s2 = overview.branches.find((branch) => branch.code === 'S2');
+
+    expect(overview.adminHasPassword).toBe(true);
+    expect(s1).toMatchObject({ orderCount: 1, customerCount: 1, hasPassword: false });
+    // Parolasi olmayan sube: girilemeyen sube, calisaninin baska bir hesaptan
+    // girmesi demek. Teshis araci bunu uyari olarak yaziyor.
+    expect(s2).toMatchObject({ orderCount: 0, customerCount: 0, hasPassword: false });
+
     await ctx.close();
   });
 });

@@ -136,6 +136,53 @@ export async function authenticate(
   return shouldLock ? { ok: false, lockedMinutes: LOCK_MINUTES } : { ok: false };
 }
 
+export interface AccountMatch {
+  /** Insana gosterilecek ad: "Sube 1 (S1)" ya da "Yonetici". */
+  label: string;
+  scope: Scope;
+}
+
+/**
+ * Parolanin eslestigi hesaplar.
+ *
+ * Giris de, `scripts/hesaplar.ts` teshis araci da bunu kullaniyor: "bu parola
+ * hangi hesabi aciyor" sorusunun cevabi tek yerde dursun, arac ile gercek
+ * davranis birbirinden ayrilmasin.
+ *
+ * Kapali subeler disarida: giris onlari zaten acmiyor.
+ */
+export async function matchAccounts(db: DbOrTx, password: string): Promise<AccountMatch[]> {
+  const rows = await db
+    .select({
+      id: branches.id,
+      code: branches.code,
+      name: branches.name,
+      passwordHash: branches.passwordHash,
+    })
+    .from(branches)
+    .where(eq(branches.isActive, true))
+    .orderBy(asc(branches.code));
+
+  const matches: AccountMatch[] = [];
+
+  for (const row of rows) {
+    if (row.passwordHash && (await verifyPassword(password, row.passwordHash))) {
+      matches.push({ label: `${row.name} (${row.code})`, scope: branchScope(row.id, row.code) });
+    }
+  }
+
+  const [settings] = await db
+    .select({ passwordHash: appSettings.passwordHash })
+    .from(appSettings)
+    .where(eq(appSettings.id, 1));
+
+  if (settings?.passwordHash && (await verifyPassword(password, settings.passwordHash))) {
+    matches.push({ label: 'Yonetici', scope: adminScope });
+  }
+
+  return matches;
+}
+
 /**
  * Giris ekranindan gelen deneme.
  *
@@ -166,24 +213,8 @@ export async function login(db: DbOrTx, password: string): Promise<LoginResult> 
     return { ok: false, lockedMinutes: remaining };
   }
 
-  const rows = await db
-    .select({ id: branches.id, code: branches.code, passwordHash: branches.passwordHash })
-    .from(branches)
-    .where(eq(branches.isActive, true))
-    .orderBy(asc(branches.code));
-
   // Ilk eslesmede durmuyoruz: cakisma ancak hepsi denenince goruluyor.
-  const matches: Scope[] = [];
-
-  for (const row of rows) {
-    if (row.passwordHash && (await verifyPassword(password, row.passwordHash))) {
-      matches.push(branchScope(row.id, row.code));
-    }
-  }
-
-  if (admin.passwordHash && (await verifyPassword(password, admin.passwordHash))) {
-    matches.push(adminScope);
-  }
+  const matches = await matchAccounts(db, password);
 
   if (matches.length > 1) {
     await clearLoginLock(db);
@@ -192,7 +223,7 @@ export async function login(db: DbOrTx, password: string): Promise<LoginResult> 
 
   if (matches.length === 1) {
     await clearLoginLock(db);
-    return { ok: true, scope: matches[0] };
+    return { ok: true, scope: matches[0].scope };
   }
 
   const attempts = admin.failedAttempts + 1;

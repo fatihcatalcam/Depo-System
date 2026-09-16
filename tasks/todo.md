@@ -289,3 +289,16 @@ birincinin defterine yaziliyor, iki sube ayni listeyi goruyordu.
 Kurulum tarafinda yapilmasi gereken: her subeye ayri parola
 (Ayarlar > Subeler ya da `npx tsx scripts/set-password.ts S2 <parola>`).
 Karisma donemindeki siparisler hala S1 defterinde; tasima araci yok.
+
+### Teshis araci
+
+Parolalar zaten ayriysa geriye tek ihtimal kaliyor: girilen hesap sanilan
+hesap degil. Yonetici parolasiyla giren bir sube calisani butun subelerin
+siparislerini gorur — sikayetin gorundugu bicim tam olarak bu.
+
+`npx tsx scripts/hesaplar.ts [parola]` hesaplarin parolasi var mi, hangi
+subenin defterinde kac siparis/musteri var ve verilen parola hangi hesabi
+aciyor onu yaziyor. Arac giristeki `matchAccounts` fonksiyonunu kullaniyor;
+ayri bir kopya olsaydi arac ile gercek davranis zamanla ayrilirdi.
+
+Siparis listesi de yoneticiye "bu liste butun subelerin" diye yaziyor.
