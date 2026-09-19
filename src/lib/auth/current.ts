@@ -2,14 +2,15 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { db } from '@/db/client';
 import { getBranch } from '@/domain/branches';
-import { adminScope, branchScope, type Scope } from '@/domain/scope';
+import { branchScope, type Scope } from '@/domain/scope';
 import { SESSION_COOKIE, readSessionToken } from './session';
 
 export interface CurrentUser {
   scope: Scope;
-  /** Baslikta gosterilecek ad: "Sube 1" ya da "Yonetici". */
+  /** Baslikta gosterilecek ad: "Merkez", "Sube 2". */
   label: string;
-  isAdmin: boolean;
+  /** Merkez mi? Arayuzde sube sutununu ve merkeze ozel panelleri acar. */
+  isCentral: boolean;
 }
 
 /**
@@ -29,16 +30,18 @@ export async function currentUser(): Promise<CurrentUser> {
 
   if (!payload) redirect('/giris');
 
-  if (payload.role === 'admin') {
-    return { scope: adminScope, label: 'Yonetici', isAdmin: true };
-  }
-
   // Sube silinmis ya da kapatilmis olabilir; jetonun gecerli olmasi subenin
-  // hala var oldugunu gostermez.
+  // hala var oldugunu gostermez. Merkez bayragi da her istekte buradan
+  // okunuyor: jetonda tasinsaydi, merkez degistiginde eski jeton eski yetkiyi
+  // tasimaya devam ederdi.
   try {
     const branch = await getBranch(db, payload.branchId);
     if (!branch.isActive) redirect('/giris');
-    return { scope: branchScope(branch.id, branch.code), label: branch.name, isAdmin: false };
+    return {
+      scope: branchScope(branch.id, branch.code, branch.isCentral),
+      label: branch.name,
+      isCentral: branch.isCentral,
+    };
   } catch {
     redirect('/giris');
   }

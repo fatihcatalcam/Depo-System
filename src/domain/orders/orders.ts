@@ -9,11 +9,12 @@ import {
   productComponents,
   products,
   salespeople,
+  stockBalances,
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
 import { createCustomer } from '@/domain/parties/parties';
-import { requireBranch, scopeFilter, type Scope } from '@/domain/scope';
+import { ownBranch, scopeFilter, type Scope } from '@/domain/scope';
 import { getReservedQuantities } from '@/domain/stock/availability';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
@@ -137,7 +138,7 @@ export async function createOrder(
   const address = input.deliveryAddress.trim();
   if (address === '') throw new DomainError('Teslimat adresi bos olamaz.', 'INVALID_INPUT');
 
-  const branch = requireBranch(scope);
+  const branch = ownBranch(scope);
 
   return runInTransaction(db, async (tx) => {
     const customerId = await resolveCustomer(tx, scope, input);
@@ -389,9 +390,13 @@ export async function cancelOrder(db: DbOrTx, scope: Scope, id: string): Promise
       .where(and(eq(orderLines.orderId, id), sql`${orderLineComponents.deliveredQuantity} > 0`));
 
     if (delivered.length > 0) {
+      // Mal siparisin subesine iade ediliyor, iptali gireninkine degil:
+      // merkez Sube 2'nin siparisini iptal ettiginde mal Sube 2'nin
+      // deposuna geri doner.
       // Serbest satirda iade alinacak stok yok.
       await applyMovements(
         tx,
+        existing.branchId,
         delivered.flatMap((row) =>
           row.stockItemId === null
             ? []
@@ -491,6 +496,9 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
     .where(eq(orderLines.orderId, id))
     .orderBy(orderLines.lineNo);
 
+  // Adetler **siparisin** subesinin deposundan okunuyor, bakan kisininkinden
+  // degil: merkez Sube 2'nin siparisine baktiginda "yetersiz stok" uyarisi
+  // Sube 2'nin rafina gore anlamli.
   const components = lines.length
     ? await db
         .select({
@@ -499,11 +507,20 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
           stockItemSku: stockItems.sku,
           sizeLabel: stockItems.sizeLabel,
           variantLabel: stockItems.variantLabel,
-          onHand: stockItems.quantityOnHand,
+          onHand: stockBalances.quantityOnHand,
         })
         .from(orderLineComponents)
         // leftJoin: serbest satirin stok karti yok, satir yine de gorunmeli.
         .leftJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
+        // leftJoin: bakiye satiri hic acilmamis olabilir; o kart o subede
+        // sifir adet demektir.
+        .leftJoin(
+          stockBalances,
+          and(
+            eq(stockBalances.stockItemId, orderLineComponents.stockItemId),
+            eq(stockBalances.branchId, row.order.branchId),
+          ),
+        )
         .where(
           inArray(
             orderLineComponents.orderLineId,
@@ -514,6 +531,7 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
 
   const reserved = await getReservedQuantities(
     db,
+    row.order.branchId,
     components.flatMap((entry) =>
       entry.component.stockItemId === null ? [] : [entry.component.stockItemId],
     ),

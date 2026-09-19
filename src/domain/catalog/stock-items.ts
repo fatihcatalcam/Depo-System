@@ -1,7 +1,7 @@
 import { and, asc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import { stockItems } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
-import { getReservedQuantities } from '@/domain/stock/availability';
+import { getOnHandQuantities, getReservedQuantities } from '@/domain/stock/availability';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
 
@@ -80,7 +80,8 @@ export async function updateStockItem(
   const name = input.name?.trim() ?? existing.name;
   if (name === '') throw new DomainError('Stok karti adi bos olamaz.', 'INVALID_INPUT');
 
-  // quantityOnHand bilincli olarak burada yok: stok yalnizca applyMovements ile degisir.
+  // Adet bilincli olarak burada yok: stok yalnizca applyMovements ile degisir
+  // ve subeye ozeldir, kartin uzerinde durmaz.
   const [row] = await db
     .update(stockItems)
     .set({
@@ -152,24 +153,31 @@ export interface StockItemWithAvailability extends StockItem {
   isBelowMinimum: boolean;
 }
 
+/**
+ * Kartlar ortak, adetler subeye ozel: liste her zaman tek bir depoyu gosterir.
+ * `branchId` zorunlu, cunku "hangi depo" sorusunun varsayilan bir cevabi yok.
+ */
 export async function listStockItemsWithAvailability(
   db: DbOrTx,
+  branchId: string,
   filters: StockItemFilters = {},
 ): Promise<StockItemWithAvailability[]> {
   const items = await searchStockItems(db, filters);
   if (items.length === 0) return [];
 
-  const reservedMap = await getReservedQuantities(
-    db,
-    items.map((item) => item.id),
-  );
+  const ids = items.map((item) => item.id);
+  const [onHandMap, reservedMap] = await Promise.all([
+    getOnHandQuantities(db, branchId, ids),
+    getReservedQuantities(db, branchId, ids),
+  ]);
 
   return items.map((item) => {
+    const onHand = onHandMap.get(item.id) ?? 0;
     const reserved = reservedMap.get(item.id) ?? 0;
-    const available = item.quantityOnHand - reserved;
+    const available = onHand - reserved;
     return {
       ...item,
-      onHand: item.quantityOnHand,
+      onHand,
       reserved,
       available,
       isBelowMinimum: available < item.minStockLevel,

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { goodsReceipts, stockItems, stockMovements } from '@/db/schema';
+import { goodsReceipts, stockMovements } from '@/db/schema';
 import { createStockItem } from '@/domain/catalog/stock-items';
 import {
   createGoodsReceipt,
@@ -8,6 +8,7 @@ import {
   listGoodsReceipts,
 } from '@/domain/goods-receipt';
 import { createSupplier } from '@/domain/parties/parties';
+import { onHandOf } from '../helpers/factories';
 import { createTestDb, type TestDb } from '../helpers/test-db';
 
 let ctx: TestDb;
@@ -21,11 +22,7 @@ afterAll(async () => {
 });
 
 async function onHand(id: string) {
-  const [row] = await ctx.db
-    .select({ q: stockItems.quantityOnHand })
-    .from(stockItems)
-    .where(eq(stockItems.id, id));
-  return row.q;
+  return onHandOf(ctx.db, ctx.branchId, id);
 }
 
 describe('createGoodsReceipt', () => {
@@ -98,7 +95,7 @@ describe('createGoodsReceipt', () => {
 
     expect(await onHand(item.id)).toBe(3);
 
-    const detail = await getGoodsReceipt(ctx.db, receipt.id);
+    const detail = await getGoodsReceipt(ctx.db, ctx.scope, receipt.id);
     expect(detail.lines).toHaveLength(1);
     expect(detail.lines[0].quantity).toBe(3);
   });
@@ -114,7 +111,7 @@ describe('createGoodsReceipt', () => {
       ],
     });
 
-    const detail = await getGoodsReceipt(ctx.db, receipt.id);
+    const detail = await getGoodsReceipt(ctx.db, ctx.scope, receipt.id);
     // (1*100.000 + 3*200.000) / 4 = 175.000
     expect(detail.lines[0].unitCostKurus).toBe(175_000);
   });
@@ -188,7 +185,7 @@ describe('getGoodsReceipt / listGoodsReceipts', () => {
       lines: [{ stockItemId: item.id, quantity: 3, unitCostKurus: 125_000 }],
     });
 
-    const detail = await getGoodsReceipt(ctx.db, receipt.id);
+    const detail = await getGoodsReceipt(ctx.db, ctx.scope, receipt.id);
 
     expect(detail.supplierName).toBe('Fabrika B');
     expect(detail.lines).toHaveLength(1);
@@ -211,7 +208,7 @@ describe('getGoodsReceipt / listGoodsReceipts', () => {
       ],
     });
 
-    const summary = (await listGoodsReceipts(ctx.db)).find((r) => r.id === receipt.id);
+    const summary = (await listGoodsReceipts(ctx.db, ctx.scope)).find((r) => r.id === receipt.id);
 
     expect(summary?.lineCount).toBe(2);
     expect(summary?.totalQuantity).toBe(12);
@@ -219,7 +216,7 @@ describe('getGoodsReceipt / listGoodsReceipts', () => {
 
   it('olmayan kayit icin hata firlatir', async () => {
     await expect(
-      getGoodsReceipt(ctx.db, '88888888-8888-8888-8888-888888888888'),
+      getGoodsReceipt(ctx.db, ctx.scope, '88888888-8888-8888-8888-888888888888'),
     ).rejects.toThrow('bulunamadi');
   });
 });

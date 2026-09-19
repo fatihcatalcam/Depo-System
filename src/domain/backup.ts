@@ -25,6 +25,7 @@ export const TABLE_ORDER = [
   'salespeople',
   'categories',
   'stock_items',
+  'stock_balances',
   'products',
   'product_components',
   'suppliers',

@@ -7,6 +7,7 @@ import {
   updateStockItem,
 } from '@/domain/catalog/stock-items';
 import { applyMovements } from '@/domain/stock/movements';
+import { onHandOf } from '../../helpers/factories';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
 
 let ctx: TestDb;
@@ -53,7 +54,7 @@ describe('createStockItem', () => {
 
   it('yeni kart sifir adetle ve aktif baslar', async () => {
     const item = await createStockItem(ctx.db, { name: 'Yeni Parca' });
-    expect(item.quantityOnHand).toBe(0);
+    expect(await onHandOf(ctx.db, ctx.branchId, item.id)).toBe(0);
     expect(item.isActive).toBe(true);
   });
 });
@@ -103,14 +104,14 @@ describe('searchStockItems', () => {
 describe('updateStockItem', () => {
   it('stok adedini degistiremez, sadece applyMovements degistirir', async () => {
     const item = await createStockItem(ctx.db, { name: 'Korumali Parca' });
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 5, movementType: 'goods_receipt' },
     ]);
 
     const updated = await updateStockItem(ctx.db, item.id, { name: 'Korumali Parca 2' });
 
     expect(updated.name).toBe('Korumali Parca 2');
-    expect(updated.quantityOnHand).toBe(5);
+    expect(await onHandOf(ctx.db, ctx.branchId, item.id)).toBe(5);
   });
 
   it('baska bir kartin barkodu atanamaz', async () => {
@@ -133,27 +134,27 @@ describe('updateStockItem', () => {
 describe('listStockItemsWithAvailability', () => {
   it('her kart icin mevcut, rezerve ve serbest doner', async () => {
     const item = await createStockItem(ctx.db, { name: 'Serbest Test Parcasi' });
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 8, movementType: 'goods_receipt' },
     ]);
 
-    const rows = await listStockItemsWithAvailability(ctx.db, { query: 'Serbest Test' });
+    const rows = await listStockItemsWithAvailability(ctx.db, ctx.branchId, { query: 'Serbest Test' });
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ onHand: 8, reserved: 0, available: 8, isBelowMinimum: false });
   });
 
   it('kritik seviyenin altindaki kartlari isaretler', async () => {
     const item = await createStockItem(ctx.db, { name: 'Kritik Parca', minStockLevel: 5 });
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 3, movementType: 'goods_receipt' },
     ]);
 
-    const [row] = await listStockItemsWithAvailability(ctx.db, { query: 'Kritik Parca' });
+    const [row] = await listStockItemsWithAvailability(ctx.db, ctx.branchId, { query: 'Kritik Parca' });
     expect(row.isBelowMinimum).toBe(true);
   });
 
   it('sonuc yoksa bos liste doner', async () => {
-    expect(await listStockItemsWithAvailability(ctx.db, { query: 'boyle-bir-parca-yok' })).toEqual(
+    expect(await listStockItemsWithAvailability(ctx.db, ctx.branchId, { query: 'boyle-bir-parca-yok' })).toEqual(
       [],
     );
   });
@@ -171,7 +172,7 @@ describe('stok karti notu', () => {
 
     await updateStockItem(ctx.db, item.id, { notes: '2 adet 2. subeye odunc verildi' });
 
-    const [row] = await listStockItemsWithAvailability(ctx.db, { query: 'Notlu Parca' });
+    const [row] = await listStockItemsWithAvailability(ctx.db, ctx.branchId, { query: 'Notlu Parca' });
     expect(row.notes).toBe('2 adet 2. subeye odunc verildi');
   });
 
@@ -179,20 +180,20 @@ describe('stok karti notu', () => {
     const item = await createStockItem(ctx.db, { name: 'Notu Silinen', notes: 'gecici not' });
     await updateStockItem(ctx.db, item.id, { notes: null });
 
-    const [row] = await listStockItemsWithAvailability(ctx.db, { query: 'Notu Silinen' });
+    const [row] = await listStockItemsWithAvailability(ctx.db, ctx.branchId, { query: 'Notu Silinen' });
     expect(row.notes).toBeNull();
   });
 
   /** Not adet degil: yazmak stok hareketi uretmemeli. */
   it('not yazmak stogu ve hareket defterini degistirmez', async () => {
     const item = await createStockItem(ctx.db, { name: 'Hareketsiz Notlu' });
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 4, movementType: 'goods_receipt' },
     ]);
 
     await updateStockItem(ctx.db, item.id, { notes: 'rengi biraz koyu' });
 
-    const [row] = await listStockItemsWithAvailability(ctx.db, { query: 'Hareketsiz Notlu' });
+    const [row] = await listStockItemsWithAvailability(ctx.db, ctx.branchId, { query: 'Hareketsiz Notlu' });
     expect(row.onHand).toBe(4);
     expect(row.notes).toBe('rengi biraz koyu');
   });

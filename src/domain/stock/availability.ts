@@ -1,7 +1,13 @@
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
-import { customers, orderLineComponents, orderLines, orders, stockItems } from '@/db/schema';
+import {
+  customers,
+  orderLineComponents,
+  orderLines,
+  orders,
+  stockBalances,
+  stockItems,
+} from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
-import { isInScope, type Scope } from '@/domain/scope';
 import { NotFoundError } from '@/lib/errors';
 
 /** Rezervasyon ureten siparis durumlari. */
@@ -17,20 +23,44 @@ export interface Availability {
 }
 
 /**
+ * Bir subenin deposundaki adetler.
+ *
+ * Bakiye satiri olmayan kart sifir sayilir; `stock_balances` her sube icin
+ * her kartin satirini tasimaz, ilk hareketle dogar.
+ */
+export async function getOnHandQuantities(
+  db: DbOrTx,
+  branchId: string,
+  stockItemIds?: string[],
+): Promise<Map<string, number>> {
+  if (stockItemIds && stockItemIds.length === 0) return new Map();
+
+  const conditions = [eq(stockBalances.branchId, branchId)];
+  if (stockItemIds) conditions.push(inArray(stockBalances.stockItemId, stockItemIds));
+
+  const rows = await db
+    .select({
+      stockItemId: stockBalances.stockItemId,
+      quantityOnHand: stockBalances.quantityOnHand,
+    })
+    .from(stockBalances)
+    .where(and(...conditions));
+
+  return new Map(rows.map((row) => [row.stockItemId, row.quantityOnHand]));
+}
+
+/**
  * Rezerve miktarlar ayri bir tabloda tutulmaz, her seferinde siparislerden
  * hesaplanir. Boylece "rezervasyon tablosu ile siparis tablosunun birbirinden
  * kaymasi" diye bir hata sinifi hic dogmaz.
  *
- * DIKKAT — bu hesap **bilerek kapsamsizdir (global)**.
- *
- * Stok iki sube arasinda ortak. A subesi bir yatagi rezerve ettiyse o yatak
- * B subesi icin de yoktur. Buraya sube suzgeci eklemek, iki subenin ayni
- * parcayi ayri ayri satmasina yol acar — sistemin cozmesi gereken sorunun ta
- * kendisi. Gizlenen sey rezervasyonun **sebebi** (hangi siparis, hangi
- * musteri); adedi degil.
+ * Hesap **subeye baglidir**: her subenin kendi deposu var, A subesinin
+ * rezervasyonu B subesinin stogundan dusmez. Bir donem stok tek havuzdu ve bu
+ * hesap bilerek kapsamsizdi; depolar ayrilinca o gerekce ortadan kalkti.
  */
 export async function getReservedQuantities(
   db: DbOrTx,
+  branchId: string,
   stockItemIds?: string[],
 ): Promise<Map<string, number>> {
   if (stockItemIds && stockItemIds.length === 0) return new Map();
@@ -38,6 +68,7 @@ export async function getReservedQuantities(
   // Serbest satirlarin (katalogda olmayan urun) stok karti yok; rezervasyon
   // hesabina hic girmemeleri gerekiyor, yoksa gruplama null bir anahtar uretir.
   const conditions = [
+    eq(orders.branchId, branchId),
     inArray(orders.status, [...RESERVING_STATUSES]),
     isNotNull(orderLineComponents.stockItemId),
   ];
@@ -60,10 +91,9 @@ export async function getReservedQuantities(
 }
 
 export interface ReservationLine {
-  /** Kendi subesinin siparisiyse siparis numarasi, degilse null. */
-  orderNo: string | null;
-  orderId: string | null;
-  /** Kendi subesinin siparisiyse musteri adi, degilse "Diger sube". */
+  orderNo: string;
+  orderId: string;
+  /** Musteri adi. */
   label: string;
   quantity: number;
 }
@@ -71,20 +101,19 @@ export interface ReservationLine {
 /**
  * Bir parcayi kimin rezerve ettigi.
  *
- * Kendi subesinin siparisleri siparis numarasi ve musteri adiyla gorunur.
- * Diger subeninkiler tek satirda "Diger sube" olarak toplanir: depocu stogun
- * neden yetmedigini anlar ama satis bilgisi karsiya gecmez.
+ * Yalnizca bu subenin siparisleri: baska subenin siparisi bu deponun
+ * stogunu zaten tutmuyor. Depo ortakken burada bir de "Diger sube" toplami
+ * gorunurdu; depolar ayrilinca o satirin anlami kalmadi.
  */
 export async function getReservationBreakdown(
   db: DbOrTx,
-  scope: Scope,
+  branchId: string,
   stockItemId: string,
 ): Promise<ReservationLine[]> {
   const rows = await db
     .select({
       orderId: orders.id,
       orderNo: orders.orderNo,
-      branchId: orders.branchId,
       customerName: customers.name,
       quantity: sql<number>`sum(${orderLineComponents.totalQuantity} - ${orderLineComponents.deliveredQuantity})::int`,
     })
@@ -94,46 +123,37 @@ export async function getReservationBreakdown(
     .innerJoin(customers, eq(customers.id, orders.customerId))
     .where(
       and(
+        eq(orders.branchId, branchId),
         eq(orderLineComponents.stockItemId, stockItemId),
         inArray(orders.status, [...RESERVING_STATUSES]),
         sql`${orderLineComponents.totalQuantity} > ${orderLineComponents.deliveredQuantity}`,
       ),
     )
-    .groupBy(orders.id, orders.orderNo, orders.branchId, customers.name)
+    .groupBy(orders.id, orders.orderNo, customers.name)
     .orderBy(orders.orderNo);
 
-  const mine: ReservationLine[] = [];
-  let otherBranches = 0;
-
-  for (const row of rows) {
-    if (isInScope(scope, row.branchId)) {
-      mine.push({
-        orderId: row.orderId,
-        orderNo: row.orderNo,
-        label: row.customerName,
-        quantity: Number(row.quantity),
-      });
-    } else {
-      otherBranches += Number(row.quantity);
-    }
-  }
-
-  if (otherBranches > 0) {
-    mine.push({ orderId: null, orderNo: null, label: 'Diger sube', quantity: otherBranches });
-  }
-
-  return mine;
+  return rows.map((row) => ({
+    orderId: row.orderId,
+    orderNo: row.orderNo,
+    label: row.customerName,
+    quantity: Number(row.quantity),
+  }));
 }
 
-export async function getAvailability(db: DbOrTx, stockItemId: string): Promise<Availability> {
+export async function getAvailability(
+  db: DbOrTx,
+  branchId: string,
+  stockItemId: string,
+): Promise<Availability> {
   const [item] = await db
-    .select({ onHand: stockItems.quantityOnHand })
+    .select({ id: stockItems.id })
     .from(stockItems)
     .where(eq(stockItems.id, stockItemId));
 
   if (!item) throw new NotFoundError(`Stok karti (${stockItemId})`);
 
-  const reserved = (await getReservedQuantities(db, [stockItemId])).get(stockItemId) ?? 0;
+  const onHand = (await getOnHandQuantities(db, branchId, [stockItemId])).get(stockItemId) ?? 0;
+  const reserved = (await getReservedQuantities(db, branchId, [stockItemId])).get(stockItemId) ?? 0;
 
-  return { onHand: item.onHand, reserved, available: item.onHand - reserved };
+  return { onHand, reserved, available: onHand - reserved };
 }

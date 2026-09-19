@@ -24,7 +24,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
                 siparis girmek, sonradan duzeltmesi en zor hatalardan. */}
             <span
               className={`truncate rounded-full px-2.5 py-1 text-xs font-medium ${
-                user.isAdmin ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-700'
+                user.isCentral ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-700'
               }`}
             >
               {user.label}

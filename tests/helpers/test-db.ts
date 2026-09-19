@@ -5,16 +5,16 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import * as schema from '@/db/schema';
 import { branches } from '@/db/schema';
 import type { Db } from '@/db/types';
-import { adminScope, branchScope, type Scope } from '@/domain/scope';
+import { branchScope, type Scope } from '@/domain/scope';
 
 export interface TestDb {
   db: Db;
-  /** S1 subesi. Testlerin cogu tek subeyle calisir; kisayol olarak burada. */
+  /** Merkez (S1). Testlerin cogu tek subeyle calisir; kisayol olarak burada. */
   scope: Scope;
-  /** S1'in kimligi — ham `insert` yapan sema testleri icin. */
+  /** Merkezin kimligi — stok fonksiyonlari ve ham `insert` yapan sema testleri icin. */
   branchId: string;
-  /** Izolasyon testleri icin iki sube ve yonetici. */
-  scopes: { s1: Scope; s2: Scope; admin: Scope };
+  /** Izolasyon testleri icin iki sube: merkez ve sube 2. */
+  scopes: { s1: Scope; s2: Scope };
   close: () => Promise<void>;
 }
 
@@ -34,15 +34,15 @@ export async function createTestDb(): Promise<TestDb> {
   const find = (code: string) => {
     const row = rows.find((entry) => entry.code === code);
     if (!row) throw new Error(`${code} subesi yok — 0004 gocu uygulanmadi mi?`);
-    return branchScope(row.id, row.code);
+    return branchScope(row.id, row.code, row.isCentral);
   };
 
-  const scopes = { s1: find('S1'), s2: find('S2'), admin: adminScope };
+  const scopes = { s1: find('S1'), s2: find('S2') };
 
   return {
     db: db as unknown as Db,
     scope: scopes.s1,
-    branchId: scopes.s1.kind === 'branch' ? scopes.s1.branchId : '',
+    branchId: scopes.s1.branchId,
     scopes,
     close: () => client.close(),
   };

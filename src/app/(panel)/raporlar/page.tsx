@@ -38,7 +38,7 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
       <UnlockScreen
         area="raporlar"
         title="Raporlar kilitli"
-        description="Ciro, tahsilat ve alacak bilgileri icin yonetici parolasi gerekir."
+        description="Ciro, tahsilat ve alacak bilgileri icin stok ve rapor parolasi gerekir."
       />
     );
   }
@@ -51,7 +51,7 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
         <h1 className="text-lg font-semibold">Raporlar</h1>
         <p className="text-sm text-neutral-500">
           {formatDate(from)} – {formatDate(to)}
-          {user.isAdmin ? ' · iki sube toplami' : ` · ${user.label}`}
+          {user.isCentral ? ' · iki sube toplami' : ` · ${user.label}`}
         </p>
       </div>
 
@@ -99,8 +99,53 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
           value={formatKurus(summary.outstandingKurus)}
           danger={summary.outstandingKurus > 0}
         />
-        <Stat label="Stok degeri (guncel)" value={formatKurus(summary.stockValueKurus)} />
+        {/* Stok degeri her zaman kendi deposu — merkez de digerinin stogunu
+            gormez. Etiketi bu yuzden subeyi acikca yaziyor. */}
+        <Stat
+          label={`Stok degeri · ${user.label}`}
+          value={formatKurus(summary.stockValueKurus)}
+        />
       </div>
+
+      {summary.branches.length > 1 ? (
+        <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+          <h2 className="border-b border-neutral-200 p-3 text-sm font-semibold">Sube bazinda</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+                <tr>
+                  <th className="p-3">Sube</th>
+                  <th className="p-3 text-right">Siparis</th>
+                  <th className="p-3 text-right">Ciro</th>
+                  <th className="p-3 text-right">Tahsilat</th>
+                  <th className="p-3 text-right">Kalan alacak</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.branches.map((row) => (
+                  <tr key={row.branchId} className="border-t border-neutral-100">
+                    <td className="p-3 font-medium">{row.branchName}</td>
+                    <td className="p-3 text-right tabular-nums">{row.orderCount}</td>
+                    <td className="p-3 text-right tabular-nums">
+                      {formatKurus(row.revenueKurus)}
+                    </td>
+                    <td className="p-3 text-right tabular-nums">
+                      {formatKurus(row.collectedKurus)}
+                    </td>
+                    <td
+                      className={`p-3 text-right tabular-nums ${
+                        row.outstandingKurus > 0 ? 'text-red-600' : ''
+                      }`}
+                    >
+                      {formatKurus(row.outstandingKurus)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <Link

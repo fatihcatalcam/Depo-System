@@ -58,7 +58,7 @@ describe('getPeriodSummary', () => {
 
   it('siparis sayisi, ciro, tahsilat ve teslimat sayisini hesaplar', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, { model: 'RAPOR', size: '160x200', stock: 20 });
+    const set = await makeBedSet(fresh.db, fresh.branchId, { model: 'RAPOR', size: '160x200', stock: 20 });
     const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
     const order = await createOrder(fresh.db, fresh.scope, {
@@ -97,7 +97,7 @@ describe('getPeriodSummary', () => {
 
   it('iptal edilen siparis ciroya girmez', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, { model: 'IPTALRAPOR', size: '160x200' });
+    const set = await makeBedSet(fresh.db, fresh.branchId, { model: 'IPTALRAPOR', size: '160x200' });
     const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
     const order = await createOrder(fresh.db, fresh.scope, {
@@ -119,7 +119,7 @@ describe('getPeriodSummary', () => {
 
   it('donem disindaki tahsilat sayilmaz', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, { model: 'DONEMDISI', size: '160x200' });
+    const set = await makeBedSet(fresh.db, fresh.branchId, { model: 'DONEMDISI', size: '160x200' });
     const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
     const order = await createOrder(fresh.db, fresh.scope, {
@@ -149,7 +149,7 @@ describe('getPeriodSummary', () => {
 
   it('fazla odenmis siparis baska siparisin alacagini goturmez', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, { model: 'FAZLAODEME', size: '160x200', stock: 30 });
+    const set = await makeBedSet(fresh.db, fresh.branchId, { model: 'FAZLAODEME', size: '160x200', stock: 30 });
     const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
     // 1.000.000 tutarli siparise 1.500.000 odendi (bakiye -500.000)
@@ -190,8 +190,8 @@ describe('getPeriodSummary', () => {
 
   it('en cok satan urunleri siralar', async () => {
     const fresh = await createTestDb();
-    const az = await makeBedSet(fresh.db, { model: 'AZSATAN', size: '160x200', stock: 30 });
-    const cok = await makeBedSet(fresh.db, { model: 'COKSATAN', size: '160x200', stock: 30 });
+    const az = await makeBedSet(fresh.db, fresh.branchId, { model: 'AZSATAN', size: '160x200', stock: 30 });
+    const cok = await makeBedSet(fresh.db, fresh.branchId, { model: 'COKSATAN', size: '160x200', stock: 30 });
     const customer = await makeOrderCustomer(fresh.db, fresh.scope);
 
     await createOrder(fresh.db, fresh.scope, {
@@ -220,7 +220,7 @@ describe('getPeriodSummary', () => {
       purchasePriceKurus: 150_000,
     });
     await createStockItem(fresh.db, { name: 'FIYATSIZ PARCA' });
-    await applyMovements(fresh.db, [
+    await applyMovements(fresh.db, fresh.branchId, [
       { stockItemId: item.id, quantityChange: 4, movementType: 'goods_receipt' },
     ]);
 

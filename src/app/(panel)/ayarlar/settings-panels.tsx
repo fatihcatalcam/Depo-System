@@ -12,6 +12,7 @@ import {
   recalculateStockAction,
   renameBranchAction,
   setBranchPasswordAction,
+  setUnlockPasswordAction,
   updateCompanyAction,
 } from './actions';
 
@@ -111,8 +112,8 @@ export function PasswordPanel() {
 
   return (
     <Section
-      title="Parola"
-      description="Sisteme giris parolasi. Musteriye teslim etmeden once mutlaka degistirin."
+      title="Giris parolasi"
+      description="Bu subenin giris parolasi. Stok ve rapor kilidini acmaz."
     >
       <form
         className="space-y-3"
@@ -178,6 +179,71 @@ export function PasswordPanel() {
   );
 }
 
+/**
+ * Stok ve rapor kilidinin parolasi — yalnizca merkez gorur.
+ *
+ * Giris parolasi degil: bu parolayla sisteme girilmez, yalnizca kilitli
+ * ekranlar acilir. Ikisinin ayni olmasi yasak, cunku o zaman calisan kilidi
+ * kendi parolasiyla acardi.
+ */
+export function UnlockPasswordPanel() {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Section
+      title="Stok ve rapor parolasi"
+      description="Kilitli stok ve rapor ekranlarini acan parola. Sisteme giris icin kullanilmaz."
+    >
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          startTransition(async () => {
+            const result = await setUnlockPasswordAction({ newPassword, confirmPassword });
+            if (result.ok) {
+              toast.success(result.message ?? 'Parola degistirildi.');
+              setNewPassword('');
+              setConfirmPassword('');
+            } else {
+              toast.error(result.error ?? 'Degistirilemedi.');
+            }
+          });
+        }}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field id="unlockPassword" label="Yeni parola">
+            <Input
+              id="unlockPassword"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              className="h-11"
+              required
+            />
+          </Field>
+          <Field id="unlockPasswordConfirm" label="Yeni parola (tekrar)">
+            <Input
+              id="unlockPasswordConfirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              className="h-11"
+              required
+            />
+          </Field>
+        </div>
+        <Button type="submit" disabled={pending} className="h-11">
+          {pending ? 'Degistiriliyor...' : 'Kilit parolasini degistir'}
+        </Button>
+      </form>
+    </Section>
+  );
+}
+
 export interface BranchRow {
   id: string;
   code: string;
@@ -186,16 +252,16 @@ export interface BranchRow {
 }
 
 /**
- * Sube yonetimi — yalnizca yonetici gorur.
+ * Sube yonetimi — yalnizca merkez gorur.
  *
- * Parolasi belirlenmemis sube giris ekraninda listelenmez; bu yuzden eksik
- * parolayi sessizce gecmiyoruz, acikca uyariyoruz.
+ * Parolasi belirlenmemis subeye giris yapilamaz; bu yuzden eksik parolayi
+ * sessizce gecmiyoruz, acikca uyariyoruz.
  */
 export function BranchPanel({ branches }: { branches: BranchRow[] }) {
   return (
     <Section
       title="Subeler"
-      description="Her subenin kendi girisi var. Stok iki subede ortak; siparis, musteri ve odemeler ayri."
+      description="Her subenin kendi girisi ve kendi deposu var. Merkez butun siparisleri gorur, stoklar ayri kalir."
     >
       <div className="space-y-4">
         {branches.map((branch) => (
@@ -381,7 +447,7 @@ export function MaintenancePanel() {
   return (
     <Section
       title="Bakim"
-      description="Stok bakiyeleri hareket defteriyle karsilastirilir, kayma varsa duzeltilir."
+      description="Bu subenin stok bakiyeleri hareket defteriyle karsilastirilir, kayma varsa duzeltilir."
     >
       <Button
         variant="outline"

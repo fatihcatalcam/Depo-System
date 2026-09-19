@@ -1,8 +1,9 @@
-import { asc, eq, ne } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import { appSettings, branches } from '@/db/schema';
+import { branches } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
-import { hashPassword, verifyPassword } from '@/lib/auth/password';
+import { assertPasswordFree } from '@/domain/auth';
+import { hashPassword } from '@/lib/auth/password';
 import { DomainError, NotFoundError } from '@/lib/errors';
 
 export type Branch = typeof branches.$inferSelect;
@@ -12,6 +13,8 @@ export interface BranchSummary {
   id: string;
   code: string;
   name: string;
+  /** Merkez sube: butun subelerin siparislerini ve cirosunu gorur. */
+  isCentral: boolean;
   isActive: boolean;
   /** Parolasi belirlenmemis subeye giris yapilamaz; Ayarlar bunu uyari olarak gosterir. */
   hasPassword: boolean;
@@ -22,6 +25,7 @@ function toSummary(row: Branch): BranchSummary {
     id: row.id,
     code: row.code,
     name: row.name,
+    isCentral: row.isCentral,
     isActive: row.isActive,
     hasPassword: row.passwordHash !== null,
   };
@@ -60,9 +64,9 @@ export async function renameBranch(db: DbOrTx, id: string, name: string): Promis
 /**
  * Sube parolasini belirler veya degistirir.
  *
- * Yonetici islemidir; mevcut parola sorulmaz. Sube calisani parolasini
+ * Merkez islemidir; mevcut parola sorulmaz. Sube calisani parolasini
  * unuttugunda patron yenisini verebilsin diye boyle. Subenin kendi parolasini
- * degistirmesi `changeOwnBranchPassword` ile yapilir ve mevcut parolayi sorar.
+ * degistirmesi `changeOwnPassword` ile yapilir ve mevcut parolayi sorar.
  */
 export async function setBranchPassword(
   db: DbOrTx,
@@ -73,31 +77,7 @@ export async function setBranchPassword(
     throw new DomainError('Parola en az 6 karakter olmali.', 'WEAK_PASSWORD');
   }
 
-  // Giriste once sube parolasi deneniyor. Sube parolasi yoneticininkiyle ayni
-  // olursa yonetici hesabina bir daha ulasilamaz — sessizce izin veremeyiz.
-  const [settings] = await db
-    .select({ passwordHash: appSettings.passwordHash })
-    .from(appSettings)
-    .where(eq(appSettings.id, 1));
-
-  if (settings?.passwordHash && (await verifyPassword(newPassword, settings.passwordHash))) {
-    throw new DomainError(
-      'Sube parolasi yonetici parolasiyla ayni olamaz; yonetici hesabina girilemez hale gelir.',
-      'PASSWORD_COLLIDES_WITH_ADMIN',
-    );
-  }
-
-  // Giriste sube secimi yok: parola hangi subeninse o sube aciliyor. Iki sube
-  // ayni parolayi kullanirsa digerine bir daha girilemez.
-  const others = await db.select().from(branches).where(ne(branches.id, id));
-  for (const other of others) {
-    if (other.passwordHash && (await verifyPassword(newPassword, other.passwordHash))) {
-      throw new DomainError(
-        `Bu parola "${other.name}" subesinde kullaniliyor; girişte subeler ayirt edilemez hale gelir.`,
-        'PASSWORD_COLLIDES_WITH_BRANCH',
-      );
-    }
-  }
+  await assertPasswordFree(db, id, newPassword);
 
   const result = await db
     .update(branches)

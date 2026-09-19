@@ -25,7 +25,7 @@ afterAll(async () => {
  */
 async function orderWithGift(options: { giftQuantity?: number } = {}) {
   const tag = `HED${(++sequence).toString().padStart(3, '0')}`;
-  const set = await makeBedSet(ctx.db, { model: tag, size: '160x200', stock: 10 });
+  const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200', stock: 10 });
   const { alez } = await makeGiftItem(tag);
   const customer = await createCustomer(ctx.db, ctx.scope, { name: `Musteri ${tag}` });
 
@@ -52,7 +52,7 @@ async function orderWithGift(options: { giftQuantity?: number } = {}) {
 /** Hediye edilebilen tipik urun: alez. */
 async function makeGiftItem(tag: string) {
   const alez = await createStockItem(ctx.db, { name: `${tag} ALEZ`, sizeLabel: '160x200' });
-  await applyMovements(ctx.db, [
+  await applyMovements(ctx.db, ctx.branchId, [
     { stockItemId: alez.id, quantityChange: 10, movementType: 'goods_receipt' },
   ]);
   return { alez };
@@ -91,12 +91,12 @@ describe('hediye satir', () => {
   it('hediye urun stoktan duser', async () => {
     const { order, alez } = await orderWithGift({ giftQuantity: 3 });
 
-    const beforeConfirm = await getAvailability(ctx.db, alez.id);
+    const beforeConfirm = await getAvailability(ctx.db, ctx.branchId, alez.id);
     expect(beforeConfirm.reserved).toBe(0);
 
     await confirmOrder(ctx.db, ctx.scope, order.id);
 
-    const afterConfirm = await getAvailability(ctx.db, alez.id);
+    const afterConfirm = await getAvailability(ctx.db, ctx.branchId, alez.id);
     expect(afterConfirm.reserved).toBe(3);
     expect(afterConfirm.available).toBe(7);
   });
@@ -171,6 +171,6 @@ describe('hediye satir', () => {
 
     // Bedelsiz de olsa mal cikiyor.
     await confirmOrder(ctx.db, ctx.scope, order.id);
-    expect((await getAvailability(ctx.db, alez.id)).reserved).toBe(1);
+    expect((await getAvailability(ctx.db, ctx.branchId, alez.id)).reserved).toBe(1);
   });
 });

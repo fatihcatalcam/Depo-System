@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import { stockItems, stockMovements } from '@/db/schema';
+import { stockBalances, stockItems, stockMovements } from '@/db/schema';
 import type { Db } from '@/db/types';
 
 export interface RecalculationResult {
@@ -10,8 +10,12 @@ export interface RecalculationResult {
 }
 
 /**
- * `quantityOnHand` bir onbellektir; tek dogru kaynak hareket defteridir.
- * Bu bakim islemi ikisini karsilastirir ve kaymis olanlari duzeltir.
+ * `stock_balances.quantity_on_hand` bir onbellektir; tek dogru kaynak hareket
+ * defteridir. Bu bakim islemi ikisini karsilastirir ve kaymis olanlari
+ * duzeltir.
+ *
+ * Yalnizca cagiran subenin deposuna bakar: baska subenin bakiyesini
+ * duzeltmek, o subenin stogunu gormek demektir.
  *
  * DIKKAT — burada iliskili alt sorgu (correlated subquery) KULLANILMAMALI.
  * Drizzle, join'i olmayan tek tablolu sorgularda kolonlari tablo adiyla
@@ -20,39 +24,58 @@ export interface RecalculationResult {
  * toplam 0 doner. Bu fonksiyonda o hata tum stogu sifirlar. Bu yuzden
  * defter toplami turetilmis tablo + join ile aliniyor.
  */
-export async function recalculateStockBalances(db: Db): Promise<RecalculationResult> {
+export async function recalculateStockBalances(
+  db: Db,
+  branchId: string,
+): Promise<RecalculationResult> {
   const ledger = db
     .select({
       stockItemId: stockMovements.stockItemId,
       total: sql<number>`sum(${stockMovements.quantityChange})::int`.as('total'),
     })
     .from(stockMovements)
+    .where(eq(stockMovements.branchId, branchId))
     .groupBy(stockMovements.stockItemId)
     .as('ledger');
+
+  // Bakiye satiri olmayan kart sifir sayilir; defterinde hareket olan ama
+  // satiri dusmus bir kart da bu yuzden yakalaniyor.
+  const balance = db
+    .select({
+      stockItemId: stockBalances.stockItemId,
+      quantityOnHand: stockBalances.quantityOnHand,
+    })
+    .from(stockBalances)
+    .where(eq(stockBalances.branchId, branchId))
+    .as('balance');
 
   const rows = await db
     .select({
       id: stockItems.id,
       sku: stockItems.sku,
       name: stockItems.name,
-      cached: stockItems.quantityOnHand,
+      cached: sql<number>`coalesce(${balance.quantityOnHand}, 0)::int`,
       ledger: sql<number>`coalesce(${ledger.total}, 0)::int`,
     })
     .from(stockItems)
+    .leftJoin(balance, eq(balance.stockItemId, stockItems.id))
     .leftJoin(ledger, eq(ledger.stockItemId, stockItems.id));
 
   const drifted = rows
-    .map((row) => ({ ...row, ledgerTotal: Number(row.ledger) }))
-    .filter((row) => row.cached !== row.ledgerTotal);
+    .map((row) => ({ ...row, cachedTotal: Number(row.cached), ledgerTotal: Number(row.ledger) }))
+    .filter((row) => row.cachedTotal !== row.ledgerTotal);
 
   if (drifted.length === 0) return { fixed: 0, changes: [] };
 
   await db.transaction(async (tx) => {
     for (const row of drifted) {
       await tx
-        .update(stockItems)
-        .set({ quantityOnHand: row.ledgerTotal, updatedAt: sql`now()` })
-        .where(eq(stockItems.id, row.id));
+        .insert(stockBalances)
+        .values({ branchId, stockItemId: row.id, quantityOnHand: row.ledgerTotal })
+        .onConflictDoUpdate({
+          target: [stockBalances.branchId, stockBalances.stockItemId],
+          set: { quantityOnHand: row.ledgerTotal, updatedAt: sql`now()` },
+        });
     }
   });
 
@@ -61,7 +84,7 @@ export async function recalculateStockBalances(db: Db): Promise<RecalculationRes
     changes: drifted.map((row) => ({
       sku: row.sku,
       name: row.name,
-      from: row.cached,
+      from: row.cachedTotal,
       to: row.ledgerTotal,
     })),
   };

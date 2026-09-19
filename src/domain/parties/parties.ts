@@ -3,7 +3,7 @@ import { customers, suppliers } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
-import { requireBranch, scopeFilter, type Scope } from '../scope';
+import { ownBranch, scopeFilter, type Scope } from '../scope';
 
 export type Customer = typeof customers.$inferSelect;
 export type Supplier = typeof suppliers.$inferSelect;
@@ -34,7 +34,7 @@ export async function createCustomer(
   const name = input.name.trim();
   if (name === '') throw new DomainError('Musteri adi bos olamaz.', 'INVALID_INPUT');
 
-  const branch = requireBranch(scope);
+  const branch = ownBranch(scope);
   const code = await nextDocumentNumber(db, 'customer', { branchCode: branch.code });
   const [row] = await db
     .insert(customers)

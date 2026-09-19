@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { categories, productComponents, products, stockItems } from '@/db/schema';
+import { onHandOf } from '../helpers/factories';
 import { createTestDb, type TestDb } from '../helpers/test-db';
 
 let ctx: TestDb;
@@ -25,7 +26,7 @@ describe('katalog semasi', () => {
       .values({ sku: 'SK-00001', name: 'Yatak A Baslik' })
       .returning();
 
-    expect(item.quantityOnHand).toBe(0);
+    expect(await onHandOf(ctx.db, ctx.branchId, item.id)).toBe(0);
     expect(item.isActive).toBe(true);
     expect(item.unit).toBe('adet');
   });

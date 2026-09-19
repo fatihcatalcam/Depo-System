@@ -18,7 +18,7 @@ afterAll(async () => {
 
 async function draftOrder() {
   const tag = `DUZ${(++sequence).toString().padStart(3, '0')}`;
-  const set = await makeBedSet(ctx.db, { model: tag, size: '160x200', stock: 10 });
+  const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200', stock: 10 });
   const customer = await createCustomer(ctx.db, ctx.scope, { name: `Musteri ${tag}` });
 
   const order = await createOrder(ctx.db, ctx.scope, {

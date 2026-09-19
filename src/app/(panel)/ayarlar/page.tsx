@@ -8,6 +8,7 @@ import {
   ImportPanel,
   MaintenancePanel,
   PasswordPanel,
+  UnlockPasswordPanel,
 } from './settings-panels';
 
 const EXPORTS = [
@@ -33,7 +34,7 @@ export default async function AyarlarPage() {
         </p>
       </div>
 
-      {user.isAdmin ? <BranchPanel branches={branches} /> : null}
+      {user.isCentral ? <BranchPanel branches={branches} /> : null}
 
       <CompanyPanel
         initial={{
@@ -46,6 +47,8 @@ export default async function AyarlarPage() {
       />
 
       <PasswordPanel />
+
+      {user.isCentral ? <UnlockPasswordPanel /> : null}
 
       <section className="rounded-lg border border-neutral-200 bg-white p-4">
         <h2 className="text-sm font-semibold">Excel&apos;e disa aktarma</h2>

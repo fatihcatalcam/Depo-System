@@ -2,7 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { orders, payments } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { derivePaymentStatus, getPaidTotal, type PaymentStatus } from '@/domain/orders/orders';
-import { requireBranch, scopeFilter, type Scope } from '@/domain/scope';
+import { scopeFilter, type Scope } from '@/domain/scope';
 import { DomainError, NotFoundError } from '@/lib/errors';
 
 export type Payment = typeof payments.$inferSelect;
@@ -46,11 +46,10 @@ export async function addPayment(
     throw new DomainError('Odeme tutari sifirdan buyuk olmali.', 'INVALID_AMOUNT');
   }
 
-  const branch = requireBranch(scope);
   const [order] = await db
     .select()
     .from(orders)
-    .where(and(eq(orders.id, input.orderId), eq(orders.branchId, branch.id)));
+    .where(and(eq(orders.id, input.orderId), scopeFilter(scope, orders.branchId)));
   if (!order) throw new NotFoundError('Siparis');
 
   // Taslak siparise odeme eklenmez — ama kapora istisna. Musteri parayi
@@ -108,12 +107,11 @@ export async function deletePayment(
   scope: Scope,
   paymentId: string,
 ): Promise<void> {
-  const branch = requireBranch(scope);
   const [row] = await db
     .select({ id: payments.id })
     .from(payments)
     .innerJoin(orders, eq(orders.id, payments.orderId))
-    .where(and(eq(payments.id, paymentId), eq(orders.branchId, branch.id)));
+    .where(and(eq(payments.id, paymentId), scopeFilter(scope, orders.branchId)));
   if (!row) throw new NotFoundError('Odeme');
   await db.delete(payments).where(eq(payments.id, paymentId));
 }

@@ -26,7 +26,7 @@ async function salespersonByName(name: string) {
 
 async function orderWith(salespersonId?: string | null) {
   const tag = `SAT${(++sequence).toString().padStart(3, '0')}`;
-  const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+  const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
   const customer = await makeOrderCustomer(ctx.db, ctx.scope);
   return createOrder(ctx.db, ctx.scope, {
     customerId: customer.id,

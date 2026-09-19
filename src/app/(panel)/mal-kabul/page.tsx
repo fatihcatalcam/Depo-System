@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
 import { listGoodsReceipts } from '@/domain/goods-receipt';
+import { currentScope } from '@/lib/auth/current';
 import { cn } from '@/lib/utils';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
@@ -15,7 +16,7 @@ function formatDate(value: string) {
 }
 
 export default async function MalKabulPage() {
-  const receipts = await listGoodsReceipts(db);
+  const receipts = await listGoodsReceipts(db, await currentScope());
 
   return (
     <div className="space-y-4">

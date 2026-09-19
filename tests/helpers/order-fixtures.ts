@@ -15,6 +15,7 @@ import type { Scope } from '@/domain/scope';
  */
 export async function makeBedSet(
   db: Db,
+  branchId: string,
   options: { model: string; size: string; stock?: number; priceKurus?: number },
 ) {
   const { model, size, stock = 10, priceKurus = 3_000_000 } = options;
@@ -28,7 +29,7 @@ export async function makeBedSet(
 
   for (const part of [yatak, baza, baslik]) {
     if (stock > 0) {
-      await applyMovements(db, [
+      await applyMovements(db, branchId, [
         { stockItemId: part.id, quantityChange: stock, movementType: 'goods_receipt' },
       ]);
     }

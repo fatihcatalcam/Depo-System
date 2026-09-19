@@ -6,7 +6,7 @@
 //
 // Kullanim:
 //   npx tsx scripts/set-password.ts S1 <parola>
-//   npx tsx scripts/set-password.ts yonetici <parola>
+//   npx tsx scripts/set-password.ts kilit <parola>     (stok ve rapor kilidi)
 //
 // Parolayi komut satirina yazmak kabuk gecmisine dusurur; is bitince
 // gecmisi temizlemek iyi olur.
@@ -23,7 +23,7 @@ import { hashPassword, verifyPassword } from '../src/lib/auth/password';
 const [target, password] = process.argv.slice(2);
 
 if (!target || !password) {
-  console.error('Kullanim: npx tsx scripts/set-password.ts <sube-kodu|yonetici> <parola>');
+  console.error('Kullanim: npx tsx scripts/set-password.ts <sube-kodu|kilit> <parola>');
   process.exit(1);
 }
 if (password.length < 6) {
@@ -36,33 +36,36 @@ const db = drizzle(pool, { schema: { appSettings, branches }, casing: 'snake_cas
 
 async function main() {
   const hash = await hashPassword(password);
-  const isAdmin = target.toLowerCase() === 'yonetici';
+  const isUnlock = target.toLowerCase() === 'kilit';
 
-  // Giriste sube secimi yok: parola hangi hesabinsa o hesap aciliyor. Ayni
-  // parolayi iki hesaba vermek, birine bir daha girilememesi demek.
+  // Giriste sube secimi yok: parola hangi subeninse o sube aciliyor. Ayni
+  // parolayi iki subeye vermek, birine bir daha girilememesi demek. Kilit
+  // parolasiyla cakismasi ise calisanin kilidi kendi parolasiyla acmasi.
   const branchRows = await db.select().from(branches);
   const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 1));
 
   const clashes = [
     ...branchRows
-      .filter((row) => isAdmin || row.code !== target)
+      .filter((row) => isUnlock || row.code !== target)
       .map((row) => ({ label: `${row.name} (${row.code})`, hash: row.passwordHash })),
-    ...(isAdmin ? [] : [{ label: 'yonetici', hash: settings?.passwordHash ?? null }]),
+    ...(isUnlock
+      ? []
+      : [{ label: 'stok ve rapor kilidi', hash: settings?.unlockPasswordHash ?? null }]),
   ];
 
   for (const other of clashes) {
     if (other.hash && (await verifyPassword(password, other.hash))) {
-      console.error(`Bu parola zaten "${other.label}" hesabinda kullaniliyor.`);
+      console.error(`Bu parola zaten "${other.label}" icin kullaniliyor.`);
       process.exit(1);
     }
   }
 
-  if (isAdmin) {
+  if (isUnlock) {
     await db
       .update(appSettings)
-      .set({ passwordHash: hash, failedAttempts: 0, lockedUntil: null, updatedAt: sql`now()` })
+      .set({ unlockPasswordHash: hash, updatedAt: sql`now()` })
       .where(eq(appSettings.id, 1));
-    console.log('Yonetici parolasi guncellendi.');
+    console.log('Stok ve rapor kilidi parolasi guncellendi.');
   } else {
     const updated = await db
       .update(branches)

@@ -28,9 +28,9 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
         <h1 className="text-lg font-semibold">Gunluk sevkiyat</h1>
         <p className="text-sm text-neutral-500">
           {formatLongDate(date)}
-          {/* Yonetici iki subenin sevkiyatini birlikte goruyor; kagit
+          {/* Merkez iki subenin sevkiyatini birlikte goruyor; kagit
               ciktisini yanlis subeye vermemesi icin acikca yaziyoruz. */}
-          {user.isAdmin ? ' · iki sube birlikte' : ` · ${user.label}`}
+          {user.isCentral ? ' · iki sube birlikte' : ` · ${user.label}`}
         </p>
       </div>
 
@@ -104,14 +104,13 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
                       {stop.orderNo}
                     </Link>
                   </span>
-                  {/* Yonetici teslimat kaydedemez (sube isi); dugmeyi gostermiyoruz. */}
-                  {user.isAdmin ? null : (
-                    <DeliverStopButton
-                      orderId={stop.orderId}
-                      customerName={stop.customerName}
-                      pieces={stop.items.reduce((sum, item) => sum + item.quantity, 0)}
-                    />
-                  )}
+                  {/* Merkez baska subenin duragini da teslim edebilir; mal o
+                      subenin deposundan duser. */}
+                  <DeliverStopButton
+                    orderId={stop.orderId}
+                    customerName={stop.customerName}
+                    pieces={stop.items.reduce((sum, item) => sum + item.quantity, 0)}
+                  />
                 </div>
                 <p className="text-sm text-neutral-600">{stop.deliveryAddress}</p>
                 <p className="text-sm font-semibold tabular-nums text-neutral-800">

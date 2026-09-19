@@ -15,8 +15,8 @@ export interface LockResult {
 const passwordSchema = z.string().min(1, 'Parola girin.');
 
 /**
- * Kilidi acar. Iki alan da yonetici parolasini istiyor: patron stok ve rapor
- * icin tek bir parola verdi, sube parolasi buralari acmiyor.
+ * Kilidi acar. Iki alan da ayni kilit parolasini istiyor: patron stok ve
+ * rapor icin tek bir parola verdi, sube giris parolasi buralari acmiyor.
  */
 export async function unlockAction(area: LockArea, password: unknown): Promise<LockResult> {
   const parsed = passwordSchema.safeParse(password);
@@ -24,12 +24,12 @@ export async function unlockAction(area: LockArea, password: unknown): Promise<L
 
   const scope = await currentScope();
 
-  if (!(await verifyUnlockPassword(db, scope, parsed.data, 'admin'))) {
+  if (!(await verifyUnlockPassword(db, parsed.data))) {
     return {
       ok: false,
       error: `Parola hatali. ${
         area === 'raporlar' ? 'Raporlar' : 'Stok'
-      } yalnizca yonetici parolasiyla acilir.`,
+      } yalnizca stok ve rapor parolasiyla acilir.`,
     };
   }
 

@@ -26,7 +26,7 @@ afterAll(async () => {
 async function orderWithCustom(options: { quantity?: number; withSet?: boolean } = {}) {
   const tag = `OZL${(++sequence).toString().padStart(3, '0')}`;
   const set = options.withSet
-    ? await makeBedSet(ctx.db, { model: tag, size: '160x200', stock: 5 })
+    ? await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200', stock: 5 })
     : null;
   const customer = await createCustomer(ctx.db, ctx.scope, { name: `Musteri ${tag}` });
 
@@ -101,7 +101,7 @@ describe('serbest satir', () => {
     expect(custom?.components[0].remainingQuantity).toBe(1);
 
     // Setin parcalari rezerve olurken serbest satir stogu etkilemedi.
-    expect((await getAvailability(ctx.db, set!.yatak.id)).reserved).toBe(1);
+    expect((await getAvailability(ctx.db, ctx.branchId, set!.yatak.id)).reserved).toBe(1);
   });
 
   it('teslim edilir, stok hareketi uretmez, siparis kapanir', async () => {

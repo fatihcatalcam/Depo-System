@@ -22,7 +22,7 @@ afterAll(async () => {
 
 /** Notlardaki ornek: 50.000 TL'lik siparis. */
 async function orderWorth(totalKurus: number, confirm = true) {
-  const set = await makeBedSet(ctx.db, {
+  const set = await makeBedSet(ctx.db, ctx.branchId, {
     model: `P${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
     size: '160x200',
   });

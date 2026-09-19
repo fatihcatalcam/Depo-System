@@ -1,5 +1,13 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { customers, orderLineComponents, orderLines, orders, stockItems } from '@/db/schema';
+import {
+  branches,
+  customers,
+  orderLineComponents,
+  orderLines,
+  orders,
+  stockBalances,
+  stockItems,
+} from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { scopeFilter, type Scope } from '@/domain/scope';
 import type { OrderStatus } from './orders';
@@ -18,6 +26,7 @@ export interface PendingOrderSummary {
   orderId: string;
   orderNo: string;
   customerName: string;
+  branchName: string;
   plannedDeliveryDate: string | null;
   status: OrderStatus;
   items: PendingItem[];
@@ -26,7 +35,10 @@ export interface PendingOrderSummary {
 }
 
 export interface PendingTotal extends PendingItem {
-  /** Depodaki fiili adet. Serbest satirda takip edilen bir stok yok. */
+  /** Parcanin beklendigi depo. */
+  branchId: string;
+  branchName: string;
+  /** O depodaki fiili adet. Serbest satirda takip edilen bir stok yok. */
   onHand: number | null;
   /** Bekleyen adet depodakini asiyorsa aradaki fark; yoksa sifir. */
   shortage: number;
@@ -48,7 +60,9 @@ export interface PendingOverview {
  *
  * `totals` uretim/satin alma listesi olarak okunuyor: "su an ne borcluyuz,
  * elimizde ne var". Bu yuzden depodaki adetle karsilastirilip eksik
- * isaretleniyor.
+ * isaretleniyor — ve **depo basina** toplaniyor: merkez iki subenin
+ * siparislerini birden gordugu icin, ayni parcanin iki depodaki adedi tek
+ * satirda toplansaydi "eksik" rakami anlamsiz cikardi.
  */
 export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<PendingOverview> {
   const orderRows = await db
@@ -58,9 +72,11 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
       status: orders.status,
       plannedDeliveryDate: orders.plannedDeliveryDate,
       customerName: customers.name,
+      branchName: branches.name,
     })
     .from(orders)
     .innerJoin(customers, eq(customers.id, orders.customerId))
+    .innerJoin(branches, eq(branches.id, orders.branchId))
     .where(
       and(
         inArray(orders.status, ['confirmed', 'partially_delivered']),
@@ -76,6 +92,8 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
   const componentRows = await db
     .select({
       orderId: orderLines.orderId,
+      branchId: orders.branchId,
+      branchName: branches.name,
       componentId: orderLineComponents.id,
       stockItemId: orderLineComponents.stockItemId,
       lineDescription: orderLines.description,
@@ -84,12 +102,23 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
       stockItemSku: stockItems.sku,
       sizeLabel: stockItems.sizeLabel,
       variantLabel: stockItems.variantLabel,
-      onHand: stockItems.quantityOnHand,
+      onHand: stockBalances.quantityOnHand,
     })
     .from(orderLineComponents)
     .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
+    .innerJoin(orders, eq(orders.id, orderLines.orderId))
+    .innerJoin(branches, eq(branches.id, orders.branchId))
     // leftJoin: serbest satirin stok karti yok ama musteri onu da bekliyor.
     .leftJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
+    // Adet **siparisin** deposundan okunuyor. leftJoin, cunku bakiye satiri
+    // hic acilmamis olabilir: o kart o subede sifir adet demektir.
+    .leftJoin(
+      stockBalances,
+      and(
+        eq(stockBalances.stockItemId, orderLineComponents.stockItemId),
+        eq(stockBalances.branchId, orders.branchId),
+      ),
+    )
     .where(
       and(
         inArray(
@@ -130,6 +159,7 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
       orderId: row.id,
       orderNo: row.orderNo,
       customerName: row.customerName,
+      branchName: row.branchName,
       plannedDeliveryDate: row.plannedDeliveryDate,
       status: row.status,
       items,
@@ -142,7 +172,7 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
     // Farkli siparislerdeki ayni serbest urun adi tek satirda toplaniyor:
     // "2 adet ozel sehpa" atolyeye tek is olarak gidiyor.
     const name = component.stockItemName ?? component.lineDescription;
-    const key = component.stockItemId ?? `serbest:${name}`;
+    const key = `${component.branchId}:${component.stockItemId ?? `serbest:${name}`}`;
     const existing = totalsMap.get(key);
     if (existing) {
       existing.quantity += Number(component.remaining);
@@ -155,7 +185,11 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
       sizeLabel: component.sizeLabel,
       variantLabel: component.variantLabel,
       quantity: Number(component.remaining),
-      onHand: component.onHand,
+      branchId: component.branchId,
+      branchName: component.branchName,
+      // Serbest satirin stok karti yok: adedi takip edilmiyor. Karti olan ama
+      // bakiye satiri acilmamis parca ise sifir adet demektir.
+      onHand: component.stockItemId === null ? null : (component.onHand ?? 0),
       shortage: 0,
     });
   }

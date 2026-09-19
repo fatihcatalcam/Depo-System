@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm';
-import { branches, customers, stockItems, suppliers } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { branches, customers, stockBalances, stockItems, suppliers } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { branchScope, type Scope } from '@/domain/scope';
 
@@ -15,7 +15,7 @@ export async function branchScopes(db: DbOrTx): Promise<{ s1: Scope; s2: Scope }
   const find = (code: string) => {
     const row = rows.find((entry) => entry.code === code);
     if (!row) throw new Error(`${code} subesi bulunamadi — gocler eksik mi?`);
-    return branchScope(row.id, row.code);
+    return branchScope(row.id, row.code, row.isCentral);
   };
   return { s1: find('S1'), s2: find('S2') };
 }
@@ -29,6 +29,26 @@ export async function branchIdOf(db: DbOrTx, code: string): Promise<string> {
   const [row] = await db.select().from(branches).where(eq(branches.code, code));
   if (!row) throw new Error(`${code} subesi bulunamadi.`);
   return row.id;
+}
+
+/**
+ * Bir parcanin bir subedeki adedi.
+ *
+ * Adet stok kartinin uzerinde degil `stock_balances` icinde; bakiye satiri
+ * hic acilmamis olabilir, o da sifir demektir.
+ */
+export async function onHandOf(
+  db: DbOrTx,
+  branchId: string,
+  stockItemId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ quantityOnHand: stockBalances.quantityOnHand })
+    .from(stockBalances)
+    .where(
+      and(eq(stockBalances.branchId, branchId), eq(stockBalances.stockItemId, stockItemId)),
+    );
+  return row?.quantityOnHand ?? 0;
 }
 
 export async function makeStockItem(

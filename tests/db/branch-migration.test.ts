@@ -30,9 +30,11 @@ describe('0004 sube gocu', () => {
   async function migrateUpToBranches() {
     const client = new PGlite();
     const files = await migrationFiles();
-    const before = files.filter((name) => !name.startsWith(BRANCH_MIGRATION));
     const branchFile = files.find((name) => name.startsWith(BRANCH_MIGRATION));
     if (!branchFile) throw new Error('Sube gocu bulunamadi.');
+    // Yalnizca sube gocunden ONCEKILER. Sonrakiler subeleri varsayiyor;
+    // hepsini birden calistirmak gocu sirasindan cikarirdi.
+    const before = files.filter((name) => name < branchFile);
 
     for (const name of before) await runFile(client, name);
     return { client, branchFile };

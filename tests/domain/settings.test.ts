@@ -17,14 +17,14 @@ describe('ayarlar', () => {
   it('ilk cagrida tek satir olusturur', async () => {
     const settings = await getSettings(ctx.db);
     expect(settings.id).toBe(1);
-    expect(settings.passwordHash).toBeTruthy();
+    expect(settings.unlockPasswordHash).toBeTruthy();
   });
 
   it('ikinci cagri mevcut satiri bozmaz', async () => {
     const before = await getSettings(ctx.db);
     await ensureSettings(ctx.db, 'baskaparola');
     const after = await getSettings(ctx.db);
-    expect(after.passwordHash).toBe(before.passwordHash);
+    expect(after.unlockPasswordHash).toBe(before.unlockPasswordHash);
   });
 
   it('firma bilgisi guncellenir', async () => {

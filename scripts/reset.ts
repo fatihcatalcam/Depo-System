@@ -10,9 +10,9 @@ import { hardenSslMode } from '../src/db/connection-string';
  * Tum is verisini siler, sema ve gocleri korur.
  *
  * `app_settings`, `branches` ve `salespeople` bilerek listede yok: bunlar is verisi degil
- * yapilandirmadir. Silinseydi yonetici parolasi, sube parolalari ve
- * ciktilarin ustundeki firma anteni de giderdi — katalogu yenilemek isteyen
- * biri bunlari kaybetmeyi kastetmiyor.
+ * yapilandirmadir. Silinseydi kilit parolasi, sube parolalari ve ciktilarin
+ * ustundeki firma anteni de giderdi — katalogu yenilemek isteyen biri
+ * bunlari kaybetmeyi kastetmiyor.
  */
 const TABLES = [
   'delivery_lines',
@@ -24,6 +24,7 @@ const TABLES = [
   'goods_receipt_lines',
   'goods_receipts',
   'stock_movements',
+  'stock_balances',
   'product_components',
   'products',
   'stock_items',

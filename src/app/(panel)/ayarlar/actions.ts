@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db/client';
-import { changeOwnPassword, type Account } from '@/domain/auth';
+import { changeOwnPassword, setUnlockPassword } from '@/domain/auth';
 import { renameBranch, setBranchPassword } from '@/domain/branches';
 import { importCustomers, importStockCounts,
   importStockItems, type ImportResult } from '@/domain/excel';
@@ -57,34 +57,65 @@ const passwordSchema = z
     path: ['confirmPassword'],
   });
 
-/** Oturumu acik olan hesabin kendi parolasi — mevcut parola sorulur. */
+/** Oturumu acik olan subenin kendi giris parolasi — mevcut parola sorulur. */
 export async function changePasswordAction(input: unknown): Promise<ActionResult> {
   const parsed = passwordSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
     const scope = await currentScope();
-    const account: Account =
-      scope.kind === 'admin' ? { kind: 'admin' } : { kind: 'branch', branchId: scope.branchId };
-
-    await changeOwnPassword(db, account, parsed.data.currentPassword, parsed.data.newPassword);
+    await changeOwnPassword(
+      db,
+      scope.branchId,
+      parsed.data.currentPassword,
+      parsed.data.newPassword,
+    );
     return { ok: true, message: 'Parola degistirildi.' };
   } catch (error) {
     return toResult(error);
   }
 }
 
+const unlockPasswordSchema = z
+  .object({
+    newPassword: z.string().min(6, 'Parola en az 6 karakter olmali.'),
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    message: 'Parolalar birbiriyle ayni degil.',
+    path: ['confirmPassword'],
+  });
+
 /**
- * Sube yonetimi — yalnizca yonetici.
+ * Stok ve rapor kilidinin parolasi — yalnizca merkez.
+ *
+ * Mevcut parola sorulmuyor: bu parola bir hesaba ait degil, patronun
+ * verdigi tek bir anahtar. Unutuldugunda merkezden yenisi konulabilmeli.
+ */
+export async function setUnlockPasswordAction(input: unknown): Promise<ActionResult> {
+  const parsed = unlockPasswordSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+
+  try {
+    await assertCentral();
+    await setUnlockPassword(db, parsed.data.newPassword);
+    return { ok: true, message: 'Stok ve rapor parolasi degistirildi.' };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/**
+ * Sube yonetimi — yalnizca merkez.
  *
  * Sube parolasi belirlenirken mevcut parola sorulmuyor: sube calisani
  * parolasini unuttugunda patron yenisini verebilmeli. Yetki kontrolu
  * oturumdan yapiliyor, formdan gelen bir bayraktan degil.
  */
-async function assertAdmin(): Promise<void> {
+async function assertCentral(): Promise<void> {
   const user = await currentUser();
-  if (!user.isAdmin) {
-    throw new DomainError('Bu islem yalnizca yonetici hesabiyla yapilabilir.', 'FORBIDDEN');
+  if (!user.isCentral) {
+    throw new DomainError('Bu islem yalnizca merkez hesabiyla yapilabilir.', 'FORBIDDEN');
   }
 }
 
@@ -98,7 +129,7 @@ export async function renameBranchAction(input: unknown): Promise<ActionResult> 
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    await assertAdmin();
+    await assertCentral();
     await renameBranch(db, parsed.data.branchId, parsed.data.name);
     revalidatePath('/ayarlar');
     revalidatePath('/', 'layout');
@@ -118,7 +149,7 @@ export async function setBranchPasswordAction(input: unknown): Promise<ActionRes
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    await assertAdmin();
+    await assertCentral();
     await setBranchPassword(db, parsed.data.branchId, parsed.data.newPassword);
     revalidatePath('/ayarlar');
     return { ok: true, message: 'Sube parolasi belirlendi.' };
@@ -129,7 +160,8 @@ export async function setBranchPasswordAction(input: unknown): Promise<ActionRes
 
 export async function recalculateStockAction(): Promise<ActionResult> {
   try {
-    const { fixed, changes } = await recalculateStockBalances(db);
+    const scope = await currentScope();
+    const { fixed, changes } = await recalculateStockBalances(db, scope.branchId);
     revalidatePath('/stok');
     revalidatePath('/');
 
@@ -181,7 +213,7 @@ export async function importExcelAction(
         return { ok: false, error: 'Stok kilitli. Once stok sayfasindan kilidi acin.' };
       }
 
-      const counts = await importStockCounts(db, buffer);
+      const counts = await importStockCounts(db, scope, buffer);
       revalidatePath('/stok');
       revalidatePath('/');
 

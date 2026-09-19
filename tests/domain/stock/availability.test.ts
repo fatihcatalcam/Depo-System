@@ -63,11 +63,11 @@ async function makeOrderReserving(
 describe('getAvailability', () => {
   it('siparis yokken serbest stok mevcuda esittir', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 12, movementType: 'goods_receipt' },
     ]);
 
-    expect(await getAvailability(ctx.db, item.id)).toEqual({
+    expect(await getAvailability(ctx.db, ctx.branchId, item.id)).toEqual({
       onHand: 12,
       reserved: 0,
       available: 12,
@@ -76,12 +76,12 @@ describe('getAvailability', () => {
 
   it('onaylanmis siparis stogu rezerve eder', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 12, movementType: 'goods_receipt' },
     ]);
     await makeOrderReserving(item.id, 5, 'confirmed');
 
-    expect(await getAvailability(ctx.db, item.id)).toEqual({
+    expect(await getAvailability(ctx.db, ctx.branchId, item.id)).toEqual({
       onHand: 12,
       reserved: 5,
       available: 7,
@@ -90,12 +90,12 @@ describe('getAvailability', () => {
 
   it('taslak siparis rezervasyon yaratmaz', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 12, movementType: 'goods_receipt' },
     ]);
     await makeOrderReserving(item.id, 5, 'draft');
 
-    expect((await getAvailability(ctx.db, item.id)).reserved).toBe(0);
+    expect((await getAvailability(ctx.db, ctx.branchId, item.id)).reserved).toBe(0);
   });
 
   it('iptal ve teslim edilmis siparisler rezervasyon yaratmaz', async () => {
@@ -103,17 +103,17 @@ describe('getAvailability', () => {
     await makeOrderReserving(item.id, 3, 'cancelled');
     await makeOrderReserving(item.id, 4, 'delivered', 4);
 
-    expect((await getAvailability(ctx.db, item.id)).reserved).toBe(0);
+    expect((await getAvailability(ctx.db, ctx.branchId, item.id)).reserved).toBe(0);
   });
 
   it('kismen teslim edilen sipariste sadece kalan miktar rezervedir', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 20, movementType: 'goods_receipt' },
     ]);
     await makeOrderReserving(item.id, 10, 'partially_delivered', 6);
 
-    expect(await getAvailability(ctx.db, item.id)).toEqual({
+    expect(await getAvailability(ctx.db, ctx.branchId, item.id)).toEqual({
       onHand: 20,
       reserved: 4,
       available: 16,
@@ -122,12 +122,12 @@ describe('getAvailability', () => {
 
   it('rezervasyon mevcudu asarsa serbest stok negatif gorunur', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 2, movementType: 'goods_receipt' },
     ]);
     await makeOrderReserving(item.id, 9, 'confirmed');
 
-    expect(await getAvailability(ctx.db, item.id)).toEqual({
+    expect(await getAvailability(ctx.db, ctx.branchId, item.id)).toEqual({
       onHand: 2,
       reserved: 9,
       available: -7,
@@ -136,7 +136,7 @@ describe('getAvailability', () => {
 
   it('olmayan stok karti icin hata firlatir', async () => {
     await expect(
-      getAvailability(ctx.db, '33333333-3333-3333-3333-333333333333'),
+      getAvailability(ctx.db, ctx.branchId, '33333333-3333-3333-3333-333333333333'),
     ).rejects.toThrow('bulunamadi');
   });
 });
@@ -149,7 +149,7 @@ describe('getReservedQuantities', () => {
     await makeOrderReserving(a.id, 3, 'confirmed');
     await makeOrderReserving(b.id, 7, 'partially_delivered', 2);
 
-    const map = await getReservedQuantities(ctx.db, [a.id, b.id, c.id]);
+    const map = await getReservedQuantities(ctx.db, ctx.branchId, [a.id, b.id, c.id]);
 
     expect(map.get(a.id)).toBe(3);
     expect(map.get(b.id)).toBe(5);
@@ -157,6 +157,6 @@ describe('getReservedQuantities', () => {
   });
 
   it('bos liste icin sorgu calistirmadan bos harita doner', async () => {
-    expect((await getReservedQuantities(ctx.db, [])).size).toBe(0);
+    expect((await getReservedQuantities(ctx.db, ctx.branchId, [])).size).toBe(0);
   });
 });

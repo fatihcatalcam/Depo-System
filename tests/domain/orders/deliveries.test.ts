@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { stockItems, stockMovements } from '@/db/schema';
+import { stockMovements } from '@/db/schema';
 import { createDelivery, listDeliveriesForOrder } from '@/domain/orders/deliveries';
 import { cancelOrder, confirmOrder, createOrder, getOrder } from '@/domain/orders/orders';
 import { getAvailability } from '@/domain/stock/availability';
+import { onHandOf } from '../../helpers/factories';
 import { makeBedSet, makeOrderCustomer } from '../../helpers/order-fixtures';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
 
@@ -18,16 +19,12 @@ afterAll(async () => {
 });
 
 async function onHand(id: string) {
-  const [row] = await ctx.db
-    .select({ q: stockItems.quantityOnHand })
-    .from(stockItems)
-    .where(eq(stockItems.id, id));
-  return row.q;
+  return onHandOf(ctx.db, ctx.branchId, id);
 }
 
 /** Onaylanmis, 2 takim iceren bir siparis kurar. */
 async function confirmedOrder(options?: { quantity?: number; stock?: number }) {
-  const set = await makeBedSet(ctx.db, {
+  const set = await makeBedSet(ctx.db, ctx.branchId, {
     model: `D${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
     size: '160x200',
     stock: options?.stock ?? 10,
@@ -84,7 +81,7 @@ describe('createDelivery', () => {
       lines: [{ orderLineComponentId: component(set.yatak.id).id, quantity: 3 }],
     });
 
-    const availability = await getAvailability(ctx.db, set.yatak.id);
+    const availability = await getAvailability(ctx.db, ctx.branchId, set.yatak.id);
     expect(availability.onHand).toBe(7);
     expect(availability.reserved).toBe(1);
     expect(availability.available).toBe(6);
@@ -104,7 +101,7 @@ describe('createDelivery', () => {
 
     const after = await getOrder(ctx.db, ctx.scope, order.id);
     expect(after.status).toBe('delivered');
-    expect((await getAvailability(ctx.db, set.yatak.id)).reserved).toBe(0);
+    expect((await getAvailability(ctx.db, ctx.branchId, set.yatak.id)).reserved).toBe(0);
   });
 
   it('kalandan fazla teslim edilemez', async () => {
@@ -160,7 +157,7 @@ describe('createDelivery', () => {
   });
 
   it('taslak siparis teslim edilemez', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'TASLAKTESLIM', size: '090x190' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'TASLAKTESLIM', size: '090x190' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
     const order = await createOrder(ctx.db, ctx.scope, {
       customerId: customer.id,

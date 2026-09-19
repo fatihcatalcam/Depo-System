@@ -6,12 +6,14 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { branches } from './branches';
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -53,7 +55,6 @@ export const stockItems = pgTable(
     barcode: text('barcode').unique(),
     unit: text('unit').notNull().default('adet'),
     minStockLevel: integer('min_stock_level').notNull().default(0),
-    quantityOnHand: integer('quantity_on_hand').notNull().default(0),
     purchasePriceKurus: bigint('purchase_price_kurus', { mode: 'number' }),
     isActive: boolean('is_active').notNull().default(true),
     notes: text('notes'),
@@ -63,6 +64,40 @@ export const stockItems = pgTable(
     index('stock_items_name_idx').on(t.name),
     index('stock_items_category_idx').on(t.categoryId),
     check('stock_items_min_level_chk', sql`${t.minStockLevel} >= 0`),
+  ],
+);
+
+/**
+ * Bir parcanin **bir subedeki** adedi.
+ *
+ * Stok karti ortak, adet degil: ayni yatak merkezde 5, Masko'da 2 olabilir.
+ * Adet stok kartinin uzerinde tek bir kolon olsaydi iki sube ayni rakami
+ * gorur, ayni parcayi iki kere satardi.
+ *
+ * Satir yoksa adet sifirdir. Her sube her kart icin satir tasimaz — 567 kart
+ * x sube kadar bos satir tutmanin bir faydasi yok; okumalar `left join` +
+ * `coalesce` ile, yazmalar `applyMovements` icindeki upsert ile calisir.
+ *
+ * `quantityOnHand` bir onbellektir; tek dogru kaynak `stock_movements`
+ * defteridir (bkz. `recalculateStockBalances`).
+ */
+export const stockBalances = pgTable(
+  'stock_balances',
+  {
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'restrict' }),
+    stockItemId: uuid('stock_item_id')
+      .notNull()
+      .references(() => stockItems.id, { onDelete: 'restrict' }),
+    quantityOnHand: integer('quantity_on_hand').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.branchId, t.stockItemId] }),
+    // Sube genelinde "elimde ne var" sorgulari icin: kritik stok listesi ve
+    // stok degeri hep tek subenin butun kartlarini tarar.
+    index('stock_balances_branch_idx').on(t.branchId),
   ],
 );
 

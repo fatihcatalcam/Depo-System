@@ -1,11 +1,10 @@
 import ExcelJS from 'exceljs';
-import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { stockItems } from '@/db/schema';
 import { createStockItem } from '@/domain/catalog/stock-items';
 import { exportStockCountTemplate, importStockCounts } from '@/domain/excel';
 import { listStockHistory } from '@/domain/stock/history';
 import { applyMovements } from '@/domain/stock/movements';
+import { onHandOf } from '../helpers/factories';
 import { createTestDb, type TestDb } from '../helpers/test-db';
 
 let ctx: TestDb;
@@ -25,7 +24,7 @@ async function makeCard(onHand: number) {
     sizeLabel: '160x200',
   });
   if (onHand !== 0) {
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: onHand, movementType: 'goods_receipt' },
     ]);
   }
@@ -34,7 +33,7 @@ async function makeCard(onHand: number) {
 
 /** Sablonun kendisini uretip sayim sutununu doldurarak gercek akisi taklit eder. */
 async function fillTemplate(values: Map<string, number | string>): Promise<Buffer> {
-  const template = await exportStockCountTemplate(ctx.db);
+  const template = await exportStockCountTemplate(ctx.db, ctx.scope);
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(template as unknown as ArrayBuffer);
   const sheet = workbook.worksheets[0];
@@ -48,12 +47,8 @@ async function fillTemplate(values: Map<string, number | string>): Promise<Buffe
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-async function onHandOf(id: string): Promise<number> {
-  const [row] = await ctx.db
-    .select({ onHand: stockItems.quantityOnHand })
-    .from(stockItems)
-    .where(eq(stockItems.id, id));
-  return row.onHand;
+async function currentQuantity(id: string): Promise<number> {
+  return onHandOf(ctx.db, ctx.branchId, id);
 }
 
 describe('Excel ile stok sayimi', () => {
@@ -61,7 +56,7 @@ describe('Excel ile stok sayimi', () => {
     const card = await makeCard(7);
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load((await exportStockCountTemplate(ctx.db)) as unknown as ArrayBuffer);
+    await workbook.xlsx.load((await exportStockCountTemplate(ctx.db, ctx.scope)) as unknown as ArrayBuffer);
     const sheet = workbook.worksheets[0];
 
     const header = [1, 2, 3, 4, 5, 6].map((i) => String(sheet.getRow(1).getCell(i).value));
@@ -87,19 +82,19 @@ describe('Excel ile stok sayimi', () => {
   it('girilen adet karta isleniyor', async () => {
     const card = await makeCard(4);
 
-    const result = await importStockCounts(ctx.db, await fillTemplate(new Map([[card.sku, 11]])));
+    const result = await importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map([[card.sku, 11]])));
 
     expect(result.updated).toBe(1);
-    expect(await onHandOf(card.id)).toBe(11);
+    expect(await currentQuantity(card.id)).toBe(11);
   });
 
   /** Adet dogrudan yazilmiyor; fark defterde iz birakiyor. */
   it('fark sayim hareketi olarak deftere yaziliyor', async () => {
     const card = await makeCard(4);
 
-    await importStockCounts(ctx.db, await fillTemplate(new Map([[card.sku, 10]])));
+    await importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map([[card.sku, 10]])));
 
-    const movements = await listStockHistory(ctx.db, card.id);
+    const movements = await listStockHistory(ctx.db, ctx.branchId, card.id);
     const count = movements.find((row) => row.movementType === 'stock_count');
     expect(count?.quantityChange).toBe(6);
     expect(count?.notes).toBe('Excel sayim aktarimi');
@@ -111,11 +106,12 @@ describe('Excel ile stok sayimi', () => {
 
     const result = await importStockCounts(
       ctx.db,
+      ctx.scope,
       await fillTemplate(new Map([[dokunulan.sku, 5]])),
     );
 
     expect(result.updated).toBe(1);
-    expect(await onHandOf(dokunulmayan.id)).toBe(9);
+    expect(await currentQuantity(dokunulmayan.id)).toBe(9);
     expect(result.skipped).toBeGreaterThan(0);
   });
 
@@ -123,19 +119,19 @@ describe('Excel ile stok sayimi', () => {
   it('sifir yazmak karti sifirliyor', async () => {
     const card = await makeCard(6);
 
-    await importStockCounts(ctx.db, await fillTemplate(new Map([[card.sku, 0]])));
+    await importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map([[card.sku, 0]])));
 
-    expect(await onHandOf(card.id)).toBe(0);
+    expect(await currentQuantity(card.id)).toBe(0);
   });
 
   it('ayni adet yazilirsa hareket uretilmiyor', async () => {
     const card = await makeCard(5);
 
-    const result = await importStockCounts(ctx.db, await fillTemplate(new Map([[card.sku, 5]])));
+    const result = await importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map([[card.sku, 5]])));
 
     expect(result.updated).toBe(0);
     expect(result.unchanged).toBe(1);
-    const movements = await listStockHistory(ctx.db, card.id);
+    const movements = await listStockHistory(ctx.db, ctx.branchId, card.id);
     expect(movements.some((row) => row.movementType === 'stock_count')).toBe(false);
   });
 
@@ -143,14 +139,14 @@ describe('Excel ile stok sayimi', () => {
     const card = await makeCard(3);
 
     await expect(
-      importStockCounts(ctx.db, await fillTemplate(new Map([[card.sku, -2]]))),
+      importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map([[card.sku, -2]]))),
     ).rejects.toThrow('sifir ya da pozitif tam sayi');
 
     await expect(
-      importStockCounts(ctx.db, await fillTemplate(new Map([[card.sku, '2,5']]))),
+      importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map([[card.sku, '2,5']]))),
     ).rejects.toThrow('sifir ya da pozitif tam sayi');
 
-    expect(await onHandOf(card.id)).toBe(3);
+    expect(await currentQuantity(card.id)).toBe(3);
   });
 
   /**
@@ -168,14 +164,56 @@ describe('Excel ile stok sayimi', () => {
     sheet.addRow(['SK-YOK-99', 'Olmayan parca', '', '', 0, 5]);
     const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
 
-    await expect(importStockCounts(ctx.db, buffer)).rejects.toThrow('kodlu stok karti yok');
-    expect(await onHandOf(card.id)).toBe(4);
+    await expect(importStockCounts(ctx.db, ctx.scope, buffer)).rejects.toThrow('kodlu stok karti yok');
+    expect(await currentQuantity(card.id)).toBe(4);
   });
 
   it('hicbir satir doldurulmamissa acikca soyluyor', async () => {
     await makeCard(1);
-    await expect(importStockCounts(ctx.db, await fillTemplate(new Map()))).rejects.toThrow(
+    await expect(importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map()))).rejects.toThrow(
       'sayilan adet girilmis satir yok',
     );
+  });
+
+  /**
+   * Sablon da sayim da sayan subenin deposuna bakar. Ortak olsaydi Sube 2'nin
+   * sayimi merkezin rafini sifirlardi.
+   */
+  it('sablon ve sayim yalnizca kendi deposunu kapsar', async () => {
+    const fresh = await createTestDb();
+    const item = await createStockItem(fresh.db, { name: 'IKI DEPO PARCA', sizeLabel: '160x200' });
+
+    await applyMovements(fresh.db, fresh.scopes.s1.branchId, [
+      { stockItemId: item.id, quantityChange: 6, movementType: 'goods_receipt' },
+    ]);
+    await applyMovements(fresh.db, fresh.scopes.s2.branchId, [
+      { stockItemId: item.id, quantityChange: 2, movementType: 'goods_receipt' },
+    ]);
+
+    // Sube 2'nin sablonunda kendi adedi yaziyor, merkezinki degil.
+    const template = await exportStockCountTemplate(fresh.db, fresh.scopes.s2);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(template as unknown as ArrayBuffer);
+    const sheet = workbook.worksheets[0];
+
+    let templateQuantity: unknown;
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      if (String(row.getCell(1).value ?? '') !== item.sku) return;
+      templateQuantity = row.getCell(5).value;
+      row.getCell(6).value = 3;
+    });
+    expect(templateQuantity).toBe(2);
+
+    await importStockCounts(
+      fresh.db,
+      fresh.scopes.s2,
+      Buffer.from(await workbook.xlsx.writeBuffer()),
+    );
+
+    expect(await onHandOf(fresh.db, fresh.scopes.s2.branchId, item.id)).toBe(3);
+    expect(await onHandOf(fresh.db, fresh.scopes.s1.branchId, item.id)).toBe(6);
+
+    await fresh.close();
   });
 });

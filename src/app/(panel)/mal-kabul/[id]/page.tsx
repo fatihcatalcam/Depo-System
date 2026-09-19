@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/db/client';
 import { getGoodsReceipt } from '@/domain/goods-receipt';
+import { currentScope } from '@/lib/auth/current';
 import { NotFoundError } from '@/lib/errors';
 import { formatKurus } from '@/lib/money';
 
@@ -19,7 +20,7 @@ export default async function MalKabulDetayPage({
 
   let receipt;
   try {
-    receipt = await getGoodsReceipt(db, id);
+    receipt = await getGoodsReceipt(db, await currentScope(), id);
   } catch (error) {
     if (error instanceof NotFoundError) notFound();
     throw error;

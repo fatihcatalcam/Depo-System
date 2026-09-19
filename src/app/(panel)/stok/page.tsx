@@ -18,10 +18,11 @@ interface PageProps {
 
 export default async function StokPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const locked = await isStockLocked(await currentScope());
+  const scope = await currentScope();
+  const locked = await isStockLocked(scope);
   const [categories, items] = await Promise.all([
     listCategoryTree(db),
-    listStockItemsWithAvailability(db, {
+    listStockItemsWithAvailability(db, scope.branchId, {
       query: params.q,
       categoryId: params.kategori || null,
     }),

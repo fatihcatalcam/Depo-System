@@ -25,7 +25,7 @@ async function orderFor(options: {
   confirm?: boolean;
   model?: string;
 }) {
-  const set = await makeBedSet(ctx.db, {
+  const set = await makeBedSet(ctx.db, ctx.branchId, {
     model: options.model ?? `S${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
     size: '160x200',
   });
@@ -84,7 +84,7 @@ describe('getDailyShipment', () => {
 
   it('teslim edilmis parcalar listede gorunmez', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, { model: 'KISMI', size: '160x200' });
+    const set = await makeBedSet(fresh.db, fresh.branchId, { model: 'KISMI', size: '160x200' });
     const customer = await makeOrderCustomer(fresh.db, fresh.scope);
     const order = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,
@@ -115,7 +115,7 @@ describe('getDailyShipment', () => {
 
   it('toplama listesi parcalari duraklar arasi toplar', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, { model: 'TOPLAMA', size: '160x200', stock: 50 });
+    const set = await makeBedSet(fresh.db, fresh.branchId, { model: 'TOPLAMA', size: '160x200', stock: 50 });
 
     for (const quantity of [2, 3]) {
       const customer = await makeOrderCustomer(fresh.db, fresh.scope);
@@ -144,7 +144,7 @@ describe('getDailyShipment', () => {
 
   it('sofore tahsil edilecek tutar dogru hesaplanir', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, { model: 'TAHSILAT', size: '160x200' });
+    const set = await makeBedSet(fresh.db, fresh.branchId, { model: 'TAHSILAT', size: '160x200' });
     const customer = await makeOrderCustomer(fresh.db, fresh.scope);
     const order = await createOrder(fresh.db, fresh.scope, {
       customerId: customer.id,

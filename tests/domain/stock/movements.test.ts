@@ -1,9 +1,9 @@
 import { asc, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { stockItems, stockMovements } from '@/db/schema';
+import { stockMovements } from '@/db/schema';
 import { applyMovements } from '@/domain/stock/movements';
 import { NegativeStockError } from '@/lib/errors';
-import { makeStockItem } from '../../helpers/factories';
+import { makeStockItem, onHandOf } from '../../helpers/factories';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
 
 let ctx: TestDb;
@@ -17,18 +17,14 @@ afterAll(async () => {
 });
 
 async function onHand(id: string) {
-  const [row] = await ctx.db
-    .select({ q: stockItems.quantityOnHand })
-    .from(stockItems)
-    .where(eq(stockItems.id, id));
-  return row.q;
+  return onHandOf(ctx.db, ctx.branchId, id);
 }
 
 describe('applyMovements', () => {
   it('giris hareketi stogu artirir ve defterde iz birakir', async () => {
     const item = await makeStockItem(ctx.db);
 
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 10, movementType: 'goods_receipt' },
     ]);
 
@@ -45,11 +41,11 @@ describe('applyMovements', () => {
 
   it('cikis hareketi stogu azaltir', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 10, movementType: 'goods_receipt' },
     ]);
 
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: -4, movementType: 'delivery' },
     ]);
 
@@ -58,13 +54,13 @@ describe('applyMovements', () => {
 
   it('balanceAfter her harekette birikimli bakiyeyi tutar', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 5, movementType: 'goods_receipt' },
     ]);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 7, movementType: 'goods_receipt' },
     ]);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: -3, movementType: 'delivery' },
     ]);
 
@@ -79,12 +75,12 @@ describe('applyMovements', () => {
 
   it('stogu eksiye dusuren hareket reddedilir', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 2, movementType: 'goods_receipt' },
     ]);
 
     await expect(
-      applyMovements(ctx.db, [
+      applyMovements(ctx.db, ctx.branchId, [
         { stockItemId: item.id, quantityChange: -5, movementType: 'delivery' },
       ]),
     ).rejects.toBeInstanceOf(NegativeStockError);
@@ -97,6 +93,7 @@ describe('applyMovements', () => {
 
     await applyMovements(
       ctx.db,
+      ctx.branchId,
       [{ stockItemId: item.id, quantityChange: -3, movementType: 'manual' }],
       { allowNegative: true },
     );
@@ -107,12 +104,12 @@ describe('applyMovements', () => {
   it('coklu harekette bir tanesi basarisiz olursa hicbiri uygulanmaz', async () => {
     const a = await makeStockItem(ctx.db);
     const b = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: a.id, quantityChange: 10, movementType: 'goods_receipt' },
     ]);
 
     await expect(
-      applyMovements(ctx.db, [
+      applyMovements(ctx.db, ctx.branchId, [
         { stockItemId: a.id, quantityChange: -1, movementType: 'delivery' },
         { stockItemId: b.id, quantityChange: -1, movementType: 'delivery' },
       ]),
@@ -125,13 +122,13 @@ describe('applyMovements', () => {
   it('sifir miktarli hareket reddedilir', async () => {
     const item = await makeStockItem(ctx.db);
     await expect(
-      applyMovements(ctx.db, [{ stockItemId: item.id, quantityChange: 0, movementType: 'manual' }]),
+      applyMovements(ctx.db, ctx.branchId, [{ stockItemId: item.id, quantityChange: 0, movementType: 'manual' }]),
     ).rejects.toThrow('Hareket miktari sifir olamaz');
   });
 
   it('olmayan stok kartina hareket islenemez', async () => {
     await expect(
-      applyMovements(ctx.db, [
+      applyMovements(ctx.db, ctx.branchId, [
         {
           stockItemId: '11111111-1111-1111-1111-111111111111',
           quantityChange: 1,
@@ -145,7 +142,7 @@ describe('applyMovements', () => {
     const item = await makeStockItem(ctx.db);
     const referenceId = '22222222-2222-2222-2222-222222222222';
 
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       {
         stockItemId: item.id,
         quantityChange: 3,
@@ -171,11 +168,11 @@ describe('applyMovements', () => {
     const first = await makeStockItem(ctx.db);
     const second = await makeStockItem(ctx.db);
 
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: first.id, quantityChange: 6, movementType: 'goods_receipt' },
     ]);
 
-    const results = await applyMovements(ctx.db, [
+    const results = await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: first.id, quantityChange: -2, movementType: 'manual' },
       { stockItemId: second.id, quantityChange: 4, movementType: 'goods_receipt' },
     ]);
@@ -187,6 +184,6 @@ describe('applyMovements', () => {
   });
 
   it('hareket yoksa bos dizi doner', async () => {
-    expect(await applyMovements(ctx.db, [])).toEqual([]);
+    expect(await applyMovements(ctx.db, ctx.branchId, [])).toEqual([]);
   });
 });

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { db } from '@/db/client';
 import { ORDER_STATUS_LABELS } from '@/domain/orders/orders';
 import { getPendingOverview, type PendingItem } from '@/domain/orders/pending';
-import { currentScope } from '@/lib/auth/current';
+import { currentUser } from '@/lib/auth/current';
 import { formatDate } from '@/lib/dates';
 
 export const metadata = { title: 'Bekleyen urunler' };
@@ -12,8 +12,8 @@ function itemLabel(item: PendingItem): string {
 }
 
 export default async function BekleyenPage() {
-  const scope = await currentScope();
-  const pending = await getPendingOverview(db, scope);
+  const user = await currentUser();
+  const pending = await getPendingOverview(db, user.scope);
 
   if (pending.orders.length === 0) {
     return (
@@ -60,6 +60,9 @@ export default async function BekleyenPage() {
           <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
               <th className="p-3">Parca</th>
+              {/* Depolar ayri: ayni parca iki subede ayri satir, yoksa
+                  "Depoda" rakami hangi depoyu gosterdigi belirsiz kalirdi. */}
+              {user.isCentral ? <th className="w-28 p-3">Sube</th> : null}
               <th className="w-24 p-3 text-right">Bekleyen</th>
               <th className="w-24 p-3 text-right">Depoda</th>
               <th className="w-24 p-3 text-right">Eksik</th>
@@ -68,7 +71,7 @@ export default async function BekleyenPage() {
           <tbody>
             {pending.totals.map((item) => (
               <tr
-                key={item.stockItemId ?? `serbest:${item.stockItemName}`}
+                key={`${item.branchId}:${item.stockItemId ?? item.stockItemName}`}
                 className="border-b border-neutral-100 last:border-0"
               >
                 <td className="p-3">
@@ -88,6 +91,9 @@ export default async function BekleyenPage() {
                     <span className="ml-2 text-xs text-neutral-400">{item.stockItemSku}</span>
                   ) : null}
                 </td>
+                {user.isCentral ? (
+                  <td className="p-3 text-xs text-neutral-500">{item.branchName}</td>
+                ) : null}
                 <td className="p-3 text-right font-semibold tabular-nums">{item.quantity}</td>
                 <td className="p-3 text-right tabular-nums text-neutral-600">
                   {item.onHand ?? '—'}
@@ -117,6 +123,9 @@ export default async function BekleyenPage() {
               <span className="min-w-0 text-sm">
                 <span className="font-medium">{order.customerName}</span>
                 <span className="ml-2 text-xs text-neutral-400">{order.orderNo}</span>
+                {user.isCentral ? (
+                  <span className="ml-2 text-xs text-neutral-400">{order.branchName}</span>
+                ) : null}
               </span>
               <span className="flex items-center gap-2 whitespace-nowrap text-xs">
                 <span className="text-neutral-500">

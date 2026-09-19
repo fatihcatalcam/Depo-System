@@ -18,7 +18,7 @@ afterAll(async () => {
 
 async function confirmedOrder(options: { quantity?: number; stock?: number } = {}) {
   const tag = `BK${(++sequence).toString().padStart(3, '0')}`;
-  const set = await makeBedSet(ctx.db, {
+  const set = await makeBedSet(ctx.db, ctx.branchId, {
     model: tag,
     size: '160x200',
     stock: options.stock ?? 10,
@@ -46,7 +46,7 @@ async function confirmedOrder(options: { quantity?: number; stock?: number } = {
 describe('bekleyen urunler', () => {
   it('taslak siparis bekleyen sayilmaz', async () => {
     const tag = `BKT${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
     const order = await createOrder(ctx.db, ctx.scope, {
       customerId: customer.id,
@@ -100,7 +100,7 @@ describe('bekleyen urunler', () => {
   /** Toplu dokum uretim listesi olarak okunuyor: ne kadar borcluyuz. */
   it('ayni parcayi bekleyen iki siparis toplu dokumde birlesir', async () => {
     const tag = `BKS${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200', stock: 100 });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200', stock: 100 });
 
     for (const quantity of [2, 3]) {
       const customer = await makeOrderCustomer(ctx.db, ctx.scope);
@@ -135,7 +135,7 @@ describe('bekleyen urunler', () => {
   /** Serbest satirin stok karti yok; "eksik" demek anlamsiz olurdu. */
   it('serbest satir listede gorunur ama eksik hesaplanmaz', async () => {
     const tag = `BKC${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
     const order = await createOrder(ctx.db, ctx.scope, {
       customerId: customer.id,
@@ -176,9 +176,9 @@ describe('deliverRemaining', () => {
     expect(detail.lines[0].components.every((c) => c.remainingQuantity === 0)).toBe(true);
 
     const { listStockItemsWithAvailability } = await import('@/domain/catalog/stock-items');
-    const items = await listStockItemsWithAvailability(ctx.db, {});
+    const items = await listStockItemsWithAvailability(ctx.db, ctx.branchId, {});
     const yatak = items.find((item) => item.id === set.yatak.id);
-    expect(yatak?.quantityOnHand).toBe(8);
+    expect(yatak?.onHand).toBe(8);
   });
 
   it('kismi teslimattan sonra yalnizca kalani teslim eder', async () => {
@@ -198,9 +198,9 @@ describe('deliverRemaining', () => {
     const after = await getOrder(ctx.db, ctx.scope, order.id);
     expect(after.status).toBe('delivered');
     const { listStockItemsWithAvailability } = await import('@/domain/catalog/stock-items');
-    const items = await listStockItemsWithAvailability(ctx.db, {});
+    const items = await listStockItemsWithAvailability(ctx.db, ctx.branchId, {});
     // Ucu de cikti, iki kere degil.
-    expect(items.find((item) => item.id === set.yatak.id)?.quantityOnHand).toBe(7);
+    expect(items.find((item) => item.id === set.yatak.id)?.onHand).toBe(7);
   });
 
   it('teslim edilecek parca kalmayinca hata verir', async () => {

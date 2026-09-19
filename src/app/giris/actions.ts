@@ -24,10 +24,10 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const parsed = schema.safeParse({ password: formData.get('password') });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  // Ilk acilista ayar satirini ve yonetici parolasini olusturur.
+  // Ilk acilista ayar satirini ve kilit parolasini olusturur.
   await ensureSettings(db, process.env.INITIAL_APP_PASSWORD ?? 'depo2026');
 
-  // Parola hangi hesabinsa o hesap acilir; sube secimi yok.
+  // Parola hangi subeninse o sube acilir; sube secimi yok.
   const result = await login(db, parsed.data.password);
 
   if (!result.ok) {
@@ -41,11 +41,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const store = await cookies();
   store.set(
     SESSION_COOKIE,
-    await createSessionToken(
-      result.scope.kind === 'admin'
-        ? { role: 'admin' }
-        : { role: 'branch', branchId: result.scope.branchId },
-    ),
+    await createSessionToken({ role: 'branch', branchId: result.scope.branchId }),
     {
       httpOnly: true,
       sameSite: 'lax',

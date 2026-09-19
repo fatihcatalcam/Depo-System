@@ -106,7 +106,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                 <th className="p-3">Siparis</th>
                 {/* Sube kendi listesini goruyor; kendi adini her satirda
                     tekrarlamanin anlami yok. */}
-                {user.isAdmin ? <th className="p-3">Sube</th> : null}
+                {user.isCentral ? <th className="p-3">Sube</th> : null}
                 <th className="p-3">Musteri</th>
                 <th className="p-3">Satici</th>
                 <th className="p-3">Teslimat</th>
@@ -127,7 +127,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                     </Link>
                     <div className="text-xs text-neutral-400">{formatDate(order.orderDate)}</div>
                   </td>
-                  {user.isAdmin ? (
+                  {user.isCentral ? (
                     <td className="whitespace-nowrap p-3 text-neutral-600">{order.branchName}</td>
                   ) : null}
                   <td className="p-3">{order.customerName}</td>

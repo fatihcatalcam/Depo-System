@@ -64,6 +64,20 @@
       "when": 1789458700816,
       "tag": "0008_careless_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789809027697,
+      "tag": "0009_sube-bazli-stok",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789809061454,
+      "tag": "0010_yonetici-parolasi-kalkti",
+      "breakpoints": true
     }
   ]
 }

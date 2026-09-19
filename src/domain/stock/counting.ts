@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm';
-import { stockItems } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { stockBalances, stockItems } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { NotFoundError } from '@/lib/errors';
 import { applyMovements } from './movements';
@@ -20,9 +20,13 @@ export interface StockCountResult {
 /**
  * Sayim duzeltmesi. Fark her zaman hareket defterinde iz birakir —
  * stok sessizce degismez, "neden degisti" sorusu her zaman cevaplanabilir.
+ *
+ * Sayim her zaman sayan subenin deposunda yapilir; kimse baska subenin
+ * rafini sayamaz.
  */
 export async function adjustStockCount(
   db: DbOrTx,
+  branchId: string,
   input: StockCountInput,
 ): Promise<StockCountResult> {
   if (input.countedQuantity < 0) {
@@ -30,17 +34,31 @@ export async function adjustStockCount(
   }
 
   const [item] = await db
-    .select({ onHand: stockItems.quantityOnHand })
+    .select({ id: stockItems.id })
     .from(stockItems)
     .where(eq(stockItems.id, input.stockItemId));
 
   if (!item) throw new NotFoundError(`Stok karti (${input.stockItemId})`);
 
-  const difference = input.countedQuantity - item.onHand;
+  const [balance] = await db
+    .select({ onHand: stockBalances.quantityOnHand })
+    .from(stockBalances)
+    .where(
+      and(
+        eq(stockBalances.branchId, branchId),
+        eq(stockBalances.stockItemId, input.stockItemId),
+      ),
+    );
+
+  // Bakiye satiri hic acilmamis olabilir: o kart bu subede hic hareket
+  // gormemis demektir, adedi sifirdir.
+  const previous = balance?.onHand ?? 0;
+  const difference = input.countedQuantity - previous;
 
   if (difference !== 0) {
     await applyMovements(
       db,
+      branchId,
       [
         {
           stockItemId: input.stockItemId,
@@ -53,5 +71,5 @@ export async function adjustStockCount(
     );
   }
 
-  return { previous: item.onHand, counted: input.countedQuantity, difference };
+  return { previous, counted: input.countedQuantity, difference };
 }

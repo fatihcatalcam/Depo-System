@@ -1,6 +1,4 @@
-import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { stockItems } from '@/db/schema';
 import { updateProduct } from '@/domain/catalog/products';
 import {
   cancelOrder,
@@ -12,6 +10,7 @@ import {
 } from '@/domain/orders/orders';
 import { searchCustomers } from '@/domain/parties/parties';
 import { getAvailability } from '@/domain/stock/availability';
+import { onHandOf } from '../../helpers/factories';
 import { makeBedSet, makeOrderCustomer } from '../../helpers/order-fixtures';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
 
@@ -26,7 +25,7 @@ afterAll(async () => {
 });
 
 async function newDraft(options?: { quantity?: number; priceKurus?: number; stock?: number }) {
-  const set = await makeBedSet(ctx.db, {
+  const set = await makeBedSet(ctx.db, ctx.branchId, {
     model: `M${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
     size: '160x200',
     stock: options?.stock ?? 10,
@@ -61,7 +60,7 @@ describe('createOrder', () => {
   });
 
   it('iskonto toplamdan dusulur', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'ISKONTO', size: '090x190' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'ISKONTO', size: '090x190' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     const order = await createOrder(ctx.db, ctx.scope, {
@@ -79,7 +78,7 @@ describe('createOrder', () => {
   });
 
   it('iskonto ara toplamdan buyuk olamaz', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'BUYUKISK', size: '090x190' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'BUYUKISK', size: '090x190' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     await expect(
@@ -101,7 +100,7 @@ describe('createOrder', () => {
   });
 
   it('tek parca satisi da kabul edilir', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'TEKPARCA', size: '100x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'TEKPARCA', size: '100x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     const order = await createOrder(ctx.db, ctx.scope, {
@@ -120,7 +119,7 @@ describe('createOrder', () => {
 
   // Depoya gelen musteri icin onceden kayit acmak gerekmesin.
   it('kayitli olmayan musteri adiyla siparis olusturulabilir', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'YENIMUSTERI', size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'YENIMUSTERI', size: '160x200' });
 
     const order = await createOrder(ctx.db, ctx.scope, {
       newCustomer: {
@@ -145,7 +144,7 @@ describe('createOrder', () => {
   });
 
   it('ne musteri secildi ne isim yazildiysa reddedilir', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'MUSTERISIZ', size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'MUSTERISIZ', size: '160x200' });
 
     await expect(
       createOrder(ctx.db, ctx.scope, {
@@ -160,7 +159,7 @@ describe('createOrder', () => {
   });
 
   it('olmayan musteri id ile siparis olusturulamaz', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'HAYALIMUSTERI', size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'HAYALIMUSTERI', size: '160x200' });
 
     await expect(
       createOrder(ctx.db, ctx.scope, {
@@ -198,7 +197,7 @@ describe('createOrder', () => {
   });
 
   it('bos adres reddedilir', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'ADRESSIZ', size: '090x190' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'ADRESSIZ', size: '090x190' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     await expect(
@@ -234,7 +233,7 @@ describe('createOrder', () => {
 describe('taslak siparis stogu etkilemez', () => {
   it('taslakta rezervasyon olusmaz', async () => {
     const { set } = await newDraft({ quantity: 2 });
-    expect((await getAvailability(ctx.db, set.yatak.id)).reserved).toBe(0);
+    expect((await getAvailability(ctx.db, ctx.branchId, set.yatak.id)).reserved).toBe(0);
   });
 });
 
@@ -249,8 +248,8 @@ describe('confirmOrder', () => {
     expect(detail.lines[0].components).toHaveLength(3);
     expect(detail.lines[0].components.every((c) => c.totalQuantity === 2)).toBe(true);
 
-    expect((await getAvailability(ctx.db, set.yatak.id)).reserved).toBe(2);
-    expect((await getAvailability(ctx.db, set.baslik.id)).available).toBe(8);
+    expect((await getAvailability(ctx.db, ctx.branchId, set.yatak.id)).reserved).toBe(2);
+    expect((await getAvailability(ctx.db, ctx.branchId, set.baslik.id)).available).toBe(8);
   });
 
   it('dondurulan recete sonradan degisen urun tanimindan etkilenmez', async () => {
@@ -332,11 +331,11 @@ describe('updateOrder', () => {
 
     const detail = await getOrder(ctx.db, ctx.scope, order.id);
     expect(detail.lines[0].components.every((c) => c.totalQuantity === 4)).toBe(true);
-    expect((await getAvailability(ctx.db, set.yatak.id)).reserved).toBe(4);
+    expect((await getAvailability(ctx.db, ctx.branchId, set.yatak.id)).reserved).toBe(4);
   });
 
   it('sadece teslimat plani degistirilince satirlar ve iskonto korunur', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'PLANDEGIS', size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'PLANDEGIS', size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
     const order = await createOrder(ctx.db, ctx.scope, {
       customerId: customer.id,
@@ -364,7 +363,7 @@ describe('updateOrder', () => {
   });
 
   it('teslimat tarihi temizlenebilir', async () => {
-    const set = await makeBedSet(ctx.db, { model: 'TARIHSIL', size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'TARIHSIL', size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
     const order = await createOrder(ctx.db, ctx.scope, {
       customerId: customer.id,
@@ -394,11 +393,11 @@ describe('cancelOrder', () => {
   it('rezervasyonu serbest birakir', async () => {
     const { order, set } = await newDraft({ quantity: 3 });
     await confirmOrder(ctx.db, ctx.scope, order.id);
-    expect((await getAvailability(ctx.db, set.yatak.id)).reserved).toBe(3);
+    expect((await getAvailability(ctx.db, ctx.branchId, set.yatak.id)).reserved).toBe(3);
 
     await cancelOrder(ctx.db, ctx.scope, order.id);
 
-    expect((await getAvailability(ctx.db, set.yatak.id)).reserved).toBe(0);
+    expect((await getAvailability(ctx.db, ctx.branchId, set.yatak.id)).reserved).toBe(0);
   });
 
   it('iki kez iptal sorun cikarmaz', async () => {
@@ -441,11 +440,6 @@ describe('getOrder / listOrders', () => {
     const { order, set } = await newDraft({ quantity: 2 });
     await confirmOrder(ctx.db, ctx.scope, order.id);
 
-    const [item] = await ctx.db
-      .select({ q: stockItems.quantityOnHand })
-      .from(stockItems)
-      .where(eq(stockItems.id, set.yatak.id));
-
-    expect(item.q).toBe(10);
+    expect(await onHandOf(ctx.db, ctx.branchId, set.yatak.id)).toBe(10);
   });
 });

@@ -23,11 +23,11 @@ async function movementsOf(stockItemId: string) {
 describe('adjustStockCount', () => {
   it('sayilan adet fazlaysa artis hareketi olusturur', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 10, movementType: 'goods_receipt' },
     ]);
 
-    const result = await adjustStockCount(ctx.db, { stockItemId: item.id, countedQuantity: 13 });
+    const result = await adjustStockCount(ctx.db, ctx.branchId, { stockItemId: item.id, countedQuantity: 13 });
 
     expect(result).toEqual({ previous: 10, counted: 13, difference: 3 });
     const adjustment = (await movementsOf(item.id)).find((r) => r.movementType === 'stock_count');
@@ -37,11 +37,11 @@ describe('adjustStockCount', () => {
 
   it('sayilan adet azsa azalis hareketi olusturur', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 10, movementType: 'goods_receipt' },
     ]);
 
-    const result = await adjustStockCount(ctx.db, { stockItemId: item.id, countedQuantity: 4 });
+    const result = await adjustStockCount(ctx.db, ctx.branchId, { stockItemId: item.id, countedQuantity: 4 });
 
     expect(result.difference).toBe(-6);
     const adjustment = (await movementsOf(item.id)).find((r) => r.movementType === 'stock_count');
@@ -50,11 +50,11 @@ describe('adjustStockCount', () => {
 
   it('fark yoksa hareket olusturmaz', async () => {
     const item = await makeStockItem(ctx.db);
-    await applyMovements(ctx.db, [
+    await applyMovements(ctx.db, ctx.branchId, [
       { stockItemId: item.id, quantityChange: 7, movementType: 'goods_receipt' },
     ]);
 
-    const result = await adjustStockCount(ctx.db, { stockItemId: item.id, countedQuantity: 7 });
+    const result = await adjustStockCount(ctx.db, ctx.branchId, { stockItemId: item.id, countedQuantity: 7 });
 
     expect(result.difference).toBe(0);
     expect(
@@ -65,13 +65,13 @@ describe('adjustStockCount', () => {
   it('negatif sayim reddedilir', async () => {
     const item = await makeStockItem(ctx.db);
     await expect(
-      adjustStockCount(ctx.db, { stockItemId: item.id, countedQuantity: -1 }),
+      adjustStockCount(ctx.db, ctx.branchId, { stockItemId: item.id, countedQuantity: -1 }),
     ).rejects.toThrow('Sayilan adet negatif olamaz');
   });
 
   it('not hareket kaydina yazilir', async () => {
     const item = await makeStockItem(ctx.db);
-    await adjustStockCount(ctx.db, {
+    await adjustStockCount(ctx.db, ctx.branchId, {
       stockItemId: item.id,
       countedQuantity: 5,
       notes: 'Yil sonu sayimi',
@@ -83,7 +83,7 @@ describe('adjustStockCount', () => {
 
   it('olmayan stok karti icin hata firlatir', async () => {
     await expect(
-      adjustStockCount(ctx.db, {
+      adjustStockCount(ctx.db, ctx.branchId, {
         stockItemId: '44444444-4444-4444-4444-444444444444',
         countedQuantity: 5,
       }),

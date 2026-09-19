@@ -28,7 +28,7 @@ export async function GET(
 
   switch (tur) {
     case 'stok':
-      buffer = await exportStockWorkbook(db);
+      buffer = await exportStockWorkbook(db, scope);
       filename = `stok-${today}.xlsx`;
       break;
     case 'musteriler':
@@ -61,7 +61,7 @@ export async function GET(
     // Sayim sablonu bos degil: mevcut kartlar adetleriyle birlikte iniyor,
     // kullanici yalnizca "Sayilan adet" sutununu dolduruyor.
     case 'sablon-sayim':
-      buffer = await exportStockCountTemplate(db);
+      buffer = await exportStockCountTemplate(db, scope);
       filename = `stok-sayim-${today}.xlsx`;
       break;
     default:

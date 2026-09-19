@@ -20,8 +20,9 @@ export default async function AnaSayfa() {
 
   const scope = await currentScope();
   const [items, orders] = await Promise.all([
-    // Stok ortak: iki sube de ayni rakamlari gorur.
-    listStockItemsWithAvailability(db, {}),
+    // Stok subeye ozel: her sube kendi deposunu gorur. Siparis listesi ise
+    // merkezde iki subeyi birden kapsar.
+    listStockItemsWithAvailability(db, scope.branchId, {}),
     listOrders(db, scope, {}),
   ]);
 

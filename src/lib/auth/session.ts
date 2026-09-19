@@ -1,7 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 
 export const SESSION_COOKIE = 'depo_oturum';
-/** Giris ekraninda son secilen hesabi hatirlar. Gizli bir sey icermez. */
 
 const SESSION_DAYS = 30;
 
@@ -18,11 +17,14 @@ function secret(): Uint8Array {
 /**
  * Oturumun tasidigi bilgi.
  *
- * Sube **adi** bilerek jetona konmuyor: konsaydi sube yeniden adlandirildiginda
- * herkesin yeniden giris yapmasi gerekirdi. Ad her istekte veritabanindan
- * okunuyor.
+ * Sube **adi** ve merkez bayragi bilerek jetona konmuyor: konsaydi sube
+ * yeniden adlandirildiginda ya da merkez degistiginde herkesin yeniden giris
+ * yapmasi gerekirdi. Ikisi de her istekte veritabanindan okunuyor.
+ *
+ * `role` tek degerli: eskiden bir de 'admin' vardi. Alan duruyor ki o hesapla
+ * acilmis eski jetonlar sessizce gecerli sayilmasin, dogrulamada dussun.
  */
-export type SessionPayload = { role: 'admin' } | { role: 'branch'; branchId: string };
+export type SessionPayload = { role: 'branch'; branchId: string };
 
 export async function createSessionToken(payload: SessionPayload): Promise<string> {
   return new SignJWT({ ...payload })
@@ -40,7 +42,6 @@ export async function readSessionToken(
   try {
     const { payload } = await jwtVerify(token, secret());
 
-    if (payload.role === 'admin') return { role: 'admin' };
     if (payload.role === 'branch' && typeof payload.branchId === 'string') {
       return { role: 'branch', branchId: payload.branchId };
     }

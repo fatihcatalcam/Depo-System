@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
+  branches,
   deliveries,
   deliveryLines,
   orderLineComponents,
@@ -9,7 +10,7 @@ import {
 } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
 import { recalcOrderStatus } from '@/domain/orders/orders';
-import { requireBranch, scopeFilter, type Scope } from '@/domain/scope';
+import { scopeFilter, type Scope } from '@/domain/scope';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
@@ -65,15 +66,18 @@ export async function createDelivery(
     );
   }
 
-  // Teslimat kaydi bir yazma islemidir; yonetici yapamaz.
-  const branch = requireBranch(scope);
-
   return runInTransaction(db, async (tx) => {
-    const [order] = await tx
-      .select()
+    // Merkez baska subenin siparisini de teslim edebilir; `scopeFilter` buna
+    // izin verir. Mal yine o siparisin deposundan cikar (asagida
+    // `order.branchId`), merkezin deposundan degil. Irsaliye numarasi da
+    // siparisin sube kodunu tasir: belge o subenin defterine giriyor.
+    const [row] = await tx
+      .select({ order: orders, branchCode: branches.code })
       .from(orders)
-      .where(and(eq(orders.id, input.orderId), eq(orders.branchId, branch.id)));
-    if (!order) throw new NotFoundError('Siparis');
+      .innerJoin(branches, eq(branches.id, orders.branchId))
+      .where(and(eq(orders.id, input.orderId), scopeFilter(scope, orders.branchId)));
+    if (!row) throw new NotFoundError('Siparis');
+    const order = row.order;
 
     if (order.status === 'draft') {
       throw new DomainError('Taslak siparis teslim edilemez, once onaylayin.', 'INVALID_STATUS');
@@ -127,7 +131,7 @@ export async function createDelivery(
     }
 
     const deliveryNo = await nextDocumentNumber(tx, 'delivery', {
-      branchCode: branch.code,
+      branchCode: row.branchCode,
       year: (input.deliveredAt ?? new Date()).getFullYear(),
     });
 
@@ -174,7 +178,7 @@ export async function createDelivery(
             },
           ],
     );
-    await applyMovements(tx, stockMoves, {
+    await applyMovements(tx, order.branchId, stockMoves, {
       allowNegative: input.allowNegativeStock ?? false,
     });
 

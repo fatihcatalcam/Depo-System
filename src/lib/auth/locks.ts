@@ -7,9 +7,10 @@ import type { Scope } from '@/domain/scope';
  *
  * Iki ayri ihtiyac var:
  *  - **Stok**: yanlislikla degistirmeyi onlemek. Kullanici kendisi kilitler,
- *    acmak icin yonetici parolasi gerekir. Kilitlemek serbest, acmak degil.
- *  - **Raporlar**: ciro, tahsilat ve alacak yalnizca yoneticiye acik. Sube
- *    kendi parolasiyla acamaz, yoksa kilidin bir anlami kalmazdi.
+ *    acmak icin kilit parolasi gerekir. Kilitlemek serbest, acmak degil.
+ *  - **Raporlar**: ciro, tahsilat ve alacak yalnizca kilit parolasini bilene
+ *    acik. Sube kendi giris parolasiyla acamaz, yoksa kilidin bir anlami
+ *    kalmazdi.
  */
 export type LockArea = 'stok' | 'raporlar';
 
@@ -40,7 +41,7 @@ function secret(): Uint8Array {
  * bir subeye giris yapildiginda acik sayilmamali.
  */
 function scopeKey(scope: Scope): string {
-  return scope.kind === 'admin' ? 'admin' : scope.branchId;
+  return scope.branchId;
 }
 
 export async function issueUnlockToken(area: LockArea, scope: Scope): Promise<string> {

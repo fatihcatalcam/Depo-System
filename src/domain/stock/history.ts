@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { stockMovements } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import type { MovementType } from './movements';
@@ -23,15 +23,22 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   manual: 'Elle duzeltme',
 };
 
+/** Bir kartin **bir subedeki** hareket gecmisi. */
 export async function listStockHistory(
   db: DbOrTx,
+  branchId: string,
   stockItemId: string,
   limit = 100,
 ): Promise<StockHistoryEntry[]> {
   const rows = await db
     .select()
     .from(stockMovements)
-    .where(eq(stockMovements.stockItemId, stockItemId))
+    .where(
+      and(
+        eq(stockMovements.branchId, branchId),
+        eq(stockMovements.stockItemId, stockItemId),
+      ),
+    )
     // seq monoton artiyor; createdAt ayni ana denk gelse bile sira dogru.
     .orderBy(desc(stockMovements.seq))
     .limit(limit);

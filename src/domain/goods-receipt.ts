@@ -1,18 +1,21 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { branches, goodsReceiptLines, goodsReceipts, stockItems, suppliers } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
-import { requireBranch, type Scope } from '@/domain/scope';
+import { ownBranch, type Scope } from '@/domain/scope';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
 
 /**
- * Mal kabul kayitlari **iki subeye de aciktir** — bilerek.
+ * Mal kabul **kendi subesine ozeldir** — merkez dahil kimse digerininkini
+ * gormez.
  *
- * `branchId` yalnizca kaydi kimin girdigini soyler. Stok tek havuz oldugu icin
- * bir subenin girdigi mal digerinin serbest stogunu artirir; girisi gizleseydik
- * depoda "bu adet nereden geldi" sorusu cevapsiz kalirdi. Gizlenen sey satis
- * bilgisi (siparis, musteri, odeme); mal girisi degil.
+ * Mal kabul bir stok belgesidir: hangi parcadan kac adet girdigini yazar.
+ * Depolar ayri oldugu icin bu rakamlar da ayri. Bir donem stok tek havuzdu ve
+ * girisler iki subeye de acikti; havuz bolununce o gerekce kalmadi.
+ *
+ * Bu yuzden okuma fonksiyonlari `scopeFilter` degil dogrudan `scope.branchId`
+ * kullanir: merkez bayragi stoga acilan bir kapi olmamali.
  */
 
 export type GoodsReceipt = typeof goodsReceipts.$inferSelect;
@@ -58,7 +61,7 @@ export async function createGoodsReceipt(
   input: CreateGoodsReceiptInput,
 ): Promise<GoodsReceipt> {
   const lines = mergeLines(input.lines);
-  const branch = requireBranch(scope);
+  const branch = ownBranch(scope);
 
   return runInTransaction(db, async (tx) => {
     const receiptNo = await nextDocumentNumber(tx, 'goodsReceipt', {
@@ -89,6 +92,7 @@ export async function createGoodsReceipt(
 
     await applyMovements(
       tx,
+      branch.id,
       lines.map((line) => ({
         stockItemId: line.stockItemId,
         quantityChange: line.quantity,
@@ -102,7 +106,11 @@ export async function createGoodsReceipt(
   });
 }
 
-export async function getGoodsReceipt(db: DbOrTx, id: string): Promise<GoodsReceiptDetail> {
+export async function getGoodsReceipt(
+  db: DbOrTx,
+  scope: Scope,
+  id: string,
+): Promise<GoodsReceiptDetail> {
   const [row] = await db
     .select({
       receipt: goodsReceipts,
@@ -112,7 +120,7 @@ export async function getGoodsReceipt(db: DbOrTx, id: string): Promise<GoodsRece
     .from(goodsReceipts)
     .leftJoin(suppliers, eq(suppliers.id, goodsReceipts.supplierId))
     .innerJoin(branches, eq(branches.id, goodsReceipts.branchId))
-    .where(eq(goodsReceipts.id, id));
+    .where(and(eq(goodsReceipts.id, id), eq(goodsReceipts.branchId, scope.branchId)));
 
   if (!row) throw new NotFoundError('Mal kabul kaydi');
 
@@ -145,7 +153,11 @@ export interface GoodsReceiptSummary extends GoodsReceipt {
   totalQuantity: number;
 }
 
-export async function listGoodsReceipts(db: DbOrTx, limit = 100): Promise<GoodsReceiptSummary[]> {
+export async function listGoodsReceipts(
+  db: DbOrTx,
+  scope: Scope,
+  limit = 100,
+): Promise<GoodsReceiptSummary[]> {
   const rows = await db
     .select({
       receipt: goodsReceipts,
@@ -158,6 +170,7 @@ export async function listGoodsReceipts(db: DbOrTx, limit = 100): Promise<GoodsR
     .leftJoin(suppliers, eq(suppliers.id, goodsReceipts.supplierId))
     .innerJoin(branches, eq(branches.id, goodsReceipts.branchId))
     .leftJoin(goodsReceiptLines, eq(goodsReceiptLines.goodsReceiptId, goodsReceipts.id))
+    .where(eq(goodsReceipts.branchId, scope.branchId))
     .groupBy(goodsReceipts.id, suppliers.name, branches.name)
     .orderBy(desc(goodsReceipts.receivedAt), desc(goodsReceipts.createdAt))
     .limit(limit);

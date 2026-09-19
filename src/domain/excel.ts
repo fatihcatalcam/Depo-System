@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
-import { eq } from 'drizzle-orm';
-import { customers, stockItems } from '@/db/schema';
+import { and, eq, sql } from 'drizzle-orm';
+import { customers, stockBalances, stockItems } from '@/db/schema';
 import type { Db, DbOrTx } from '@/db/types';
 import { type Scope } from './scope';
 import { listCategoryTree, type CategoryNode } from '@/domain/catalog/categories';
@@ -24,9 +24,10 @@ async function toBuffer(workbook: ExcelJS.Workbook): Promise<Buffer> {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-export async function exportStockWorkbook(db: DbOrTx): Promise<Buffer> {
+/** Stok listesi her zaman tek bir deponun listesidir. */
+export async function exportStockWorkbook(db: DbOrTx, scope: Scope): Promise<Buffer> {
   const [items, tree] = await Promise.all([
-    listStockItemsWithAvailability(db, { includeInactive: true }),
+    listStockItemsWithAvailability(db, scope.branchId, { includeInactive: true }),
     listCategoryTree(db),
   ]);
   const categoryNames = categoryLookup(tree);
@@ -414,8 +415,8 @@ export interface StockCountImportResult {
  * Bos bir sablon yerine dolu liste veriliyor — 567 kartin SKU'sunu elle
  * yazdirmanin alemi yok. Kullanici yalnizca son sutunu dolduruyor.
  */
-export async function exportStockCountTemplate(db: DbOrTx): Promise<Buffer> {
-  const items = await listStockItemsWithAvailability(db, {});
+export async function exportStockCountTemplate(db: DbOrTx, scope: Scope): Promise<Buffer> {
+  const items = await listStockItemsWithAvailability(db, scope.branchId, {});
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Sayim');
@@ -434,7 +435,7 @@ export async function exportStockCountTemplate(db: DbOrTx): Promise<Buffer> {
       name: item.name,
       size: item.sizeLabel ?? '',
       variant: item.variantLabel ?? '',
-      onHand: item.quantityOnHand,
+      onHand: item.onHand,
       counted: '',
     });
   }
@@ -455,6 +456,7 @@ export async function exportStockCountTemplate(db: DbOrTx): Promise<Buffer> {
  */
 export async function importStockCounts(
   db: Db,
+  scope: Scope,
   buffer: Buffer,
 ): Promise<StockCountImportResult> {
   const workbook = new ExcelJS.Workbook();
@@ -495,9 +497,22 @@ export async function importStockCounts(
     throw new DomainError('Dosyada sayilan adet girilmis satir yok.', 'NO_ROWS');
   }
 
+  // Sayim sayan subenin deposuna yaziliyor. Bakiye satiri acilmamis kart
+  // sifir adet demektir; sayim onu da dogru yakalasin diye leftJoin.
   const rows = await db
-    .select({ id: stockItems.id, sku: stockItems.sku, onHand: stockItems.quantityOnHand })
-    .from(stockItems);
+    .select({
+      id: stockItems.id,
+      sku: stockItems.sku,
+      onHand: sql<number>`coalesce(${stockBalances.quantityOnHand}, 0)::int`,
+    })
+    .from(stockItems)
+    .leftJoin(
+      stockBalances,
+      and(
+        eq(stockBalances.stockItemId, stockItems.id),
+        eq(stockBalances.branchId, scope.branchId),
+      ),
+    );
   const bySku = new Map(rows.map((row) => [row.sku.toLocaleUpperCase('tr-TR'), row]));
 
   const targets: { id: string; counted: number; onHand: number }[] = [];
@@ -515,7 +530,7 @@ export async function importStockCounts(
       continue;
     }
     seen.add(key);
-    targets.push({ id: card.id, counted: entry.counted, onHand: card.onHand });
+    targets.push({ id: card.id, counted: entry.counted, onHand: Number(card.onHand) });
   }
 
   // Ya hepsi ya hicbiri: yarim islenmis bir sayim, sayilmamis olmaktan kotudur.
@@ -531,7 +546,7 @@ export async function importStockCounts(
   if (changed.length > 0) {
     await db.transaction(async (tx) => {
       for (const row of changed) {
-        await adjustStockCount(tx, {
+        await adjustStockCount(tx, scope.branchId, {
           stockItemId: row.id,
           countedQuantity: row.counted,
           notes: 'Excel sayim aktarimi',

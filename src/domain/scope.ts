@@ -1,5 +1,4 @@
 import { eq, type Column, type SQL } from 'drizzle-orm';
-import { DomainError } from '@/lib/errors';
 
 /**
  * Bir istegin hangi sube adina yapildigi.
@@ -12,8 +11,25 @@ import { DomainError } from '@/lib/errors';
  * **`branchId` hicbir zaman istemciden gelmez.** Her sunucu eylemi bunu kendi
  * oturum cerezinden turetir (`currentScope()`). Istemciden gelen bir sube
  * kimligi, B subesinin A subesinin siparisini okumasi demektir.
+ *
+ * Ayri bir "yonetici" kapsami yok. Vardi ve kaldirildi: parolasi ayni zamanda
+ * stok/rapor kilidini acan parola oldugu icin, kilidi acsin diye verilen
+ * parola giris ekraninda iki subeyi birden aciyordu. Yerine merkez subesi
+ * geldi — merkez de bir subedir, kendi deposu ve kendi girisi vardir.
  */
-export type Scope = { kind: 'branch'; branchId: string; branchCode: string } | { kind: 'admin' };
+export interface Scope {
+  branchId: string;
+  branchCode: string;
+  /**
+   * Merkez mi?
+   *
+   * Merkez butun subelerin **siparis, musteri, teslimat, odeme ve cirosunu**
+   * gorur ve yonetir. Stok bunun disindadir: merkez de yalnizca kendi
+   * deposunu gorur. Stok fonksiyonlari bu yuzden `Scope` degil, ciplak bir
+   * `branchId` alir — bayragin oraya sizmasi mumkun olmasin diye.
+   */
+  isCentral: boolean;
+}
 
 /**
  * Sube kodu da kapsamda tasiniyor cunku belge numaralari onu iceriyor
@@ -25,45 +41,44 @@ export interface BranchRef {
   code: string;
 }
 
-export const adminScope: Scope = { kind: 'admin' };
-
-export function branchScope(branchId: string, branchCode: string): Scope {
-  return { kind: 'branch', branchId, branchCode };
+export function branchScope(branchId: string, branchCode: string, isCentral = false): Scope {
+  return { branchId, branchCode, isCentral };
 }
 
 /**
- * Sorguya eklenecek sube kosulu. Yonetici icin `undefined` doner — Drizzle'in
+ * Sorguya eklenecek sube kosulu. Merkez icin `undefined` doner — Drizzle'in
  * `and(...)` fonksiyonu undefined degerleri atladigi icin bu dogrudan
  * kullanilabilir:
  *
  *     .where(and(eq(orders.status, 'draft'), scopeFilter(scope, orders.branchId)))
+ *
+ * **Yalnizca belgeler icin**: siparis, musteri, teslimat, odeme. Stok adetleri
+ * hicbir kosulda baska subeye acilmaz, oradaki suzgec her zaman
+ * `eq(column, scope.branchId)` olmali — ki zaten stok tarafi bu fonksiyonu
+ * hic cagirmiyor.
  */
 export function scopeFilter(scope: Scope, column: Column): SQL | undefined {
-  return scope.kind === 'admin' ? undefined : eq(column, scope.branchId);
+  return scope.isCentral ? undefined : eq(column, scope.branchId);
 }
 
 /**
- * Yazma islemleri icin sube kimligi. Yonetici siparis/musteri olusturamaz:
- * hangi subeye yazilacagi belirsiz olurdu. Patron calisiyorsa sube hesabiyla
- * girer.
+ * Yazma islemlerinde kullanilacak sube: yeni belge hangi subenin altina
+ * dusecek ve numarasi hangi kodu tasiyacak.
+ *
+ * Merkez baska subenin siparisini duzenleyebilir ama **yeni** kayitlari kendi
+ * altina acar; aksi halde belgenin hangi subeye ait oldugu belirsiz kalirdi.
  */
-export function requireBranch(scope: Scope): BranchRef {
-  if (scope.kind !== 'branch') {
-    throw new DomainError(
-      'Bu islem bir sube hesabiyla yapilmali. Yonetici hesabi yalnizca goruntuler.',
-      'BRANCH_REQUIRED',
-    );
-  }
+export function ownBranch(scope: Scope): BranchRef {
   return { id: scope.branchId, code: scope.branchCode };
 }
 
 /**
- * Okunan kaydin bu kapsama ait olup olmadigini dogrular.
+ * Okunan belgenin bu kapsama ait olup olmadigini dogrular.
  *
  * Baska subenin kaydinda "yetkiniz yok" degil `false` donuyoruz; cagiran taraf
  * bunu "bulunamadi" diye bildirir. "Yetkiniz yok" demek, o siparisin var
  * oldugunu soylemektir.
  */
 export function isInScope(scope: Scope, branchId: string): boolean {
-  return scope.kind === 'admin' || scope.branchId === branchId;
+  return scope.isCentral || scope.branchId === branchId;
 }

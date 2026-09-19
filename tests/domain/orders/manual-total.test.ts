@@ -17,7 +17,7 @@ afterAll(async () => {
 /** Satirlari fiyatsiz bir siparis: musteriye "hepsi su kadar" denmis. */
 async function unpricedOrder(manualTotalKurus?: number | null) {
   const tag = `GT${(++sequence).toString().padStart(3, '0')}`;
-  const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+  const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
   const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
   const order = await createOrder(ctx.db, ctx.scope, {
@@ -50,7 +50,7 @@ describe('elle yazilan genel toplam', () => {
 
   it('elle toplam yazilinca iskonto sifirlanir', async () => {
     const tag = `GTD${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     const order = await createOrder(ctx.db, ctx.scope, {
@@ -109,7 +109,7 @@ describe('elle yazilan genel toplam', () => {
 describe('fatura bilgisi', () => {
   it('siparisle birlikte kaydedilir', async () => {
     const tag = `FT${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     const order = await createOrder(ctx.db, ctx.scope, {
@@ -167,7 +167,7 @@ describe('fatura bilgisi', () => {
 describe('siparisle birlikte kapora', () => {
   it('kapora siparisle ayni anda kaydedilir', async () => {
     const tag = `KP${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     const order = await createOrder(ctx.db, ctx.scope, {
@@ -191,7 +191,7 @@ describe('siparisle birlikte kapora', () => {
 
   it('siparis tutarindan buyuk kapora reddedilir', async () => {
     const tag = `KPB${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     await expect(
@@ -215,7 +215,7 @@ describe('siparisle birlikte kapora', () => {
   /** Kapora reddedilirse siparis de yazilmamali: ikisi tek transaction. */
   it('kapora reddedilince siparis de olusmaz', async () => {
     const tag = `KPT${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     await expect(
@@ -242,7 +242,7 @@ describe('siparisle birlikte kapora', () => {
 
   it('fiyatsiz satir + elle toplam + kapora birlikte calisir', async () => {
     const tag = `KPM${(++sequence).toString().padStart(3, '0')}`;
-    const set = await makeBedSet(ctx.db, { model: tag, size: '160x200' });
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200' });
     const customer = await makeOrderCustomer(ctx.db, ctx.scope);
 
     const order = await createOrder(ctx.db, ctx.scope, {

@@ -10,10 +10,17 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { branches } from './branches';
 import { stockItems } from './catalog';
 import { movementTypeEnum } from './enums';
 
-/** Degistirilemez kayit defteri. Her stok degisikliginin tek dogru kaynagi. */
+/**
+ * Degistirilemez kayit defteri. Her stok degisikliginin tek dogru kaynagi.
+ *
+ * `branchId` hangi **depodan** girdigini/ciktigini soyler, kaydi kimin
+ * girdigini degil. Merkez, Sube 2'nin siparisini teslim ettiginde hareket
+ * Sube 2'ye yazilir: mal oradan cikiyor.
+ */
 export const stockMovements = pgTable(
   'stock_movements',
   {
@@ -21,6 +28,9 @@ export const stockMovements = pgTable(
     // Monoton artan sira numarasi. createdAt ayni ana denk gelen iki hareketi
     // ayirmaz, rastgele UUID de siralanamaz; defterin dogru sirasi budur.
     seq: bigserial('seq', { mode: 'number' }).notNull(),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'restrict' }),
     stockItemId: uuid('stock_item_id')
       .notNull()
       .references(() => stockItems.id, { onDelete: 'restrict' }),
@@ -33,7 +43,9 @@ export const stockMovements = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index('stock_movements_item_idx').on(t.stockItemId, t.seq),
+    // Bakiye yeniden hesabi ve kart gecmisi her zaman tek subenin defterine
+    // bakar; sube kolonu indeksin basinda.
+    index('stock_movements_item_idx').on(t.branchId, t.stockItemId, t.seq),
     index('stock_movements_ref_idx').on(t.referenceType, t.referenceId),
     check('stock_movements_change_chk', sql`${t.quantityChange} <> 0`),
   ],
@@ -49,7 +61,18 @@ export const appSettings = pgTable(
     email: text('email'),
     taxInfo: text('tax_info'),
     logoUrl: text('logo_url'),
-    passwordHash: text('password_hash'),
+    /**
+     * Stok ve rapor kilidini acan parola. **Giris parolasi degildir** — bu
+     * parolayla sisteme girilemez, yalnizca kilitli ekranlar acilir. Ayri
+     * durmasinin sebebi: bir zamanlar ayni ozet hem yonetici girisiydi hem
+     * kilit parolasi, dolayisiyla kilidi acmak icin verilen parola giris
+     * ekraninda iki subeyi birden aciyordu.
+     */
+    unlockPasswordHash: text('unlock_password_hash'),
+    /**
+     * Giris ekraninin kilitlenme sayaci. Giriste hesap secimi olmadigi icin
+     * parolayi kimin yazdigini bilemiyoruz; sayac tek ve globaldir.
+     */
     failedAttempts: integer('failed_attempts').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -62,8 +85,8 @@ export const appSettings = pgTable(
  * Artirma INSERT ... ON CONFLICT DO UPDATE ile atomiktir.
  *
  * `branchCode` subeye ozel belgeleri ayirir: SP-S1-2026-00001. Ortak belgeler
- * (stok karti, urun, tedarikci) bos dize kullanir — iki sube ayni stok
- * kartlarini paylastigi icin numaralari da ortak olmali.
+ * (stok karti, urun, tedarikci) bos dize kullanir — sube bazli olan adetler,
+ * kartin kendisi degil; katalog ortak oldugu icin numaralari da ortak.
  */
 export const documentCounters = pgTable(
   'document_counters',

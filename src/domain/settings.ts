@@ -7,19 +7,20 @@ import { DomainError } from '@/lib/errors';
 export type AppSettings = typeof appSettings.$inferSelect;
 
 /**
- * Parola dogrulama ve degistirme `domain/auth.ts` icinde. Uc hesap (iki sube +
- * yonetici) ayni kilitlenme mantigini paylasiyor; iki yerde tutulmasin diye
- * oraya tasindi. Buradaki `app_settings.password_hash` yoneticiye ait.
+ * Parola dogrulama ve degistirme `domain/auth.ts` icinde.
+ *
+ * Buradaki `app_settings.unlock_password_hash` **giris parolasi degil**: stok
+ * ve rapor kilidini acan parola. Girisler sube tablosundan yurur.
  */
 
-/** Ayar satiri yoksa olusturur ve baslangic parolasini yazar. Varsa dokunmaz. */
+/** Ayar satiri yoksa olusturur ve baslangic kilit parolasini yazar. Varsa dokunmaz. */
 export async function ensureSettings(db: DbOrTx, initialPassword: string): Promise<AppSettings> {
   const existing = await db.select().from(appSettings).where(eq(appSettings.id, 1));
   if (existing.length > 0) return existing[0];
 
   const [row] = await db
     .insert(appSettings)
-    .values({ id: 1, passwordHash: await hashPassword(initialPassword) })
+    .values({ id: 1, unlockPasswordHash: await hashPassword(initialPassword) })
     .returning();
   return row;
 }

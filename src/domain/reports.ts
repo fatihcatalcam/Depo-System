@@ -1,9 +1,11 @@
-import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import {
+  branches,
   deliveries,
   orderLines,
   orders,
   payments,
+  stockBalances,
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
@@ -13,6 +15,17 @@ export interface TopProductRow {
   description: string;
   quantity: number;
   revenueKurus: number;
+}
+
+/** Tek bir subenin donem rakamlari. Merkez raporunda satir satir gosterilir. */
+export interface BranchPeriodRow {
+  branchId: string;
+  branchName: string;
+  orderCount: number;
+  revenueKurus: number;
+  collectedKurus: number;
+  deliveryCount: number;
+  outstandingKurus: number;
 }
 
 export interface PeriodSummary {
@@ -31,12 +44,17 @@ export interface PeriodSummary {
   /**
    * Alis fiyati tanimli parcalarin stok degeri (anlik).
    *
-   * Bu rakam **kapsamlanmaz**: depo tek havuz, degeri de tek. Subeye
-   * bolunemez, bolseydik iki subenin raporu toplandiginda stok iki kere
-   * sayilirdi.
+   * **Her zaman yalnizca kendi subesinin deposu** — merkez dahil. Merkez
+   * digerlerinin cirosunu gorur ama stogunu gormez; rakamin sube kiriliminda
+   * yer almamasinin sebebi de bu.
    */
   stockValueKurus: number;
   topProducts: TopProductRow[];
+  /**
+   * Gorunen subelerin ayri ayri rakamlari. Sube hesabinda tek satir
+   * (kendisi), merkezde her sube icin bir satir.
+   */
+  branches: BranchPeriodRow[];
 }
 
 const OPEN_STATUSES = ['draft', 'confirmed', 'partially_delivered', 'delivered'] as const;
@@ -56,24 +74,33 @@ export async function getPeriodSummary(
     branchOnly,
   );
 
-  const [orderStats] = await db
+  // Butun sorgular subeye gore gruplaniyor; genel toplam satirlarin toplami.
+  // Ayni sorguyu bir de toplam icin calistirmak, iki rakamin birbirinden
+  // kayabilmesi demekti.
+  const orderStats = await db
     .select({
+      branchId: orders.branchId,
       count: sql<number>`count(*)::int`,
       revenue: sql<number>`coalesce(sum(${orders.totalKurus}), 0)::bigint`,
     })
     .from(orders)
-    .where(periodOrders);
+    .where(periodOrders)
+    .groupBy(orders.branchId);
 
   // Odeme ve teslimat kendi sube kolonunu tasimaz; siparise baglanip oradan
   // suzuluyor.
-  const [collected] = await db
-    .select({ total: sql<number>`coalesce(sum(${payments.amountKurus}), 0)::bigint` })
+  const collected = await db
+    .select({
+      branchId: orders.branchId,
+      total: sql<number>`coalesce(sum(${payments.amountKurus}), 0)::bigint`,
+    })
     .from(payments)
     .innerJoin(orders, eq(orders.id, payments.orderId))
-    .where(and(gte(payments.paidAt, from), lte(payments.paidAt, to), branchOnly));
+    .where(and(gte(payments.paidAt, from), lte(payments.paidAt, to), branchOnly))
+    .groupBy(orders.branchId);
 
-  const [deliveryStats] = await db
-    .select({ count: sql<number>`count(*)::int` })
+  const deliveryStats = await db
+    .select({ branchId: orders.branchId, count: sql<number>`count(*)::int` })
     .from(deliveries)
     .innerJoin(orders, eq(orders.id, deliveries.orderId))
     .where(
@@ -82,7 +109,8 @@ export async function getPeriodSummary(
         lte(deliveries.deliveredAt, new Date(`${to}T23:59:59.999Z`)),
         branchOnly,
       ),
-    );
+    )
+    .groupBy(orders.branchId);
 
   // Acik bakiye donemden bagimsizdir: "su an ne kadar alacagimiz var".
   //
@@ -92,6 +120,7 @@ export async function getPeriodSummary(
   // siparisin alacagini goturmez.
   const balances = db
     .select({
+      branchId: orders.branchId,
       balance: sql<number>`${orders.totalKurus} - coalesce(sum(${payments.amountKurus}), 0)`.as(
         'balance',
       ),
@@ -99,18 +128,24 @@ export async function getPeriodSummary(
     .from(orders)
     .leftJoin(payments, eq(payments.orderId, orders.id))
     .where(and(inArray(orders.status, [...OPEN_STATUSES]), branchOnly))
-    .groupBy(orders.id, orders.totalKurus)
+    .groupBy(orders.id, orders.branchId, orders.totalKurus)
     .as('balances');
 
-  const [outstanding] = await db
-    .select({ total: sql<number>`coalesce(sum(greatest(${balances.balance}, 0)), 0)::bigint` })
-    .from(balances);
+  const outstanding = await db
+    .select({
+      branchId: balances.branchId,
+      total: sql<number>`coalesce(sum(greatest(${balances.balance}, 0)), 0)::bigint`,
+    })
+    .from(balances)
+    .groupBy(balances.branchId);
 
   const [stockValue] = await db
     .select({
-      total: sql<number>`coalesce(sum(${stockItems.quantityOnHand} * coalesce(${stockItems.purchasePriceKurus}, 0)), 0)::bigint`,
+      total: sql<number>`coalesce(sum(${stockBalances.quantityOnHand} * coalesce(${stockItems.purchasePriceKurus}, 0)), 0)::bigint`,
     })
-    .from(stockItems);
+    .from(stockBalances)
+    .innerJoin(stockItems, eq(stockItems.id, stockBalances.stockItemId))
+    .where(eq(stockBalances.branchId, scope.branchId));
 
   const topProducts = await db
     .select({
@@ -125,20 +160,44 @@ export async function getPeriodSummary(
     .orderBy(desc(sql`sum(${orderLines.quantity})`))
     .limit(10);
 
+  // Hicbir hareketi olmayan sube de satir olarak gorunsun: "sifir" bir
+  // bilgidir, listeden dusmesi ise soru isareti birakir.
+  const visibleBranches = await db
+    .select({ id: branches.id, name: branches.name })
+    .from(branches)
+    .where(scope.isCentral ? eq(branches.isActive, true) : eq(branches.id, scope.branchId))
+    .orderBy(asc(branches.code));
+
+  const rows: BranchPeriodRow[] = visibleBranches.map((branch) => ({
+    branchId: branch.id,
+    branchName: branch.name,
+    orderCount: Number(orderStats.find((r) => r.branchId === branch.id)?.count ?? 0),
+    revenueKurus: Number(orderStats.find((r) => r.branchId === branch.id)?.revenue ?? 0),
+    collectedKurus: Number(collected.find((r) => r.branchId === branch.id)?.total ?? 0),
+    deliveryCount: Number(deliveryStats.find((r) => r.branchId === branch.id)?.count ?? 0),
+    outstandingKurus: Math.max(
+      0,
+      Number(outstanding.find((r) => r.branchId === branch.id)?.total ?? 0),
+    ),
+  }));
+
+  const sum = (pick: (row: BranchPeriodRow) => number) => rows.reduce((t, r) => t + pick(r), 0);
+
   return {
     from,
     to,
-    orderCount: Number(orderStats?.count ?? 0),
-    revenueKurus: Number(orderStats?.revenue ?? 0),
-    collectedKurus: Number(collected?.total ?? 0),
-    deliveryCount: Number(deliveryStats?.count ?? 0),
-    outstandingKurus: Math.max(0, Number(outstanding?.total ?? 0)),
+    orderCount: sum((row) => row.orderCount),
+    revenueKurus: sum((row) => row.revenueKurus),
+    collectedKurus: sum((row) => row.collectedKurus),
+    deliveryCount: sum((row) => row.deliveryCount),
+    outstandingKurus: sum((row) => row.outstandingKurus),
     stockValueKurus: Number(stockValue?.total ?? 0),
     topProducts: topProducts.map((row) => ({
       description: row.description,
       quantity: Number(row.quantity),
       revenueKurus: Number(row.revenue),
     })),
+    branches: rows,
   };
 }
 
