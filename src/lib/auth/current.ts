@@ -38,7 +38,7 @@ export async function currentUser(): Promise<CurrentUser> {
     const branch = await getBranch(db, payload.branchId);
     if (!branch.isActive) redirect('/giris');
     return {
-      scope: branchScope(branch.id, branch.code, branch.isCentral),
+      scope: branchScope(branch.id, branch.code, branch.isCentral, branch.stockBranchId),
       label: branch.name,
       isCentral: branch.isCentral,
     };

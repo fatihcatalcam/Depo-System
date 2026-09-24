@@ -15,7 +15,7 @@ export async function branchScopes(db: DbOrTx): Promise<{ s1: Scope; s2: Scope }
   const find = (code: string) => {
     const row = rows.find((entry) => entry.code === code);
     if (!row) throw new Error(`${code} subesi bulunamadi — gocler eksik mi?`);
-    return branchScope(row.id, row.code, row.isCentral);
+    return branchScope(row.id, row.code, row.isCentral, row.stockBranchId);
   };
   return { s1: find('S1'), s2: find('S2') };
 }

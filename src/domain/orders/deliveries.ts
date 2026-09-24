@@ -11,6 +11,7 @@ import {
 import type { DbOrTx, Tx } from '@/db/types';
 import { recalcOrderStatus } from '@/domain/orders/orders';
 import { scopeFilter, type Scope } from '@/domain/scope';
+import { warehouseOf } from '@/domain/branches';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
@@ -68,9 +69,9 @@ export async function createDelivery(
 
   return runInTransaction(db, async (tx) => {
     // Merkez baska subenin siparisini de teslim edebilir; `scopeFilter` buna
-    // izin verir. Mal yine o siparisin deposundan cikar (asagida
-    // `order.branchId`), merkezin deposundan degil. Irsaliye numarasi da
-    // siparisin sube kodunu tasir: belge o subenin defterine giriyor.
+    // izin verir. Mal yine o siparisin bagli oldugu depodan cikar, teslimati
+    // gireninkinden degil. Irsaliye numarasi da siparisin sube kodunu tasir:
+    // belge o subenin defterine giriyor.
     const [row] = await tx
       .select({ order: orders, branchCode: branches.code })
       .from(orders)
@@ -178,7 +179,7 @@ export async function createDelivery(
             },
           ],
     );
-    await applyMovements(tx, order.branchId, stockMoves, {
+    await applyMovements(tx, await warehouseOf(tx, order.branchId), stockMoves, {
       allowNegative: input.allowNegativeStock ?? false,
     });
 

@@ -27,7 +27,7 @@ async function toBuffer(workbook: ExcelJS.Workbook): Promise<Buffer> {
 /** Stok listesi her zaman tek bir deponun listesidir. */
 export async function exportStockWorkbook(db: DbOrTx, scope: Scope): Promise<Buffer> {
   const [items, tree] = await Promise.all([
-    listStockItemsWithAvailability(db, scope.branchId, { includeInactive: true }),
+    listStockItemsWithAvailability(db, scope.stockBranchId, { includeInactive: true }),
     listCategoryTree(db),
   ]);
   const categoryNames = categoryLookup(tree);
@@ -416,7 +416,7 @@ export interface StockCountImportResult {
  * yazdirmanin alemi yok. Kullanici yalnizca son sutunu dolduruyor.
  */
 export async function exportStockCountTemplate(db: DbOrTx, scope: Scope): Promise<Buffer> {
-  const items = await listStockItemsWithAvailability(db, scope.branchId, {});
+  const items = await listStockItemsWithAvailability(db, scope.stockBranchId, {});
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Sayim');
@@ -497,8 +497,8 @@ export async function importStockCounts(
     throw new DomainError('Dosyada sayilan adet girilmis satir yok.', 'NO_ROWS');
   }
 
-  // Sayim sayan subenin deposuna yaziliyor. Bakiye satiri acilmamis kart
-  // sifir adet demektir; sayim onu da dogru yakalasin diye leftJoin.
+  // Sayim sayanin deposuna yaziliyor. Bakiye satiri acilmamis kart sifir
+  // adet demektir; sayim onu da dogru yakalasin diye leftJoin.
   const rows = await db
     .select({
       id: stockItems.id,
@@ -510,7 +510,7 @@ export async function importStockCounts(
       stockBalances,
       and(
         eq(stockBalances.stockItemId, stockItems.id),
-        eq(stockBalances.branchId, scope.branchId),
+        eq(stockBalances.branchId, scope.stockBranchId),
       ),
     );
   const bySku = new Map(rows.map((row) => [row.sku.toLocaleUpperCase('tr-TR'), row]));
@@ -546,7 +546,7 @@ export async function importStockCounts(
   if (changed.length > 0) {
     await db.transaction(async (tx) => {
       for (const row of changed) {
-        await adjustStockCount(tx, scope.branchId, {
+        await adjustStockCount(tx, scope.stockBranchId, {
           stockItemId: row.id,
           countedQuantity: row.counted,
           notes: 'Excel sayim aktarimi',

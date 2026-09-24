@@ -24,11 +24,24 @@ export interface Scope {
    * Merkez mi?
    *
    * Merkez butun subelerin **siparis, musteri, teslimat, odeme ve cirosunu**
-   * gorur ve yonetir. Stok bunun disindadir: merkez de yalnizca kendi
-   * deposunu gorur. Stok fonksiyonlari bu yuzden `Scope` degil, ciplak bir
-   * `branchId` alir — bayragin oraya sizmasi mumkun olmasin diye.
+   * gorur ve yonetir. Stok bunun disindadir: stok neyi gorecegini merkez
+   * bayragindan degil `stockBranchId`'den ogrenir.
    */
   isCentral: boolean;
+  /**
+   * Bu subenin mallarinin durdugu depo.
+   *
+   * `branchId` ile ayni olabilir (subenin kendi deposu) ya da baska bir
+   * subeyi gosterebilir (o depodan satiyor). Isletmede su an tek fiziksel
+   * depo var: iki sube de merkezi gosteriyor, dolayisiyla ayni adetleri
+   * gorur ve biri satinca digerinden de duser.
+   *
+   * Stok fonksiyonlari `Scope` degil ciplak bir depo kimligi alir; cagiran
+   * taraf buraya `scope.stockBranchId` verir. Yanlislikla `branchId`
+   * verilirse sube kendi adina bos bir depo acar — bu yuzden ikisi ayri
+   * isimde.
+   */
+  stockBranchId: string;
 }
 
 /**
@@ -41,8 +54,13 @@ export interface BranchRef {
   code: string;
 }
 
-export function branchScope(branchId: string, branchCode: string, isCentral = false): Scope {
-  return { branchId, branchCode, isCentral };
+export function branchScope(
+  branchId: string,
+  branchCode: string,
+  isCentral = false,
+  stockBranchId: string = branchId,
+): Scope {
+  return { branchId, branchCode, isCentral, stockBranchId };
 }
 
 /**

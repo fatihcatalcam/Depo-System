@@ -22,7 +22,7 @@ export default async function StokPage({ searchParams }: PageProps) {
   const locked = await isStockLocked(scope);
   const [categories, items] = await Promise.all([
     listCategoryTree(db),
-    listStockItemsWithAvailability(db, scope.branchId, {
+    listStockItemsWithAvailability(db, scope.stockBranchId, {
       query: params.q,
       categoryId: params.kategori || null,
     }),

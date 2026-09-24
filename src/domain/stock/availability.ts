@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import {
+  branches,
   customers,
   orderLineComponents,
   orderLines,
@@ -8,6 +9,7 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
+import { isInScope, type Scope } from '@/domain/scope';
 import { NotFoundError } from '@/lib/errors';
 
 /** Rezervasyon ureten siparis durumlari. */
@@ -23,19 +25,21 @@ export interface Availability {
 }
 
 /**
- * Bir subenin deposundaki adetler.
+ * Bir **deponun** adetleri.
  *
- * Bakiye satiri olmayan kart sifir sayilir; `stock_balances` her sube icin
- * her kartin satirini tasimaz, ilk hareketle dogar.
+ * Parametre sube degil depo: birden fazla sube ayni depodan satabilir
+ * (`branches.stock_branch_id`). Bakiye satiri olmayan kart sifir sayilir;
+ * `stock_balances` her depo icin her kartin satirini tasimaz, ilk hareketle
+ * dogar.
  */
 export async function getOnHandQuantities(
   db: DbOrTx,
-  branchId: string,
+  warehouseId: string,
   stockItemIds?: string[],
 ): Promise<Map<string, number>> {
   if (stockItemIds && stockItemIds.length === 0) return new Map();
 
-  const conditions = [eq(stockBalances.branchId, branchId)];
+  const conditions = [eq(stockBalances.branchId, warehouseId)];
   if (stockItemIds) conditions.push(inArray(stockBalances.stockItemId, stockItemIds));
 
   const rows = await db
@@ -54,13 +58,13 @@ export async function getOnHandQuantities(
  * hesaplanir. Boylece "rezervasyon tablosu ile siparis tablosunun birbirinden
  * kaymasi" diye bir hata sinifi hic dogmaz.
  *
- * Hesap **subeye baglidir**: her subenin kendi deposu var, A subesinin
- * rezervasyonu B subesinin stogundan dusmez. Bir donem stok tek havuzdu ve bu
- * hesap bilerek kapsamsizdi; depolar ayrilinca o gerekce ortadan kalkti.
+ * Hesap **depoya** baglidir, subeye degil: ayni depodan satan butun subelerin
+ * rezervasyonlari toplanir. Subeye baglasaydik, tek depoyu paylasan iki sube
+ * ayni yatagi ikisi de satardi — sistemin cozmesi gereken asil sorun bu.
  */
 export async function getReservedQuantities(
   db: DbOrTx,
-  branchId: string,
+  warehouseId: string,
   stockItemIds?: string[],
 ): Promise<Map<string, number>> {
   if (stockItemIds && stockItemIds.length === 0) return new Map();
@@ -68,7 +72,7 @@ export async function getReservedQuantities(
   // Serbest satirlarin (katalogda olmayan urun) stok karti yok; rezervasyon
   // hesabina hic girmemeleri gerekiyor, yoksa gruplama null bir anahtar uretir.
   const conditions = [
-    eq(orders.branchId, branchId),
+    eq(branches.stockBranchId, warehouseId),
     inArray(orders.status, [...RESERVING_STATUSES]),
     isNotNull(orderLineComponents.stockItemId),
   ];
@@ -84,6 +88,7 @@ export async function getReservedQuantities(
     .from(orderLineComponents)
     .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
     .innerJoin(orders, eq(orders.id, orderLines.orderId))
+    .innerJoin(branches, eq(branches.id, orders.branchId))
     .where(and(...conditions))
     .groupBy(orderLineComponents.stockItemId);
 
@@ -91,9 +96,10 @@ export async function getReservedQuantities(
 }
 
 export interface ReservationLine {
-  orderNo: string;
-  orderId: string;
-  /** Musteri adi. */
+  /** Kendi kapsamindaki siparisse siparis numarasi, degilse null. */
+  orderNo: string | null;
+  orderId: string | null;
+  /** Kendi kapsamindaki siparisse musteri adi, degilse "Diger sube". */
   label: string;
   quantity: number;
 }
@@ -101,48 +107,66 @@ export interface ReservationLine {
 /**
  * Bir parcayi kimin rezerve ettigi.
  *
- * Yalnizca bu subenin siparisleri: baska subenin siparisi bu deponun
- * stogunu zaten tutmuyor. Depo ortakken burada bir de "Diger sube" toplami
- * gorunurdu; depolar ayrilinca o satirin anlami kalmadi.
+ * Depo paylasildigi icin listede baska subenin siparisleri de cikar. Kendi
+ * goremeyecegi siparisler tek satirda "Diger sube" olarak toplanir: depocu
+ * stogun neden yetmedigini anlar ama satis bilgisi karsiya gecmez. Merkez
+ * zaten butun siparisleri yonettigi icin onda hepsi adiyla gorunur.
  */
 export async function getReservationBreakdown(
   db: DbOrTx,
-  branchId: string,
+  scope: Scope,
   stockItemId: string,
 ): Promise<ReservationLine[]> {
   const rows = await db
     .select({
       orderId: orders.id,
       orderNo: orders.orderNo,
+      branchId: orders.branchId,
       customerName: customers.name,
       quantity: sql<number>`sum(${orderLineComponents.totalQuantity} - ${orderLineComponents.deliveredQuantity})::int`,
     })
     .from(orderLineComponents)
     .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
     .innerJoin(orders, eq(orders.id, orderLines.orderId))
+    .innerJoin(branches, eq(branches.id, orders.branchId))
     .innerJoin(customers, eq(customers.id, orders.customerId))
     .where(
       and(
-        eq(orders.branchId, branchId),
+        eq(branches.stockBranchId, scope.stockBranchId),
         eq(orderLineComponents.stockItemId, stockItemId),
         inArray(orders.status, [...RESERVING_STATUSES]),
         sql`${orderLineComponents.totalQuantity} > ${orderLineComponents.deliveredQuantity}`,
       ),
     )
-    .groupBy(orders.id, orders.orderNo, customers.name)
+    .groupBy(orders.id, orders.orderNo, orders.branchId, customers.name)
     .orderBy(orders.orderNo);
 
-  return rows.map((row) => ({
-    orderId: row.orderId,
-    orderNo: row.orderNo,
-    label: row.customerName,
-    quantity: Number(row.quantity),
-  }));
+  const mine: ReservationLine[] = [];
+  let otherBranches = 0;
+
+  for (const row of rows) {
+    if (isInScope(scope, row.branchId)) {
+      mine.push({
+        orderId: row.orderId,
+        orderNo: row.orderNo,
+        label: row.customerName,
+        quantity: Number(row.quantity),
+      });
+    } else {
+      otherBranches += Number(row.quantity);
+    }
+  }
+
+  if (otherBranches > 0) {
+    mine.push({ orderId: null, orderNo: null, label: 'Diger sube', quantity: otherBranches });
+  }
+
+  return mine;
 }
 
 export async function getAvailability(
   db: DbOrTx,
-  branchId: string,
+  warehouseId: string,
   stockItemId: string,
 ): Promise<Availability> {
   const [item] = await db
@@ -152,8 +176,9 @@ export async function getAvailability(
 
   if (!item) throw new NotFoundError(`Stok karti (${stockItemId})`);
 
-  const onHand = (await getOnHandQuantities(db, branchId, [stockItemId])).get(stockItemId) ?? 0;
-  const reserved = (await getReservedQuantities(db, branchId, [stockItemId])).get(stockItemId) ?? 0;
+  const onHand = (await getOnHandQuantities(db, warehouseId, [stockItemId])).get(stockItemId) ?? 0;
+  const reserved =
+    (await getReservedQuantities(db, warehouseId, [stockItemId])).get(stockItemId) ?? 0;
 
   return { onHand, reserved, available: onHand - reserved };
 }

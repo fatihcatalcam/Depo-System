@@ -7,15 +7,14 @@ import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
 
 /**
- * Mal kabul **kendi subesine ozeldir** — merkez dahil kimse digerininkini
- * gormez.
+ * Mal kabul **depoya** baglidir, subeye degil.
  *
  * Mal kabul bir stok belgesidir: hangi parcadan kac adet girdigini yazar.
- * Depolar ayri oldugu icin bu rakamlar da ayri. Bir donem stok tek havuzdu ve
- * girisler iki subeye de acikti; havuz bolununce o gerekce kalmadi.
+ * Ayni depodan satan subeler ayni girisi gorur — depoda "bu adet nereden
+ * geldi" sorusu cevapsiz kalmasin diye. Baska deponun girisi gorunmez.
  *
- * Bu yuzden okuma fonksiyonlari `scopeFilter` degil dogrudan `scope.branchId`
- * kullanir: merkez bayragi stoga acilan bir kapi olmamali.
+ * Bu yuzden okuma fonksiyonlari `scopeFilter` degil `scope.stockBranchId`
+ * kullanir: merkez bayragi baska bir deponun stoguna acilan kapi olmamali.
  */
 
 export type GoodsReceipt = typeof goodsReceipts.$inferSelect;
@@ -92,7 +91,7 @@ export async function createGoodsReceipt(
 
     await applyMovements(
       tx,
-      branch.id,
+      scope.stockBranchId,
       lines.map((line) => ({
         stockItemId: line.stockItemId,
         quantityChange: line.quantity,
@@ -120,7 +119,7 @@ export async function getGoodsReceipt(
     .from(goodsReceipts)
     .leftJoin(suppliers, eq(suppliers.id, goodsReceipts.supplierId))
     .innerJoin(branches, eq(branches.id, goodsReceipts.branchId))
-    .where(and(eq(goodsReceipts.id, id), eq(goodsReceipts.branchId, scope.branchId)));
+    .where(and(eq(goodsReceipts.id, id), eq(branches.stockBranchId, scope.stockBranchId)));
 
   if (!row) throw new NotFoundError('Mal kabul kaydi');
 
@@ -170,7 +169,7 @@ export async function listGoodsReceipts(
     .leftJoin(suppliers, eq(suppliers.id, goodsReceipts.supplierId))
     .innerJoin(branches, eq(branches.id, goodsReceipts.branchId))
     .leftJoin(goodsReceiptLines, eq(goodsReceiptLines.goodsReceiptId, goodsReceipts.id))
-    .where(eq(goodsReceipts.branchId, scope.branchId))
+    .where(eq(branches.stockBranchId, scope.stockBranchId))
     .groupBy(goodsReceipts.id, suppliers.name, branches.name)
     .orderBy(desc(goodsReceipts.receivedAt), desc(goodsReceipts.createdAt))
     .limit(limit);

@@ -68,11 +68,12 @@ describe('sube hesaplari', () => {
 
     expect(await authenticate(ctx.db, s1, 'sube1parola')).toEqual({
       ok: true,
-      scope: { branchId: s1, branchCode: 'S1', isCentral: true },
+      scope: { branchId: s1, branchCode: 'S1', isCentral: true, stockBranchId: s1 },
     });
+    // Sube 2 merkezin deposundan satiyor: kendi kimligi degil, merkezinki.
     expect(await authenticate(ctx.db, s2, 'sube2parola')).toEqual({
       ok: true,
-      scope: { branchId: s2, branchCode: 'S2', isCentral: false },
+      scope: { branchId: s2, branchCode: 'S2', isCentral: false, stockBranchId: s1 },
     });
   });
 });

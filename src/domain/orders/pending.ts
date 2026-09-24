@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import {
   branches,
   customers,
@@ -11,6 +12,10 @@ import {
 import type { DbOrTx } from '@/db/types';
 import { scopeFilter, type Scope } from '@/domain/scope';
 import type { OrderStatus } from './orders';
+
+// Ayni tablo iki kez katiliyor: biri siparisi acan sube, digeri o subenin
+// bagli oldugu depo. Takma ad olmadan Postgres ikisini ayirt edemez.
+const warehouse = alias(branches, 'warehouse');
 
 export interface PendingItem {
   /** Serbest satirda bos: katalogda karsiligi olan bir stok karti yok. */
@@ -36,8 +41,8 @@ export interface PendingOrderSummary {
 
 export interface PendingTotal extends PendingItem {
   /** Parcanin beklendigi depo. */
-  branchId: string;
-  branchName: string;
+  warehouseId: string;
+  warehouseName: string;
   /** O depodaki fiili adet. Serbest satirda takip edilen bir stok yok. */
   onHand: number | null;
   /** Bekleyen adet depodakini asiyorsa aradaki fark; yoksa sifir. */
@@ -60,9 +65,10 @@ export interface PendingOverview {
  *
  * `totals` uretim/satin alma listesi olarak okunuyor: "su an ne borcluyuz,
  * elimizde ne var". Bu yuzden depodaki adetle karsilastirilip eksik
- * isaretleniyor — ve **depo basina** toplaniyor: merkez iki subenin
- * siparislerini birden gordugu icin, ayni parcanin iki depodaki adedi tek
- * satirda toplansaydi "eksik" rakami anlamsiz cikardi.
+ * isaretleniyor — ve **depo basina** toplaniyor: ayni parcanin iki farkli
+ * depodaki adedi tek satirda toplansaydi "eksik" rakami anlamsiz cikardi.
+ * Iki sube ayni depoyu paylasiyorsa tek satirda birlesirler, ki dogrusu da
+ * budur: ayni raftan bekliyorlar.
  */
 export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<PendingOverview> {
   const orderRows = await db
@@ -92,8 +98,8 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
   const componentRows = await db
     .select({
       orderId: orderLines.orderId,
-      branchId: orders.branchId,
-      branchName: branches.name,
+      warehouseId: branches.stockBranchId,
+      warehouseName: warehouse.name,
       componentId: orderLineComponents.id,
       stockItemId: orderLineComponents.stockItemId,
       lineDescription: orderLines.description,
@@ -108,6 +114,7 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
     .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
     .innerJoin(orders, eq(orders.id, orderLines.orderId))
     .innerJoin(branches, eq(branches.id, orders.branchId))
+    .innerJoin(warehouse, eq(warehouse.id, branches.stockBranchId))
     // leftJoin: serbest satirin stok karti yok ama musteri onu da bekliyor.
     .leftJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
     // Adet **siparisin** deposundan okunuyor. leftJoin, cunku bakiye satiri
@@ -116,7 +123,7 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
       stockBalances,
       and(
         eq(stockBalances.stockItemId, orderLineComponents.stockItemId),
-        eq(stockBalances.branchId, orders.branchId),
+        eq(stockBalances.branchId, branches.stockBranchId),
       ),
     )
     .where(
@@ -172,7 +179,7 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
     // Farkli siparislerdeki ayni serbest urun adi tek satirda toplaniyor:
     // "2 adet ozel sehpa" atolyeye tek is olarak gidiyor.
     const name = component.stockItemName ?? component.lineDescription;
-    const key = `${component.branchId}:${component.stockItemId ?? `serbest:${name}`}`;
+    const key = `${component.warehouseId}:${component.stockItemId ?? `serbest:${name}`}`;
     const existing = totalsMap.get(key);
     if (existing) {
       existing.quantity += Number(component.remaining);
@@ -185,8 +192,8 @@ export async function getPendingOverview(db: DbOrTx, scope: Scope): Promise<Pend
       sizeLabel: component.sizeLabel,
       variantLabel: component.variantLabel,
       quantity: Number(component.remaining),
-      branchId: component.branchId,
-      branchName: component.branchName,
+      warehouseId: component.warehouseId,
+      warehouseName: component.warehouseName,
       // Serbest satirin stok karti yok: adedi takip edilmiyor. Karti olan ama
       // bakiye satiri acilmamis parca ise sifir adet demektir.
       onHand: component.stockItemId === null ? null : (component.onHand ?? 0),

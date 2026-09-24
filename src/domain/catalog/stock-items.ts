@@ -154,12 +154,13 @@ export interface StockItemWithAvailability extends StockItem {
 }
 
 /**
- * Kartlar ortak, adetler subeye ozel: liste her zaman tek bir depoyu gosterir.
- * `branchId` zorunlu, cunku "hangi depo" sorusunun varsayilan bir cevabi yok.
+ * Kartlar ortak, adetler depoya ozel: liste her zaman tek bir depoyu gosterir.
+ * `warehouseId` zorunlu, cunku "hangi depo" sorusunun varsayilan bir cevabi
+ * yok.
  */
 export async function listStockItemsWithAvailability(
   db: DbOrTx,
-  branchId: string,
+  warehouseId: string,
   filters: StockItemFilters = {},
 ): Promise<StockItemWithAvailability[]> {
   const items = await searchStockItems(db, filters);
@@ -167,8 +168,8 @@ export async function listStockItemsWithAvailability(
 
   const ids = items.map((item) => item.id);
   const [onHandMap, reservedMap] = await Promise.all([
-    getOnHandQuantities(db, branchId, ids),
-    getReservedQuantities(db, branchId, ids),
+    getOnHandQuantities(db, warehouseId, ids),
+    getReservedQuantities(db, warehouseId, ids),
   ]);
 
   return items.map((item) => {

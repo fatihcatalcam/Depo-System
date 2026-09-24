@@ -15,6 +15,8 @@ export interface BranchSummary {
   name: string;
   /** Merkez sube: butun subelerin siparislerini ve cirosunu gorur. */
   isCentral: boolean;
+  /** Bu subenin mallarinin durdugu depo; kendisi de olabilir. */
+  stockBranchId: string;
   isActive: boolean;
   /** Parolasi belirlenmemis subeye giris yapilamaz; Ayarlar bunu uyari olarak gosterir. */
   hasPassword: boolean;
@@ -26,6 +28,7 @@ function toSummary(row: Branch): BranchSummary {
     code: row.code,
     name: row.name,
     isCentral: row.isCentral,
+    stockBranchId: row.stockBranchId,
     isActive: row.isActive,
     hasPassword: row.passwordHash !== null,
   };
@@ -40,6 +43,22 @@ export async function listBranches(db: DbOrTx): Promise<BranchSummary[]> {
 export async function listLoginableBranches(db: DbOrTx): Promise<BranchSummary[]> {
   const rows = await listBranches(db);
   return rows.filter((row) => row.isActive && row.hasPassword);
+}
+
+/**
+ * Bir subenin mallarinin durdugu deponun kimligi.
+ *
+ * Belgeden yurüyen stok hareketleri icin: teslimat ve iptal iadesi
+ * **siparisin** subesine bakar, oturumdakine degil, ama adet o subenin
+ * deposundan duser.
+ */
+export async function warehouseOf(db: DbOrTx, branchId: string): Promise<string> {
+  const [row] = await db
+    .select({ stockBranchId: branches.stockBranchId })
+    .from(branches)
+    .where(eq(branches.id, branchId));
+  if (!row) throw new NotFoundError('Sube');
+  return row.stockBranchId;
 }
 
 export async function getBranch(db: DbOrTx, id: string): Promise<Branch> {

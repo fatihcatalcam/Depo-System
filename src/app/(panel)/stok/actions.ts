@@ -123,7 +123,7 @@ export async function quickAdjustStockAction(
 
   try {
     const scope = await currentScope();
-    const [result] = await applyMovements(db, scope.branchId, [
+    const [result] = await applyMovements(db, scope.stockBranchId, [
       {
         stockItemId,
         quantityChange: delta,
@@ -183,7 +183,7 @@ export async function adjustStockCountAction(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
-    await adjustStockCount(db, (await currentScope()).branchId, {
+    await adjustStockCount(db, (await currentScope()).stockBranchId, {
       stockItemId,
       ...parsed.data,
     });

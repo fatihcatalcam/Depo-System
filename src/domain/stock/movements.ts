@@ -38,19 +38,19 @@ export interface MovementResult {
  * Hareket defterine yazar ve `stock_balances` onbellegini ayni transaction
  * icinde gunceller — ikisi asla birbirinden ayrilamaz.
  *
- * `branchId` **zorunlu ilk parametre**: hangi deponun adedinin degistigi
+ * `warehouseId` **zorunlu ilk parametre**: hangi deponun adedinin degistigi
  * tahmin edilemez. Istege bagli olsaydi, eklemeyi unutan bir cagri yeri
  * sessizce yanlis depoyu degistirirdi.
  *
- * Sube kaydi giren kisiden degil **belgeden** gelir: merkez, Sube 2'nin
- * siparisini teslim ettiginde mal Sube 2'nin deposundan cikar.
+ * Depo, kaydi giren kisiden degil **belgeden** gelir: bir siparisin mali,
+ * siparisi acan subenin bagli oldugu depodan cikar.
  *
  * Olusan bakiyeleri geri doner: cagiran taraf ekrani guncellemek icin ayrica
  * sorgu atmak zorunda kalmasin. Sonucu yok saymak serbest.
  */
 export async function applyMovements(
   db: DbOrTx,
-  branchId: string,
+  warehouseId: string,
   movements: MovementInput[],
   options: ApplyOptions = {},
 ): Promise<MovementResult[]> {
@@ -70,7 +70,7 @@ export async function applyMovements(
     const results: MovementResult[] = [];
 
     for (const movement of sorted) {
-      const balance = await lockBalance(tx, branchId, movement.stockItemId);
+      const balance = await lockBalance(tx, warehouseId, movement.stockItemId);
       const balanceAfter = balance + movement.quantityChange;
 
       if (balanceAfter < 0 && !options.allowNegative) {
@@ -82,7 +82,7 @@ export async function applyMovements(
       }
 
       await tx.insert(stockMovements).values({
-        branchId,
+        branchId: warehouseId,
         stockItemId: movement.stockItemId,
         quantityChange: movement.quantityChange,
         movementType: movement.movementType,
@@ -97,7 +97,7 @@ export async function applyMovements(
         .set({ quantityOnHand: balanceAfter, updatedAt: sql`now()` })
         .where(
           and(
-            eq(stockBalances.branchId, branchId),
+            eq(stockBalances.branchId, warehouseId),
             eq(stockBalances.stockItemId, movement.stockItemId),
           ),
         );
@@ -110,13 +110,13 @@ export async function applyMovements(
 }
 
 /**
- * Subenin o karttaki bakiye satirini kilitler ve adedi doner.
+ * Deponun o karttaki bakiye satirini kilitler ve adedi doner.
  *
- * Satir yoksa sifirla acilir: her sube her kart icin bos satir tasimiyor,
+ * Satir yoksa sifirla acilir: her depo her kart icin bos satir tasimiyor,
  * ilk hareket satiri dogurur. Kart yoksa `NotFoundError` — yabanci anahtar
  * ihlali yerine anlasilir bir hata verelim diye once kart araniyor.
  */
-async function lockBalance(tx: Tx, branchId: string, stockItemId: string): Promise<number> {
+async function lockBalance(tx: Tx, warehouseId: string, stockItemId: string): Promise<number> {
   const [item] = await tx
     .select({ id: stockItems.id })
     .from(stockItems)
@@ -126,13 +126,13 @@ async function lockBalance(tx: Tx, branchId: string, stockItemId: string): Promi
 
   await tx
     .insert(stockBalances)
-    .values({ branchId, stockItemId, quantityOnHand: 0 })
+    .values({ branchId: warehouseId, stockItemId, quantityOnHand: 0 })
     .onConflictDoNothing();
 
   const [row] = await tx
     .select({ quantityOnHand: stockBalances.quantityOnHand })
     .from(stockBalances)
-    .where(and(eq(stockBalances.branchId, branchId), eq(stockBalances.stockItemId, stockItemId)))
+    .where(and(eq(stockBalances.branchId, warehouseId), eq(stockBalances.stockItemId, stockItemId)))
     .for('update');
 
   return row?.quantityOnHand ?? 0;

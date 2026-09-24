@@ -21,12 +21,12 @@ export interface StockCountResult {
  * Sayim duzeltmesi. Fark her zaman hareket defterinde iz birakir —
  * stok sessizce degismez, "neden degisti" sorusu her zaman cevaplanabilir.
  *
- * Sayim her zaman sayan subenin deposunda yapilir; kimse baska subenin
+ * Sayim her zaman sayanin kendi deposunda yapilir; kimse baska deponun
  * rafini sayamaz.
  */
 export async function adjustStockCount(
   db: DbOrTx,
-  branchId: string,
+  warehouseId: string,
   input: StockCountInput,
 ): Promise<StockCountResult> {
   if (input.countedQuantity < 0) {
@@ -45,7 +45,7 @@ export async function adjustStockCount(
     .from(stockBalances)
     .where(
       and(
-        eq(stockBalances.branchId, branchId),
+        eq(stockBalances.branchId, warehouseId),
         eq(stockBalances.stockItemId, input.stockItemId),
       ),
     );
@@ -58,7 +58,7 @@ export async function adjustStockCount(
   if (difference !== 0) {
     await applyMovements(
       db,
-      branchId,
+      warehouseId,
       [
         {
           stockItemId: input.stockItemId,

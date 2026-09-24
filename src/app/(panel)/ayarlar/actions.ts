@@ -161,7 +161,7 @@ export async function setBranchPasswordAction(input: unknown): Promise<ActionRes
 export async function recalculateStockAction(): Promise<ActionResult> {
   try {
     const scope = await currentScope();
-    const { fixed, changes } = await recalculateStockBalances(db, scope.branchId);
+    const { fixed, changes } = await recalculateStockBalances(db, scope.stockBranchId);
     revalidatePath('/stok');
     revalidatePath('/');
 

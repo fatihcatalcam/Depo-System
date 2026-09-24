@@ -6,19 +6,27 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 /**
  * Sube.
  *
- * Her subenin kendi girisi ve kendi deposu var. Urun, kategori, stok karti ve
- * tedarikci ortak; adet, siparis, musteri, teslimat ve odeme subeye ozel.
+ * Urun, kategori, stok karti ve tedarikci ortak; siparis, musteri, teslimat ve
+ * odeme subeye ozel.
  *
  * `isCentral` merkez subeyi isaretler: merkez butun subelerin siparislerini,
- * musterilerini ve cirosunu gorur ve yonetir. **Stok buna dahil degil** —
- * merkez de yalnizca kendi deposunu gorur. Sube bazli stogun tek istisnasiz
- * kurali bu.
+ * musterilerini ve cirosunu gorur ve yonetir.
+ *
+ * `stockBranchId` subenin mallarinin fiilen **durdugu depoyu** gosterir.
+ * Kendisini gosteriyorsa subenin kendi deposu var; baskasini gosteriyorsa o
+ * depodan satiyor demektir. Isletmede su an tek fiziksel depo var ve iki sube
+ * de oradan satiyor; ikisi de merkezi gosteriyor.
+ *
+ * Bu alan `id`'den ayri duruyor cunku "hangi sube sattti" ile "mal nereden
+ * cikti" ayri sorular: prim ve ciro subeye yazilir, adet depoya. Ikinci bir
+ * depo acildiginda degisecek tek sey bu kolondaki deger.
  *
  * Kilitlenme sayaci sube basina: bir subede parola yanlis girildi diye digeri
  * kapanmasin.
@@ -31,6 +39,9 @@ export const branches = pgTable(
     code: text('code').notNull().unique(),
     name: text('name').notNull(),
     isCentral: boolean('is_central').notNull().default(false),
+    stockBranchId: uuid('stock_branch_id')
+      .notNull()
+      .references((): AnyPgColumn => branches.id, { onDelete: 'restrict' }),
     passwordHash: text('password_hash'),
     failedAttempts: integer('failed_attempts').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),

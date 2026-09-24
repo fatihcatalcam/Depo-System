@@ -14,8 +14,8 @@ export interface RecalculationResult {
  * defteridir. Bu bakim islemi ikisini karsilastirir ve kaymis olanlari
  * duzeltir.
  *
- * Yalnizca cagiran subenin deposuna bakar: baska subenin bakiyesini
- * duzeltmek, o subenin stogunu gormek demektir.
+ * Yalnizca cagiranin deposuna bakar: baska bir deponun bakiyesini duzeltmek,
+ * o deponun stogunu gormek demektir.
  *
  * DIKKAT — burada iliskili alt sorgu (correlated subquery) KULLANILMAMALI.
  * Drizzle, join'i olmayan tek tablolu sorgularda kolonlari tablo adiyla
@@ -26,7 +26,7 @@ export interface RecalculationResult {
  */
 export async function recalculateStockBalances(
   db: Db,
-  branchId: string,
+  warehouseId: string,
 ): Promise<RecalculationResult> {
   const ledger = db
     .select({
@@ -34,7 +34,7 @@ export async function recalculateStockBalances(
       total: sql<number>`sum(${stockMovements.quantityChange})::int`.as('total'),
     })
     .from(stockMovements)
-    .where(eq(stockMovements.branchId, branchId))
+    .where(eq(stockMovements.branchId, warehouseId))
     .groupBy(stockMovements.stockItemId)
     .as('ledger');
 
@@ -46,7 +46,7 @@ export async function recalculateStockBalances(
       quantityOnHand: stockBalances.quantityOnHand,
     })
     .from(stockBalances)
-    .where(eq(stockBalances.branchId, branchId))
+    .where(eq(stockBalances.branchId, warehouseId))
     .as('balance');
 
   const rows = await db
@@ -71,7 +71,7 @@ export async function recalculateStockBalances(
     for (const row of drifted) {
       await tx
         .insert(stockBalances)
-        .values({ branchId, stockItemId: row.id, quantityOnHand: row.ledgerTotal })
+        .values({ branchId: warehouseId, stockItemId: row.id, quantityOnHand: row.ledgerTotal })
         .onConflictDoUpdate({
           target: [stockBalances.branchId, stockBalances.stockItemId],
           set: { quantityOnHand: row.ledgerTotal, updatedAt: sql`now()` },

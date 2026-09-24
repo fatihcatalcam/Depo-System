@@ -44,9 +44,9 @@ export interface PeriodSummary {
   /**
    * Alis fiyati tanimli parcalarin stok degeri (anlik).
    *
-   * **Her zaman yalnizca kendi subesinin deposu** — merkez dahil. Merkez
-   * digerlerinin cirosunu gorur ama stogunu gormez; rakamin sube kiriliminda
-   * yer almamasinin sebebi de bu.
+   * **Her zaman yalnizca kendi deposu** — merkez dahil. Iki sube ayni depoyu
+   * paylasiyorsa ayni rakami gorur; rakamin sube kiriliminda yer almamasinin
+   * sebebi de bu, depo subeye bolunemez.
    */
   stockValueKurus: number;
   topProducts: TopProductRow[];
@@ -145,7 +145,7 @@ export async function getPeriodSummary(
     })
     .from(stockBalances)
     .innerJoin(stockItems, eq(stockItems.id, stockBalances.stockItemId))
-    .where(eq(stockBalances.branchId, scope.branchId));
+    .where(eq(stockBalances.branchId, scope.stockBranchId));
 
   const topProducts = await db
     .select({

@@ -39,6 +39,7 @@ async function readCredential(db: DbOrTx, branchId: string): Promise<Credential>
     .select({
       code: branches.code,
       isCentral: branches.isCentral,
+      stockBranchId: branches.stockBranchId,
       passwordHash: branches.passwordHash,
       failedAttempts: branches.failedAttempts,
       lockedUntil: branches.lockedUntil,
@@ -49,7 +50,10 @@ async function readCredential(db: DbOrTx, branchId: string): Promise<Credential>
 
   if (!row) throw new NotFoundError('Sube');
   if (!row.isActive) throw new DomainError('Bu sube kapali.', 'BRANCH_INACTIVE');
-  return { ...row, scope: branchScope(branchId, row.code, row.isCentral) };
+  return {
+    ...row,
+    scope: branchScope(branchId, row.code, row.isCentral, row.stockBranchId),
+  };
 }
 
 async function writeCredential(
@@ -135,6 +139,7 @@ export async function login(db: DbOrTx, password: string): Promise<LoginResult> 
       id: branches.id,
       code: branches.code,
       isCentral: branches.isCentral,
+      stockBranchId: branches.stockBranchId,
       passwordHash: branches.passwordHash,
     })
     .from(branches)
@@ -144,7 +149,10 @@ export async function login(db: DbOrTx, password: string): Promise<LoginResult> 
   for (const row of rows) {
     if (row.passwordHash && (await verifyPassword(password, row.passwordHash))) {
       await writeLoginGate(db, { failedAttempts: 0, lockedUntil: null });
-      return { ok: true, scope: branchScope(row.id, row.code, row.isCentral) };
+      return {
+        ok: true,
+        scope: branchScope(row.id, row.code, row.isCentral, row.stockBranchId),
+      };
     }
   }
 

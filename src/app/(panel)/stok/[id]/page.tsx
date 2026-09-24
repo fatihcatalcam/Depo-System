@@ -26,9 +26,9 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
 
   const scope = await currentScope();
   const [availability, reservations, history, categories] = await Promise.all([
-    getAvailability(db, scope.branchId, id),
-    getReservationBreakdown(db, scope.branchId, id),
-    listStockHistory(db, scope.branchId, id),
+    getAvailability(db, scope.stockBranchId, id),
+    getReservationBreakdown(db, scope, id),
+    listStockHistory(db, scope.stockBranchId, id),
     listCategoryTree(db),
   ]);
 

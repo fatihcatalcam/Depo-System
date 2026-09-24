@@ -176,21 +176,19 @@ describe('Excel ile stok sayimi', () => {
   });
 
   /**
-   * Sablon da sayim da sayan subenin deposuna bakar. Ortak olsaydi Sube 2'nin
-   * sayimi merkezin rafini sifirlardi.
+   * Sablon da sayim da **depoya** bakar, subeye degil. Iki sube ayni depodan
+   * satiyor: Sube 2'nin sayimi merkezin rafini da guncellemeli, yoksa iki
+   * rakam birbirinden kayar.
    */
-  it('sablon ve sayim yalnizca kendi deposunu kapsar', async () => {
+  it('sablon ve sayim ortak depoyu gosterir', async () => {
     const fresh = await createTestDb();
-    const item = await createStockItem(fresh.db, { name: 'IKI DEPO PARCA', sizeLabel: '160x200' });
+    const item = await createStockItem(fresh.db, { name: 'ORTAK DEPO PARCA', sizeLabel: '160x200' });
 
-    await applyMovements(fresh.db, fresh.scopes.s1.branchId, [
+    await applyMovements(fresh.db, fresh.scopes.s1.stockBranchId, [
       { stockItemId: item.id, quantityChange: 6, movementType: 'goods_receipt' },
     ]);
-    await applyMovements(fresh.db, fresh.scopes.s2.branchId, [
-      { stockItemId: item.id, quantityChange: 2, movementType: 'goods_receipt' },
-    ]);
 
-    // Sube 2'nin sablonunda kendi adedi yaziyor, merkezinki degil.
+    // Sube 2'nin sablonunda merkezin adedi yaziyor: depo ortak.
     const template = await exportStockCountTemplate(fresh.db, fresh.scopes.s2);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(template as unknown as ArrayBuffer);
@@ -203,7 +201,7 @@ describe('Excel ile stok sayimi', () => {
       templateQuantity = row.getCell(5).value;
       row.getCell(6).value = 3;
     });
-    expect(templateQuantity).toBe(2);
+    expect(templateQuantity).toBe(6);
 
     await importStockCounts(
       fresh.db,
@@ -211,8 +209,9 @@ describe('Excel ile stok sayimi', () => {
       Buffer.from(await workbook.xlsx.writeBuffer()),
     );
 
-    expect(await onHandOf(fresh.db, fresh.scopes.s2.branchId, item.id)).toBe(3);
-    expect(await onHandOf(fresh.db, fresh.scopes.s1.branchId, item.id)).toBe(6);
+    // Sube 2 saydi, merkezin rafi da guncellendi.
+    expect(await onHandOf(fresh.db, fresh.scopes.s1.stockBranchId, item.id)).toBe(3);
+    expect(await onHandOf(fresh.db, fresh.scopes.s2.stockBranchId, item.id)).toBe(3);
 
     await fresh.close();
   });

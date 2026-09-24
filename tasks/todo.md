@@ -58,3 +58,58 @@
   sifir oldugu icin kayip yok, ama once yedek.
 - Herkesin yeniden giris yapmasi gerekecek: jeton bicimi degisti.
 - `hmy5151` artik giris yapmiyor, yalnizca stok ve rapor kilidini aciyor.
+
+
+---
+
+# Duzeltme: fiziksel depo tek, stok ortak
+
+## Neden
+
+Onceki adimda stok subeye ayrilmisti. Isletmede **tek fiziksel depo** var ve
+iki sube de oradan satiyor; ayrim, ayni yatagin iki kere satilabilmesi
+demekti. Merkez'in 226 adedini Sube 2'ye kopyalamak da ayni sorunu buyuturdu:
+sistem 452 adet oldugunu sanirdi.
+
+## Yapilanlar
+
+- [x] `branches.stock_branch_id`: bir subenin mallarinin **durdugu depo**.
+      Kendisini gosterirse kendi deposu, baskasini gosterirse o depodan
+      satiyor demektir.
+- [x] `Scope` `stockBranchId` tasiyor. Stok fonksiyonlarinin parametresi artik
+      `warehouseId`; sube kimligi ile depo kimligi ayri isimde, boylece
+      yanlislikla sube verilmesi goze carpiyor.
+- [x] Rezervasyon hesabi depoya bagli: ayni depodan satan butun subelerin
+      rezervasyonlari toplaniyor. Sube 2 bir yatagi soz verdiginde merkezin
+      serbest stogu da dusuyor.
+- [x] Teslimat ve iptal iadesi siparisin **deposuna** yaziliyor
+      (`warehouseOf`), siparisin subesine degil.
+- [x] Mal kabul, Excel sayimi, stok listesi, stok degeri, bakim islemi ve
+      hareket gecmisi depo bazli.
+- [x] Rezervasyon dokumunde "Diger sube" maskesi geri geldi: adet karsiya
+      gecer, musteri adi gecmez.
+- [x] Bekleyen urunler tablosundaki depo sutunu yalnizca birden fazla depo
+      varsa gorunuyor.
+- [x] Goc `0011_ortak-depo.sql`: iki sube de merkezin deposunu gosteriyor.
+- [x] Testler guncellendi; `ortak depo` blogu hem bugunku tek depoyu hem de
+      ikinci bir depo acildiginda ayrimin calistigini sabitliyor.
+
+## Dogrulama
+
+| Kontrol | Sonuc |
+|---|---|
+| `npm run lint` | temiz |
+| `npx tsc --noEmit` | temiz |
+| `npm test` | 34 dosya, 364 test, hepsi gecti |
+| `npm run build` | basarili |
+| Gocun canli veriyle denenmesi | transaction icinde uygulandi, ROLLBACK edildi; iki sube de S1 deposunu gosterdi, 139 satir / 226 adet korundu |
+
+## Kalan
+
+- [ ] `npm run db:migrate` (yedek alindi: `backups/depo-2026-09-24T10-59-14-916Z.json`)
+- [ ] Deploy (`git push`).
+
+## Not
+
+Ikinci bir fiziksel depo acilirsa degisecek tek sey `stock_branch_id`
+kolonundaki deger; kod ve semanin geri kalani hazir.

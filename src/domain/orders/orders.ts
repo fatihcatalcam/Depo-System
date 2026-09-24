@@ -13,6 +13,7 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
+import { warehouseOf } from '@/domain/branches';
 import { createCustomer } from '@/domain/parties/parties';
 import { ownBranch, scopeFilter, type Scope } from '@/domain/scope';
 import { getReservedQuantities } from '@/domain/stock/availability';
@@ -390,13 +391,13 @@ export async function cancelOrder(db: DbOrTx, scope: Scope, id: string): Promise
       .where(and(eq(orderLines.orderId, id), sql`${orderLineComponents.deliveredQuantity} > 0`));
 
     if (delivered.length > 0) {
-      // Mal siparisin subesine iade ediliyor, iptali gireninkine degil:
-      // merkez Sube 2'nin siparisini iptal ettiginde mal Sube 2'nin
-      // deposuna geri doner.
+      // Mal siparisin deposuna iade ediliyor, iptali gireninkine degil:
+      // merkez baska subenin siparisini iptal ettiginde mal o subenin
+      // bagli oldugu depoya geri doner.
       // Serbest satirda iade alinacak stok yok.
       await applyMovements(
         tx,
-        existing.branchId,
+        await warehouseOf(tx, existing.branchId),
         delivered.flatMap((row) =>
           row.stockItemId === null
             ? []
@@ -490,15 +491,17 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
 
   if (!row) throw new NotFoundError('Siparis');
 
+  const warehouseId = await warehouseOf(db, row.order.branchId);
+
   const lines = await db
     .select()
     .from(orderLines)
     .where(eq(orderLines.orderId, id))
     .orderBy(orderLines.lineNo);
 
-  // Adetler **siparisin** subesinin deposundan okunuyor, bakan kisininkinden
-  // degil: merkez Sube 2'nin siparisine baktiginda "yetersiz stok" uyarisi
-  // Sube 2'nin rafina gore anlamli.
+  // Adetler **siparisin** deposundan okunuyor, bakan kisininkinden degil:
+  // merkez baska subenin siparisine baktiginda "yetersiz stok" uyarisi o
+  // siparisin cekilecegi rafa gore anlamli.
   const components = lines.length
     ? await db
         .select({
@@ -518,7 +521,7 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
           stockBalances,
           and(
             eq(stockBalances.stockItemId, orderLineComponents.stockItemId),
-            eq(stockBalances.branchId, row.order.branchId),
+            eq(stockBalances.branchId, warehouseId),
           ),
         )
         .where(
@@ -531,7 +534,7 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
 
   const reserved = await getReservedQuantities(
     db,
-    row.order.branchId,
+    warehouseId,
     components.flatMap((entry) =>
       entry.component.stockItemId === null ? [] : [entry.component.stockItemId],
     ),

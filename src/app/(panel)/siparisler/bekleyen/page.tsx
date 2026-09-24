@@ -27,6 +27,8 @@ export default async function BekleyenPage() {
   }
 
   const shortages = pending.totals.filter((item) => item.shortage > 0);
+  // Iki sube ayni depodan satiyorsa depo sutunu bilgi tasimaz, kalabalik eder.
+  const manyWarehouses = new Set(pending.totals.map((item) => item.warehouseId)).size > 1;
 
   return (
     <div className="space-y-4">
@@ -60,9 +62,9 @@ export default async function BekleyenPage() {
           <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
               <th className="p-3">Parca</th>
-              {/* Depolar ayri: ayni parca iki subede ayri satir, yoksa
-                  "Depoda" rakami hangi depoyu gosterdigi belirsiz kalirdi. */}
-              {user.isCentral ? <th className="w-28 p-3">Sube</th> : null}
+              {/* Birden fazla depo varsa ayni parca her depo icin ayri satir;
+                  yoksa "Depoda" rakami hangi depoyu gosterdigi belirsiz kalir. */}
+              {manyWarehouses ? <th className="w-28 p-3">Depo</th> : null}
               <th className="w-24 p-3 text-right">Bekleyen</th>
               <th className="w-24 p-3 text-right">Depoda</th>
               <th className="w-24 p-3 text-right">Eksik</th>
@@ -71,7 +73,7 @@ export default async function BekleyenPage() {
           <tbody>
             {pending.totals.map((item) => (
               <tr
-                key={`${item.branchId}:${item.stockItemId ?? item.stockItemName}`}
+                key={`${item.warehouseId}:${item.stockItemId ?? item.stockItemName}`}
                 className="border-b border-neutral-100 last:border-0"
               >
                 <td className="p-3">
@@ -91,8 +93,8 @@ export default async function BekleyenPage() {
                     <span className="ml-2 text-xs text-neutral-400">{item.stockItemSku}</span>
                   ) : null}
                 </td>
-                {user.isCentral ? (
-                  <td className="p-3 text-xs text-neutral-500">{item.branchName}</td>
+                {manyWarehouses ? (
+                  <td className="p-3 text-xs text-neutral-500">{item.warehouseName}</td>
                 ) : null}
                 <td className="p-3 text-right font-semibold tabular-nums">{item.quantity}</td>
                 <td className="p-3 text-right tabular-nums text-neutral-600">

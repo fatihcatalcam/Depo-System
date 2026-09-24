@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { stockItems } from '@/db/schema';
-import { createGoodsReceipt, getGoodsReceipt, listGoodsReceipts } from '@/domain/goods-receipt';
+import { branches, stockItems } from '@/db/schema';
+import { createGoodsReceipt, listGoodsReceipts } from '@/domain/goods-receipt';
 import { createDelivery, listDeliveriesForOrder } from '@/domain/orders/deliveries';
 import {
   cancelOrder,
@@ -310,21 +310,85 @@ describe('merkez', () => {
     expect(payment.amountKurus).toBe(100_000);
   });
 
-  /**
-   * Teslimatta mal **siparisin** deposundan cikmali. Merkezin deposundan
-   * dusseydi, merkez baska subenin isini yaptikca kendi stogu erirdi.
-   */
-  it('baska subenin siparisini teslim ederken mal o subenin deposundan duser', async () => {
+  it('yeni kayitlari kendi subesine acar', async () => {
+    const customer = await createCustomer(ctx.db, merkez, { name: 'Merkezin Musterisi' });
+    expect(customer.branchId).toBe(merkez.branchId);
+    await expect(getCustomer(ctx.db, s2, customer.id)).rejects.toThrow('Musteri bulunamadi');
+  });
+});
+
+/**
+ * Depolar ayri. Bir donem stok tek havuzdu ve bu bloktaki testler tersini
+ * bekliyordu; isletme iki depoyu ayri yurutmeye gecince kural dondu.
+ */
+/**
+ * Depo, subeden ayri bir kavram: `branches.stock_branch_id` bir subenin
+ * mallarinin nerede durdugunu soyler.
+ *
+ * Isletmede su an **tek fiziksel depo** var; iki sube de merkezi gosteriyor.
+ * Bir donem stok subeye ayrilmisti ve bu blok tersini bekliyordu — ayrim,
+ * tek depoyu paylasan iki subenin ayni mali iki kere satmasina yol aciyordu.
+ * Son test ikinci bir depo acildiginda ayrimin hala calistigini sabitliyor.
+ */
+describe('ortak depo', () => {
+  it('ayni depodan satan iki sube ayni adetleri gorur', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, fresh.scopes.s2.branchId, {
+    const set = await makeBedSet(fresh.db, fresh.scopes.s1.stockBranchId, {
+      model: 'ORTAK',
+      size: '160x200',
+      stock: 10,
+    });
+
+    const central = await getAvailability(fresh.db, fresh.scopes.s1.stockBranchId, set.yatak.id);
+    const branch = await getAvailability(fresh.db, fresh.scopes.s2.stockBranchId, set.yatak.id);
+
+    expect(fresh.scopes.s2.stockBranchId).toBe(fresh.scopes.s1.branchId);
+    expect(branch).toEqual(central);
+    expect(branch.onHand).toBe(10);
+
+    await fresh.close();
+  });
+
+  /**
+   * Asil mesele bu: A subesi bir yatagi soz verdiyse o yatak B subesi icin de
+   * yoktur. Rezervasyon subeye baglansaydi ikisi de ayni yatagi satardi.
+   */
+  it('bir subenin rezervasyonu digerinin serbest stogunu dusurur', async () => {
+    const fresh = await createTestDb();
+    const set = await makeBedSet(fresh.db, fresh.scopes.s1.stockBranchId, {
+      model: 'REZERV',
+      size: '160x200',
+      stock: 10,
+    });
+
+    const customer = await createCustomer(fresh.db, fresh.scopes.s2, { name: 'Rezerve Eden' });
+    const order = await createOrder(fresh.db, fresh.scopes.s2, {
+      customerId: customer.id,
+      orderDate: '2026-08-10',
+      deliveryAddress: 'Adres',
+      lines: [
+        { itemType: 'product', productId: set.product.id, quantity: 3, unitPriceKurus: 100_000 },
+      ],
+    });
+    await confirmOrder(fresh.db, fresh.scopes.s2, order.id);
+
+    // Sube 2 satti, merkezin serbest stogu da dustu.
+    expect(await getAvailability(fresh.db, fresh.scopes.s1.stockBranchId, set.yatak.id)).toEqual({
+      onHand: 10,
+      reserved: 3,
+      available: 7,
+    });
+
+    await fresh.close();
+  });
+
+  it('teslimat ortak depodan duser', async () => {
+    const fresh = await createTestDb();
+    const set = await makeBedSet(fresh.db, fresh.scopes.s1.stockBranchId, {
       model: 'TESL',
       size: '160x200',
       stock: 10,
     });
-    // Ayni parcadan merkezin deposunda da var: karisirsa fark edelim.
-    await applyMovements(fresh.db, fresh.scopes.s1.branchId, [
-      { stockItemId: set.yatak.id, quantityChange: 4, movementType: 'goods_receipt' },
-    ]);
 
     const customer = await createCustomer(fresh.db, fresh.scopes.s2, { name: 'Teslim Musteri' });
     const order = await createOrder(fresh.db, fresh.scopes.s2, {
@@ -338,69 +402,23 @@ describe('merkez', () => {
     await confirmOrder(fresh.db, fresh.scopes.s2, order.id);
 
     const detail = await getOrder(fresh.db, fresh.scopes.s2, order.id);
-    const yatakComponent = detail.lines[0].components.find(
-      (component) => component.stockItemId === set.yatak.id,
-    );
+    const yatak = detail.lines[0].components.find((c) => c.stockItemId === set.yatak.id);
 
     await createDelivery(fresh.db, fresh.scopes.s1, {
       orderId: order.id,
-      lines: [{ orderLineComponentId: yatakComponent!.id, quantity: 1 }],
+      lines: [{ orderLineComponentId: yatak!.id, quantity: 1 }],
     });
 
-    expect((await getAvailability(fresh.db, fresh.scopes.s2.branchId, set.yatak.id)).onHand).toBe(9);
-    expect((await getAvailability(fresh.db, fresh.scopes.s1.branchId, set.yatak.id)).onHand).toBe(4);
+    expect(
+      (await getAvailability(fresh.db, fresh.scopes.s1.stockBranchId, set.yatak.id)).onHand,
+    ).toBe(9);
 
     await fresh.close();
   });
 
-  it('yeni kayitlari kendi subesine acar', async () => {
-    const customer = await createCustomer(ctx.db, merkez, { name: 'Merkezin Musterisi' });
-    expect(customer.branchId).toBe(merkez.branchId);
-    await expect(getCustomer(ctx.db, s2, customer.id)).rejects.toThrow('Musteri bulunamadi');
-  });
-});
-
-/**
- * Depolar ayri. Bir donem stok tek havuzdu ve bu bloktaki testler tersini
- * bekliyordu; isletme iki depoyu ayri yurutmeye gecince kural dondu.
- */
-describe('stok izolasyonu', () => {
-  it('bir subenin rezervasyonu digerinin stogunu etkilemez', async () => {
+  it('mal kabul ayni depodan satan iki subeye de yansir', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, fresh.scopes.s1.branchId, {
-      model: 'AYRI',
-      size: '160x200',
-      stock: 10,
-    });
-    // Ayni karttan Sube 2'nin deposunda da var.
-    await applyMovements(fresh.db, fresh.scopes.s2.branchId, [
-      { stockItemId: set.yatak.id, quantityChange: 6, movementType: 'goods_receipt' },
-    ]);
-
-    const customer = await createCustomer(fresh.db, fresh.scopes.s1, { name: 'Rezerve Eden' });
-    const order = await createOrder(fresh.db, fresh.scopes.s1, {
-      customerId: customer.id,
-      orderDate: '2026-08-10',
-      deliveryAddress: 'Adres',
-      lines: [
-        { itemType: 'product', productId: set.product.id, quantity: 3, unitPriceKurus: 100_000 },
-      ],
-    });
-    await confirmOrder(fresh.db, fresh.scopes.s1, order.id);
-
-    const central = await getAvailability(fresh.db, fresh.scopes.s1.branchId, set.yatak.id);
-    expect(central).toEqual({ onHand: 10, reserved: 3, available: 7 });
-
-    // Sube 2 kendi rafina bakiyor: ne adedi ne serbest stogu degisti.
-    const other = await getAvailability(fresh.db, fresh.scopes.s2.branchId, set.yatak.id);
-    expect(other).toEqual({ onHand: 6, reserved: 0, available: 6 });
-
-    await fresh.close();
-  });
-
-  it('mal kabul yalnizca kaydi giren subenin stogunu artirir', async () => {
-    const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, fresh.scopes.s1.branchId, {
+    const set = await makeBedSet(fresh.db, fresh.scopes.s1.stockBranchId, {
       model: 'MALKB',
       size: '160x200',
       stock: 0,
@@ -411,48 +429,28 @@ describe('stok izolasyonu', () => {
       lines: [{ stockItemId: set.yatak.id, quantity: 5 }],
     });
 
-    expect((await getAvailability(fresh.db, fresh.scopes.s2.branchId, set.yatak.id)).onHand).toBe(5);
-    expect((await getAvailability(fresh.db, fresh.scopes.s1.branchId, set.yatak.id)).onHand).toBe(0);
+    expect(
+      (await getAvailability(fresh.db, fresh.scopes.s1.stockBranchId, set.yatak.id)).onHand,
+    ).toBe(5);
+    // Giris belgesi de ortak: depoda "bu adet nereden geldi" sorusu
+    // cevapsiz kalmasin.
+    expect(await listGoodsReceipts(fresh.db, fresh.scopes.s1)).toHaveLength(1);
+    expect(await listGoodsReceipts(fresh.db, fresh.scopes.s2)).toHaveLength(1);
 
     await fresh.close();
   });
 
   /**
-   * Mal kabul bir stok belgesidir: hangi parcadan kac adet girdigini yazar.
-   * Merkez digerinin stogunu gormedigi icin bu belgeyi de gormemeli.
+   * Adet karsiya gecer, satis bilgisi gecmez: depocu stogun neden yetmedigini
+   * gorur ama diger subenin musterisini gormez.
    */
-  it('mal kabul kaydi yalnizca kendi subesinde gorunur', async () => {
+  it('rezervasyonun sebebi karsi subeye "Diger sube" olarak gorunur', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, fresh.scopes.s2.branchId, {
-      model: 'MKGZ',
-      size: '160x200',
-      stock: 0,
-    });
-
-    const receipt = await createGoodsReceipt(fresh.db, fresh.scopes.s2, {
-      receivedAt: '2026-08-10',
-      lines: [{ stockItemId: set.yatak.id, quantity: 5 }],
-    });
-
-    expect(await listGoodsReceipts(fresh.db, fresh.scopes.s2)).toHaveLength(1);
-    expect(await listGoodsReceipts(fresh.db, fresh.scopes.s1)).toHaveLength(0);
-    await expect(getGoodsReceipt(fresh.db, fresh.scopes.s1, receipt.id)).rejects.toThrow(
-      'Mal kabul kaydi bulunamadi',
-    );
-
-    await fresh.close();
-  });
-
-  it('rezervasyon dokumu yalnizca kendi subesinin siparislerini sayar', async () => {
-    const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, fresh.scopes.s1.branchId, {
+    const set = await makeBedSet(fresh.db, fresh.scopes.s1.stockBranchId, {
       model: 'SEBEP',
       size: '160x200',
       stock: 10,
     });
-    await applyMovements(fresh.db, fresh.scopes.s2.branchId, [
-      { stockItemId: set.yatak.id, quantityChange: 10, movementType: 'goods_receipt' },
-    ]);
 
     const customer = await createCustomer(fresh.db, fresh.scopes.s1, { name: 'Ayse Kaya' });
     const order = await createOrder(fresh.db, fresh.scopes.s1, {
@@ -465,14 +463,43 @@ describe('stok izolasyonu', () => {
     });
     await confirmOrder(fresh.db, fresh.scopes.s1, order.id);
 
-    expect(
-      await getReservationBreakdown(fresh.db, fresh.scopes.s1.branchId, set.yatak.id),
-    ).toEqual([{ orderId: order.id, orderNo: expect.any(String), label: 'Ayse Kaya', quantity: 2 }]);
+    // Merkez butun siparisleri yonettigi icin adiyla gorur.
+    expect(await getReservationBreakdown(fresh.db, fresh.scopes.s1, set.yatak.id)).toEqual([
+      { orderId: order.id, orderNo: expect.any(String), label: 'Ayse Kaya', quantity: 2 },
+    ]);
 
-    // Sube 2'nin rafinda bu siparisin bir karsiligi yok.
+    // Sube 2 adedi gorur, musteriyi ve siparis numarasini gormez.
+    expect(await getReservationBreakdown(fresh.db, fresh.scopes.s2, set.yatak.id)).toEqual([
+      { orderId: null, orderNo: null, label: 'Diger sube', quantity: 2 },
+    ]);
+
+    await fresh.close();
+  });
+
+  it('kendi deposu olan sube ayri kalir', async () => {
+    const fresh = await createTestDb();
+    const s2 = fresh.scopes.s2;
+
+    // Sube 2 kendi deposuna geciriliyor: ikinci bir fiziksel depo acilirsa
+    // degisecek tek sey bu.
+    await fresh.db
+      .update(branches)
+      .set({ stockBranchId: s2.branchId })
+      .where(eq(branches.id, s2.branchId));
+    const ownWarehouse: Scope = { ...s2, stockBranchId: s2.branchId };
+
+    const set = await makeBedSet(fresh.db, fresh.scopes.s1.stockBranchId, {
+      model: 'AYRIDEPO',
+      size: '160x200',
+      stock: 10,
+    });
+
     expect(
-      await getReservationBreakdown(fresh.db, fresh.scopes.s2.branchId, set.yatak.id),
-    ).toEqual([]);
+      (await getAvailability(fresh.db, ownWarehouse.stockBranchId, set.yatak.id)).onHand,
+    ).toBe(0);
+    expect(
+      (await getAvailability(fresh.db, fresh.scopes.s1.stockBranchId, set.yatak.id)).onHand,
+    ).toBe(10);
 
     await fresh.close();
   });
@@ -523,12 +550,13 @@ describe('raporlar', () => {
   });
 
   /**
-   * Stok degeri ciro degil stok rakami: merkez de yalnizca kendi deposunu
-   * gorur, kirilimda hic yer almaz.
+   * Stok degeri ciro degil stok rakami: subeye degil depoya bakar. Iki sube
+   * ayni depoyu paylastigi icin ayni rakami gorur, kirilimda ise hic yer
+   * almaz — depo subeye bolunemez.
    */
-  it('stok degeri her zaman kendi deposudur', async () => {
+  it('stok degeri depodan gelir, sube kiriliminda yer almaz', async () => {
     const fresh = await createTestDb();
-    const set = await makeBedSet(fresh.db, fresh.scopes.s1.branchId, {
+    const set = await makeBedSet(fresh.db, fresh.scopes.s1.stockBranchId, {
       model: 'DEGER',
       size: '160x200',
       stock: 0,
@@ -539,7 +567,7 @@ describe('raporlar', () => {
       .set({ purchasePriceKurus: 100_000 })
       .where(eq(stockItems.id, set.yatak.id));
 
-    await applyMovements(fresh.db, fresh.scopes.s1.branchId, [
+    await applyMovements(fresh.db, fresh.scopes.s1.stockBranchId, [
       { stockItemId: set.yatak.id, quantityChange: 2, movementType: 'goods_receipt' },
     ]);
 
@@ -547,7 +575,8 @@ describe('raporlar', () => {
     const branch = await getPeriodSummary(fresh.db, fresh.scopes.s2, '2026-08-01', '2026-08-31');
 
     expect(central.stockValueKurus).toBe(200_000);
-    expect(branch.stockValueKurus).toBe(0);
+    expect(branch.stockValueKurus).toBe(200_000);
+    expect(Object.keys(central.branches[0])).not.toContain('stockValueKurus');
 
     await fresh.close();
   });

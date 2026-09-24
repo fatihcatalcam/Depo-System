@@ -11,8 +11,10 @@ export interface TestDb {
   db: Db;
   /** Merkez (S1). Testlerin cogu tek subeyle calisir; kisayol olarak burada. */
   scope: Scope;
-  /** Merkezin kimligi — stok fonksiyonlari ve ham `insert` yapan sema testleri icin. */
+  /** Merkezin kimligi — ham `insert` yapan sema testleri icin. */
   branchId: string;
+  /** Merkezin bagli oldugu depo; stok fonksiyonlari bunu ister. */
+  warehouseId: string;
   /** Izolasyon testleri icin iki sube: merkez ve sube 2. */
   scopes: { s1: Scope; s2: Scope };
   close: () => Promise<void>;
@@ -34,7 +36,7 @@ export async function createTestDb(): Promise<TestDb> {
   const find = (code: string) => {
     const row = rows.find((entry) => entry.code === code);
     if (!row) throw new Error(`${code} subesi yok — 0004 gocu uygulanmadi mi?`);
-    return branchScope(row.id, row.code, row.isCentral);
+    return branchScope(row.id, row.code, row.isCentral, row.stockBranchId);
   };
 
   const scopes = { s1: find('S1'), s2: find('S2') };
@@ -43,6 +45,7 @@ export async function createTestDb(): Promise<TestDb> {
     db: db as unknown as Db,
     scope: scopes.s1,
     branchId: scopes.s1.branchId,
+    warehouseId: scopes.s1.stockBranchId,
     scopes,
     close: () => client.close(),
   };

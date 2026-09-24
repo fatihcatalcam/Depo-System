@@ -23,10 +23,10 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   manual: 'Elle duzeltme',
 };
 
-/** Bir kartin **bir subedeki** hareket gecmisi. */
+/** Bir kartin **bir depodaki** hareket gecmisi. */
 export async function listStockHistory(
   db: DbOrTx,
-  branchId: string,
+  warehouseId: string,
   stockItemId: string,
   limit = 100,
 ): Promise<StockHistoryEntry[]> {
@@ -35,7 +35,7 @@ export async function listStockHistory(
     .from(stockMovements)
     .where(
       and(
-        eq(stockMovements.branchId, branchId),
+        eq(stockMovements.branchId, warehouseId),
         eq(stockMovements.stockItemId, stockItemId),
       ),
     )
