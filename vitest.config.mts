@@ -16,6 +16,14 @@ export default defineConfig({
     maxWorkers: 4,
   },
   resolve: {
-    alias: { '@': new URL('./src/', import.meta.url).pathname },
+    alias: {
+      '@': new URL('./src/', import.meta.url).pathname,
+      // `server-only` sunucu bileseninde bos bir modul, baska her yerde
+      // bilerek hata firlatan bir modul olarak cozuluyor. Testler alan
+      // fonksiyonlarini dogrudan cagiriyor — yani sunucu tarafindayiz — ama
+      // Node cozumleyicisi React'in `react-server` kosulunu bilmiyor ve
+      // paket testi istemci sanip patliyor. Bos surumune yonlendiriyoruz.
+      'server-only': new URL('./node_modules/server-only/empty.js', import.meta.url).pathname,
+    },
   },
 });

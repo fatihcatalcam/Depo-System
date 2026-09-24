@@ -1,3 +1,12 @@
+// Bu modul yalnizca sunucuda calisir. Bir istemci bileseni dolayli yoldan
+// buraya ulasirsa derleme HATA verir — sessizce gecip tarayicida
+// "The original argument must be of type Function" diye dusmez.
+//
+// Bir kez dustu: siparis modulu, parola ozetleme kodunu cagiran
+// `domain/branches.ts`'den bir fonksiyon import ediyordu; bir istemci
+// bileseni de siparis modulunden bir deger aliyordu. Zincir `node:crypto`ya
+// kadar uzandi ve siparis detay sayfasi tarayicida acilmaz oldu.
+import 'server-only';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 

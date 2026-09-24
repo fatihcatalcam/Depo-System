@@ -13,11 +13,11 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
-import { warehouseOf } from '@/domain/branches';
 import { createCustomer } from '@/domain/parties/parties';
 import { ownBranch, scopeFilter, type Scope } from '@/domain/scope';
 import { getReservedQuantities } from '@/domain/stock/availability';
 import { applyMovements } from '@/domain/stock/movements';
+import { warehouseOf } from '@/domain/stock/warehouse';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
 

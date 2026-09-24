@@ -11,8 +11,8 @@ import {
 import type { DbOrTx, Tx } from '@/db/types';
 import { recalcOrderStatus } from '@/domain/orders/orders';
 import { scopeFilter, type Scope } from '@/domain/scope';
-import { warehouseOf } from '@/domain/branches';
 import { applyMovements } from '@/domain/stock/movements';
+import { warehouseOf } from '@/domain/stock/warehouse';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
 

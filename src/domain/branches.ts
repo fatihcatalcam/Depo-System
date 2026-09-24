@@ -45,22 +45,6 @@ export async function listLoginableBranches(db: DbOrTx): Promise<BranchSummary[]
   return rows.filter((row) => row.isActive && row.hasPassword);
 }
 
-/**
- * Bir subenin mallarinin durdugu deponun kimligi.
- *
- * Belgeden yurüyen stok hareketleri icin: teslimat ve iptal iadesi
- * **siparisin** subesine bakar, oturumdakine degil, ama adet o subenin
- * deposundan duser.
- */
-export async function warehouseOf(db: DbOrTx, branchId: string): Promise<string> {
-  const [row] = await db
-    .select({ stockBranchId: branches.stockBranchId })
-    .from(branches)
-    .where(eq(branches.id, branchId));
-  if (!row) throw new NotFoundError('Sube');
-  return row.stockBranchId;
-}
-
 export async function getBranch(db: DbOrTx, id: string): Promise<Branch> {
   const [row] = await db.select().from(branches).where(eq(branches.id, id));
   if (!row) throw new NotFoundError('Sube');
