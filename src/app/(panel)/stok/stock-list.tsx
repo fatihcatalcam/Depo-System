@@ -208,14 +208,28 @@ function Row({
         </span>
       ) : null}
 
-      <div className="order-last min-w-32 flex-1 basis-full sm:order-none sm:basis-auto">
-        <QuickNote
-          stockItemId={item.id}
-          stockItemName={item.name}
-          note={item.notes}
-          locked={locked}
-        />
-      </div>
+      {/*
+        Not kutusu boyut satirinda, model satirinda degil. Sebebi: not bir
+        boyuta ait ("160x200 siparis bekliyor"), ustelik 567 parcanin 8'inde
+        not var — 60 tek boyutlu modelin her birine bos kutu koymak, listeden
+        temizledigimiz gurultuyu geri getirir. Tek boyutlu modelin notu kart
+        sayfasindan yazilir, varsa burada okunur.
+
+        Kutu kendi satirina inmiyor: acik grupta on boyut varsa yirmi satir
+        olur ve boyutlari tarayan goz yine yoruluyor.
+      */}
+      {indented ? (
+        <div className="min-w-24 flex-1">
+          <QuickNote
+            stockItemId={item.id}
+            stockItemName={item.name}
+            note={item.notes}
+            locked={locked}
+          />
+        </div>
+      ) : item.notes ? (
+        <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">{item.notes}</span>
+      ) : null}
 
       <div className="ml-auto shrink-0">
         <QuickAdjust
