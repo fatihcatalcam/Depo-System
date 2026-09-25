@@ -16,7 +16,7 @@ import { addPayment, deletePayment } from '@/domain/orders/payments';
 import { searchCustomers } from '@/domain/parties/parties';
 import { currentScope } from '@/lib/auth/current';
 import { DomainError, NegativeStockError } from '@/lib/errors';
-import { parseTlInput } from '@/lib/money';
+import { parseRateInput, parseTlInput, TRY_RATE, type Currency } from '@/lib/money';
 
 export interface ActionResult {
   ok: boolean;
@@ -83,6 +83,23 @@ function parseManualTotal(value: string | undefined): number | null | undefined 
   return value.trim() === '' ? null : parseTlInput(value);
 }
 
+/**
+ * Formdan gelen para birimi ve kuru alan katmaninin bekledigi bicime cevirir.
+ *
+ * TL'de kur hic gonderilmez: kuru tanim geregi 1,0000 ve alan katmani onu
+ * kendisi koyuyor. Bos birakilmis kur `undefined` olarak geciyor ki
+ * "degistirme" ile "sifirla" birbirine karismasin.
+ */
+function currencyFields(
+  currency?: Currency,
+  exchangeRate?: string,
+): { currency?: Currency; exchangeRate?: number } {
+  if (!currency) return {};
+  if (currency === 'TRY') return { currency, exchangeRate: TRY_RATE };
+  const trimmed = exchangeRate?.trim();
+  return { currency, exchangeRate: trimmed ? parseRateInput(trimmed) : undefined };
+}
+
 const orderSchema = z.object({
   ...invoiceShape,
   // Yeni sipariste zorunlu: prim buna gore hesaplaniyor, sonradan "bunu kim
@@ -92,6 +109,8 @@ const orderSchema = z.object({
   customerId: z.uuid().optional(),
   newCustomerName: z.string().optional(),
   orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.'),
+  currency: z.enum(['TRY', 'USD', 'EUR']).optional(),
+  exchangeRate: z.string().optional(),
   plannedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   deliveryAddress: z.string().min(1, 'Teslimat adresi girin.'),
   deliveryPhone: z.string().optional(),
@@ -132,6 +151,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
           }
         : undefined,
       orderDate: parsed.data.orderDate,
+      ...currencyFields(parsed.data.currency, parsed.data.exchangeRate),
       salespersonId: parsed.data.salespersonId,
       plannedDeliveryDate: parsed.data.plannedDeliveryDate ?? null,
       deliveryAddress: parsed.data.deliveryAddress,
@@ -197,6 +217,8 @@ const orderPatchSchema = z.object({
   deliveryPhone: z.string().optional(),
   deliveryPhone2: z.string().optional(),
   deliveryNotes: z.string().optional(),
+  currency: z.enum(['TRY', 'USD', 'EUR']).optional(),
+  exchangeRate: z.string().optional(),
   discount: z.string().optional(),
   manualTotal: z.string().optional(),
   notes: z.string().optional(),
@@ -218,6 +240,7 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
       deliveryPhone2: parsed.data.deliveryPhone2,
       deliveryNotes: parsed.data.deliveryNotes,
       notes: parsed.data.notes,
+      ...currencyFields(parsed.data.currency, parsed.data.exchangeRate),
       discountKurus:
         parsed.data.discount !== undefined ? parseTlInput(parsed.data.discount || '0') : undefined,
       manualTotalKurus: parseManualTotal(parsed.data.manualTotal),

@@ -130,10 +130,10 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
                 <>
                   {/* Musteriye giden kagitta "0,00 TL" degil "Hediye" yaziyor. */}
                   <td className="py-2 text-right tabular-nums">
-                    {line.isGift ? '—' : formatKurus(line.unitPriceKurus)}
+                    {line.isGift ? '—' : formatKurus(line.unitPriceKurus, { currency: order.currency })}
                   </td>
                   <td className="py-2 text-right tabular-nums">
-                    {line.isGift ? 'Hediye' : formatKurus(line.lineTotalKurus)}
+                    {line.isGift ? 'Hediye' : formatKurus(line.lineTotalKurus, { currency: order.currency })}
                   </td>
                 </>
               ) : null}
@@ -150,33 +150,33 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
             <>
               <div className="flex justify-between">
                 <dt>Ara toplam</dt>
-                <dd className="tabular-nums">{formatKurus(order.subtotalKurus)}</dd>
+                <dd className="tabular-nums">{formatKurus(order.subtotalKurus, { currency: order.currency })}</dd>
               </div>
               {order.discountKurus > 0 ? (
                 <div className="flex justify-between">
                   <dt>Iskonto</dt>
-                  <dd className="tabular-nums">-{formatKurus(order.discountKurus)}</dd>
+                  <dd className="tabular-nums">-{formatKurus(order.discountKurus, { currency: order.currency })}</dd>
                 </div>
               ) : null}
             </>
           ) : null}
           <div className="flex justify-between border-t border-neutral-400 pt-1 font-bold">
             <dt>Genel toplam</dt>
-            <dd className="tabular-nums">{formatKurus(order.totalKurus)}</dd>
+            <dd className="tabular-nums">{formatKurus(order.totalKurus, { currency: order.currency })}</dd>
           </div>
           {order.depositKurus > 0 ? (
             <div className="flex justify-between">
               <dt>Alinan ucret (kapora)</dt>
-              <dd className="tabular-nums">{formatKurus(order.depositKurus)}</dd>
+              <dd className="tabular-nums">{formatKurus(order.depositKurus, { currency: order.currency })}</dd>
             </div>
           ) : null}
           <div className="flex justify-between">
             <dt>Odenen</dt>
-            <dd className="tabular-nums">{formatKurus(order.paidKurus)}</dd>
+            <dd className="tabular-nums">{formatKurus(order.paidKurus, { currency: order.currency })}</dd>
           </div>
           <div className="flex justify-between border-t border-neutral-300 pt-1 text-base font-bold">
             <dt>Kalan</dt>
-            <dd className="tabular-nums">{formatKurus(order.balanceKurus)}</dd>
+            <dd className="tabular-nums">{formatKurus(order.balanceKurus, { currency: order.currency })}</dd>
           </div>
         </dl>
       </div>
@@ -191,7 +191,7 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
                   {formatDate(payment.paidAt)} · {PAYMENT_METHOD_LABELS[payment.method]}
                   {payment.notes ? ` · ${payment.notes}` : ''}
                 </span>
-                <span className="tabular-nums">{formatKurus(payment.amountKurus)}</span>
+                <span className="tabular-nums">{formatKurus(payment.amountKurus, { currency: order.currency })}</span>
               </li>
             ))}
           </ul>

@@ -3,7 +3,7 @@ import { db } from '@/db/client';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
 import { ORDER_STATUS_LABELS, listOrders } from '@/domain/orders/orders';
 import { currentScope } from '@/lib/auth/current';
-import { formatKurus } from '@/lib/money';
+import { formatKurus, toTryKurus } from '@/lib/money';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
   dateStyle: 'short',
@@ -32,7 +32,9 @@ export default async function AnaSayfa() {
   );
   const openBalance = orders
     .filter((order) => order.status !== 'cancelled')
-    .reduce((sum, order) => sum + Math.max(0, order.balanceKurus), 0);
+    // Siparisler farkli para birimlerinden olabilir; tek rakam ancak TL
+    // karsiliklari toplanarak cikar.
+    .reduce((sum, order) => sum + Math.max(0, toTryKurus(order.balanceKurus, order.exchangeRate)), 0);
   const todaysDeliveries = active.filter((order) => order.plannedDeliveryDate === today);
   const overdue = active.filter(
     (order) => order.plannedDeliveryDate && order.plannedDeliveryDate < today,
@@ -55,7 +57,7 @@ export default async function AnaSayfa() {
           href="/siparisler/bekleyen"
         />
         <Card
-          label="Kalan alacak"
+          label="Kalan alacak (TL karsiligi)"
           value={formatKurus(openBalance)}
           href="/siparisler"
           danger={openBalance > 0}

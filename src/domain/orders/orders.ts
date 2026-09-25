@@ -20,6 +20,7 @@ import { applyMovements } from '@/domain/stock/movements';
 import { warehouseOf } from '@/domain/stock/warehouse';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
+import { RATE_SCALE, TRY_RATE, type Currency } from '@/lib/money';
 
 export type Order = typeof orders.$inferSelect;
 export type OrderStatus = Order['status'];
@@ -109,6 +110,16 @@ export interface CreateOrderInput extends InvoiceInput {
   newCustomer?: NewCustomerInput;
   /** ISO tarih (YYYY-MM-DD). */
   orderDate: string;
+  /**
+   * Siparisin para birimi. Verilmezse TL. Satir fiyatlari, toplam ve
+   * tahsilatlar hep bu birimden okunur.
+   */
+  currency?: Currency;
+  /**
+   * Bir birimin kurus karsiligi x 10.000. TL'de verilmesi gerekmez.
+   * Doviz siparisinde zorunlu: raporlarin TL karsiligi buradan cikiyor.
+   */
+  exchangeRate?: number;
   /** Siparisi satan calisan; prim buna gore hesaplaniyor. */
   salespersonId?: string | null;
   plannedDeliveryDate?: string | null;
@@ -159,6 +170,7 @@ export async function createOrder(
         orderNo,
         customerId,
         orderDate: input.orderDate,
+        ...resolveCurrency(input.currency, input.exchangeRate),
         salespersonId: input.salespersonId || null,
         plannedDeliveryDate: input.plannedDeliveryDate ?? null,
         deliveryAddress: address,
@@ -237,6 +249,13 @@ function invoiceValues(input: InvoiceInput) {
 export interface UpdateOrderInput extends InvoiceInput {
   /** ISO tarih (YYYY-MM-DD). */
   orderDate?: string;
+  /**
+   * Para birimi ve kur yalnizca **taslak** ve **tahsilati olmayan** sipariste
+   * degistirilebilir. Alinmis para baska bir birimdeyse siparisin birimini
+   * degistirmek o tahsilati anlamsiz kilardi.
+   */
+  currency?: Currency;
+  exchangeRate?: number;
   /** `null` saticiyi kaldirir; gonderilmezse mevcut korunur. */
   salespersonId?: string | null;
   plannedDeliveryDate?: string | null;
@@ -278,6 +297,8 @@ export async function updateOrder(
 
     const address = input.deliveryAddress?.trim() ?? existing.deliveryAddress;
     if (address === '') throw new DomainError('Teslimat adresi bos olamaz.', 'INVALID_INPUT');
+
+    const money = await resolveCurrencyUpdate(tx, id, existing, input);
 
     // Isten ayrilan saticinin eski siparisi duzenlenebilmeli: adi zaten
     // kayitliysa dokunmuyoruz. Yalnizca yeni atanan satici aktif olmali.
@@ -328,6 +349,8 @@ export async function updateOrder(
             ? input.deliveryNotes?.trim() || null
             : existing.deliveryNotes,
         notes: input.notes !== undefined ? input.notes?.trim() || null : existing.notes,
+        currency: money.currency,
+        exchangeRate: money.exchangeRate,
         discountKurus: totals.discount,
         subtotalKurus: totals.subtotal,
         manualTotalKurus: totals.manualTotal,
@@ -915,6 +938,83 @@ function computeTotals(
   manualTotalKurus?: number | null,
 ) {
   return resolveTotals(sumLines(lines), discountKurus, manualTotalKurus);
+}
+
+/**
+ * Para birimi ve kuru birlikte dogrular.
+ *
+ * TL'nin kuru tanim geregi 1,0000; disaridan baska bir sey gelirse ayni tutar
+ * raporda baska cikardi. Dovizde kur zorunlu: kursuz bir doviz siparisi
+ * raporlarda TL karsiligi hesaplanamayan bir satir birakir.
+ */
+function resolveCurrency(
+  currency: Currency = 'TRY',
+  exchangeRate?: number,
+): { currency: Currency; exchangeRate: number } {
+  if (currency === 'TRY') return { currency, exchangeRate: TRY_RATE };
+
+  if (exchangeRate == null) {
+    throw new DomainError('Doviz siparisinde kur girilmeli.', 'RATE_REQUIRED');
+  }
+  if (!Number.isInteger(exchangeRate) || exchangeRate <= 0) {
+    throw new DomainError('Kur sifirdan buyuk olmali.', 'INVALID_RATE');
+  }
+  // 10.000 = 1,0000. Dovizin kuru 1'in altinda olamaz: TL'nin daha degerli
+  // oldugu bir para birimi satmiyoruz, boyle bir deger yazim hatasidir.
+  if (exchangeRate < RATE_SCALE) {
+    throw new DomainError('Kur 1,0000 degerinden kucuk olamaz.', 'INVALID_RATE');
+  }
+
+  return { currency, exchangeRate };
+}
+
+/**
+ * Duzenlemede para birimi degisikligi.
+ *
+ * Yalnizca taslak ve tahsilati olmayan sipariste serbest. Alinmis para baska
+ * bir birimdeyse siparisin birimini degistirmek o tahsilati anlamsiz kilar:
+ * "500 alindi" yazar ama neyden 500 oldugu belirsizlesirdi.
+ *
+ * Kur, para birimi ayni kalsa bile guncellenebilir — yanlis girilmis bir kur
+ * duzeltilebilmeli.
+ */
+async function resolveCurrencyUpdate(
+  tx: Tx,
+  orderId: string,
+  existing: Order,
+  input: UpdateOrderInput,
+): Promise<{ currency: Currency; exchangeRate: number }> {
+  const wantsCurrency = input.currency !== undefined && input.currency !== existing.currency;
+  const wantsRate = input.exchangeRate !== undefined && input.exchangeRate !== existing.exchangeRate;
+  if (!wantsCurrency && !wantsRate) {
+    return { currency: existing.currency, exchangeRate: existing.exchangeRate };
+  }
+
+  if (wantsCurrency) {
+    if (existing.status !== 'draft') {
+      throw new DomainError(
+        'Onaylanmis siparisin para birimi degistirilemez.',
+        'CURRENCY_LOCKED',
+      );
+    }
+
+    const [paid] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(payments)
+      .where(eq(payments.orderId, orderId));
+
+    if (Number(paid?.count ?? 0) > 0) {
+      throw new DomainError(
+        'Tahsilat girilmis siparisin para birimi degistirilemez. Once odemeleri silin.',
+        'CURRENCY_LOCKED',
+      );
+    }
+  }
+
+  return resolveCurrency(
+    input.currency ?? existing.currency,
+    input.exchangeRate ?? existing.exchangeRate,
+  );
 }
 
 function resolveTotals(

@@ -85,6 +85,13 @@
       "when": 1790247917941,
       "tag": "0011_ortak-depo",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790277116356,
+      "tag": "0012_para-birimi",
+      "breakpoints": true
     }
   ]
 }

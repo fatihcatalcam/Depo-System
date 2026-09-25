@@ -31,6 +31,7 @@ export const TABLE_ORDER = [
   'suppliers',
   'customers',
   'document_counters',
+  'exchange_rates',
   'goods_receipts',
   'goods_receipt_lines',
   'orders',

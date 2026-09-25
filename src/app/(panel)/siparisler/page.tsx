@@ -8,7 +8,7 @@ import {
   type OrderStatus,
 } from '@/domain/orders/orders';
 import { currentUser } from '@/lib/auth/current';
-import { formatKurus } from '@/lib/money';
+import { formatKurus, toTryKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
@@ -54,7 +54,8 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
   const orders = await listOrders(db, user.scope, { status });
   const openBalance = orders
     .filter((order) => order.status !== 'cancelled')
-    .reduce((sum, order) => sum + Math.max(0, order.balanceKurus), 0);
+    // Farkli para birimlerindeki bakiyeler ancak TL karsiligiyla toplanir.
+    .reduce((sum, order) => sum + Math.max(0, toTryKurus(order.balanceKurus, order.exchangeRate)), 0);
 
   return (
     <div className="space-y-4">
@@ -150,14 +151,16 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                       {PAYMENT_STATUS_LABELS[order.paymentStatus]}
                     </div>
                   </td>
-                  <td className="p-3 text-right tabular-nums">{formatKurus(order.totalKurus)}</td>
+                  <td className="p-3 text-right tabular-nums">
+                    {formatKurus(order.totalKurus, { currency: order.currency })}
+                  </td>
                   <td
                     className={cn(
                       'p-3 text-right font-semibold tabular-nums',
                       order.balanceKurus > 0 ? 'text-red-600' : 'text-neutral-500',
                     )}
                   >
-                    {formatKurus(order.balanceKurus)}
+                    {formatKurus(order.balanceKurus, { currency: order.currency })}
                   </td>
                 </tr>
               ))}

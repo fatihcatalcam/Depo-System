@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, sql, type Column, type SQL } from 'drizzle-orm';
 import {
   branches,
   deliveries,
@@ -9,6 +9,7 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
+import { RATE_SCALE } from '@/lib/money';
 import { scopeFilter, type Scope } from './scope';
 
 export interface TopProductRow {
@@ -33,9 +34,9 @@ export interface PeriodSummary {
   to: string;
   /** Donemde olusturulan, iptal olmayan siparis sayisi. */
   orderCount: number;
-  /** Donemde olusturulan siparislerin toplam tutari. */
+  /** Donemde olusturulan siparislerin toplam tutari, **TL karsiligi**. */
   revenueKurus: number;
-  /** Donemde fiilen tahsil edilen tutar. */
+  /** Donemde fiilen tahsil edilen tutar, **TL karsiligi**. */
   collectedKurus: number;
   /** Donemde yapilan teslimat belgesi sayisi. */
   deliveryCount: number;
@@ -59,6 +60,22 @@ export interface PeriodSummary {
 
 const OPEN_STATUSES = ['draft', 'confirmed', 'partially_delivered', 'delivered'] as const;
 
+/**
+ * Bir tutarin TL karsiligi.
+ *
+ * Siparis dolar ya da euro olabiliyor; farkli para birimlerindeki tutarlar
+ * toplanamaz. Kur siparisin uzerinde kayitli oldugu icin cevrim gecmise
+ * sadik: kur bugun degisse bile eski siparis kendi gunundeki karsiligiyla
+ * kalir.
+ *
+ * Yuvarlama satir satir yapiliyor, toplamdan sonra degil — `toTryKurus`
+ * (src/lib/money.ts) ile ayni sonucu versin diye. `numeric` kullaniliyor,
+ * cunku tam sayi bolmesi her satirda asagi yuvarlayip toplami kaydirirdi.
+ */
+function tryEquivalent(column: Column): SQL<number> {
+  return sql<number>`round(${column}::numeric * ${orders.exchangeRate} / ${RATE_SCALE})`;
+}
+
 export async function getPeriodSummary(
   db: DbOrTx,
   scope: Scope,
@@ -81,7 +98,7 @@ export async function getPeriodSummary(
     .select({
       branchId: orders.branchId,
       count: sql<number>`count(*)::int`,
-      revenue: sql<number>`coalesce(sum(${orders.totalKurus}), 0)::bigint`,
+      revenue: sql<number>`coalesce(sum(${tryEquivalent(orders.totalKurus)}), 0)::bigint`,
     })
     .from(orders)
     .where(periodOrders)
@@ -92,7 +109,7 @@ export async function getPeriodSummary(
   const collected = await db
     .select({
       branchId: orders.branchId,
-      total: sql<number>`coalesce(sum(${payments.amountKurus}), 0)::bigint`,
+      total: sql<number>`coalesce(sum(${tryEquivalent(payments.amountKurus)}), 0)::bigint`,
     })
     .from(payments)
     .innerJoin(orders, eq(orders.id, payments.orderId))
@@ -121,14 +138,15 @@ export async function getPeriodSummary(
   const balances = db
     .select({
       branchId: orders.branchId,
-      balance: sql<number>`${orders.totalKurus} - coalesce(sum(${payments.amountKurus}), 0)`.as(
-        'balance',
-      ),
+      balance:
+        sql<number>`${tryEquivalent(orders.totalKurus)} - coalesce(sum(${tryEquivalent(payments.amountKurus)}), 0)`.as(
+          'balance',
+        ),
     })
     .from(orders)
     .leftJoin(payments, eq(payments.orderId, orders.id))
     .where(and(inArray(orders.status, [...OPEN_STATUSES]), branchOnly))
-    .groupBy(orders.id, orders.branchId, orders.totalKurus)
+    .groupBy(orders.id, orders.branchId, orders.totalKurus, orders.exchangeRate)
     .as('balances');
 
   const outstanding = await db
@@ -151,7 +169,7 @@ export async function getPeriodSummary(
     .select({
       description: orderLines.description,
       quantity: sql<number>`sum(${orderLines.quantity})::int`,
-      revenue: sql<number>`coalesce(sum(${orderLines.lineTotalKurus}), 0)::bigint`,
+      revenue: sql<number>`coalesce(sum(${tryEquivalent(orderLines.lineTotalKurus)}), 0)::bigint`,
     })
     .from(orderLines)
     .innerJoin(orders, eq(orders.id, orderLines.orderId))

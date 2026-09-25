@@ -7,7 +7,7 @@ import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
 import { listPayments } from '@/domain/orders/payments';
 import { currentScope } from '@/lib/auth/current';
 import { NotFoundError } from '@/lib/errors';
-import { formatKurus } from '@/lib/money';
+import { formatKurus, formatRate, toTryKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { DeliveryForm } from './delivery-form';
 import { DeliveryPlan } from './delivery-plan';
@@ -161,13 +161,13 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                       ) : null}
                     </span>
                     <span className="text-sm tabular-nums">
-                      {formatKurus(line.lineTotalKurus)}
+                      {formatKurus(line.lineTotalKurus, { currency: order.currency })}
                     </span>
                   </div>
                   <div className="text-xs text-neutral-400">
                     {line.isGift
-                      ? `hediye · degeri ${formatKurus(line.unitPriceKurus * line.quantity)}`
-                      : `birim ${formatKurus(line.unitPriceKurus)}`}
+                      ? `hediye · degeri ${formatKurus(line.unitPriceKurus * line.quantity, { currency: order.currency })}`
+                      : `birim ${formatKurus(line.unitPriceKurus, { currency: order.currency })}`}
                   </div>
 
                   {line.components.length > 0 ? (
@@ -210,12 +210,12 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
             <div className="space-y-1 border-t border-neutral-200 bg-neutral-50 p-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-neutral-600">Ara toplam</span>
-                <span className="tabular-nums">{formatKurus(order.subtotalKurus)}</span>
+                <span className="tabular-nums">{formatKurus(order.subtotalKurus, { currency: order.currency })}</span>
               </div>
               {order.discountKurus > 0 ? (
                 <div className="flex justify-between">
                   <span className="text-neutral-600">Iskonto</span>
-                  <span className="tabular-nums">-{formatKurus(order.discountKurus)}</span>
+                  <span className="tabular-nums">-{formatKurus(order.discountKurus, { currency: order.currency })}</span>
                 </div>
               ) : null}
               <div className="flex justify-between font-semibold">
@@ -229,8 +229,19 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                     </span>
                   ) : null}
                 </span>
-                <span className="tabular-nums">{formatKurus(order.totalKurus)}</span>
+                <span className="tabular-nums">
+                  {formatKurus(order.totalKurus, { currency: order.currency })}
+                </span>
               </div>
+
+              {/* Doviz sipariste kur ve TL karsiligi gorunur olmali: raporlara
+                  bu rakam giriyor, dogrulugu buradan kontrol edilebilsin. */}
+              {order.currency === 'TRY' ? null : (
+                <p className="text-right text-xs text-neutral-500">
+                  1 {order.currency} = {formatRate(order.exchangeRate)} ₺ · TL karsiligi{' '}
+                  {formatKurus(toTryKurus(order.totalKurus, order.exchangeRate))}
+                </p>
+              )}
             </div>
           </section>
 
@@ -278,6 +289,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
           paidKurus={order.paidKurus}
           depositKurus={order.depositKurus}
           balanceKurus={order.balanceKurus}
+          currency={order.currency}
           payments={payments}
           canAddPayment={order.status !== 'cancelled'}
           // Taslak sipariste yalnizca kapora alinabilir: musteri parayi

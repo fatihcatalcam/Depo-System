@@ -31,7 +31,7 @@ export default async function SoforKagidiPage({ searchParams }: PageProps) {
         <>
           <p className="mb-4 text-sm">
             {shipment.stops.length} durak · {shipment.totalPieces} parca · tahsil edilecek toplam{' '}
-            <strong>{formatKurus(shipment.totalCollectionKurus)}</strong>
+            <strong>{formatKurus(shipment.totalCollectionKurus)}</strong> (TL karsiligi)
           </p>
 
           {shipment.stops.map((stop, index) => (
@@ -76,7 +76,9 @@ export default async function SoforKagidiPage({ searchParams }: PageProps) {
                 <div className="text-right">
                   <div className="text-xs uppercase text-neutral-600">Tahsil edilecek</div>
                   <div className="text-lg font-bold tabular-nums">
-                    {stop.balanceKurus > 0 ? formatKurus(stop.balanceKurus) : 'Odendi'}
+                    {stop.balanceKurus > 0
+                      ? formatKurus(stop.balanceKurus, { currency: stop.currency })
+                      : 'Odendi'}
                   </div>
                 </div>
               </div>

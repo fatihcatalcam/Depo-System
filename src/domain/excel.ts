@@ -10,10 +10,15 @@ import { adjustStockCount } from '@/domain/stock/counting';
 import { createCustomer, searchCustomers } from '@/domain/parties/parties';
 import { getPeriodSummary } from '@/domain/reports';
 import { DomainError } from '@/lib/errors';
-import { kurusToTl } from '@/lib/money';
+import { kurusToTl, RATE_SCALE, toTryKurus } from '@/lib/money';
 
 /** Tutarlar Excel'de sayi olarak yazilir ki muhasebeci uzerinde islem yapabilsin. */
 const MONEY_FORMAT = '#,##0.00 ₺';
+/**
+ * Para birimi siparise gore degistigi icin simgesiz bicim: sutun basliginda
+ * hangi birim oldugu yaziyor, hucreye sabit bir simge basmak yanlis olurdu.
+ */
+const PLAIN_MONEY_FORMAT = '#,##0.00';
 
 function styleHeader(sheet: ExcelJS.Worksheet) {
   sheet.getRow(1).font = { bold: true };
@@ -127,9 +132,14 @@ export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Bu
     { header: 'Satici', key: 'salesperson', width: 22 },
     { header: 'Planlanan teslimat', key: 'delivery', width: 18 },
     { header: 'Durum', key: 'status', width: 18 },
-    { header: 'Toplam', key: 'total', width: 14, style: { numFmt: MONEY_FORMAT } },
-    { header: 'Odenen', key: 'paid', width: 14, style: { numFmt: MONEY_FORMAT } },
-    { header: 'Kalan', key: 'balance', width: 14, style: { numFmt: MONEY_FORMAT } },
+    // Tutarlar siparisin kendi para biriminden; muhasebeci hangi birim
+    // oldugunu gormeden toplayamaz. TL karsiligi ayri sutunda.
+    { header: 'Para birimi', key: 'currency', width: 12 },
+    { header: 'Kur', key: 'rate', width: 12, style: { numFmt: '#,##0.0000' } },
+    { header: 'Toplam', key: 'total', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
+    { header: 'Odenen', key: 'paid', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
+    { header: 'Kalan', key: 'balance', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
+    { header: 'Toplam (TL)', key: 'totalTry', width: 16, style: { numFmt: MONEY_FORMAT } },
   ];
 
   for (const order of orders) {
@@ -140,9 +150,12 @@ export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Bu
       salesperson: order.salespersonName ?? '',
       delivery: order.plannedDeliveryDate ?? '',
       status: order.status,
+      currency: order.currency,
+      rate: order.exchangeRate / RATE_SCALE,
       total: kurusToTl(order.totalKurus),
       paid: kurusToTl(order.paidKurus),
       balance: kurusToTl(order.balanceKurus),
+      totalTry: kurusToTl(toTryKurus(order.totalKurus, order.exchangeRate)),
     });
   }
   styleHeader(sheet);
@@ -154,14 +167,18 @@ export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Bu
     { header: 'Musteri', key: 'customer', width: 30 },
     { header: 'Siparis no', key: 'no', width: 16 },
     { header: 'Tarih', key: 'date', width: 12 },
-    { header: 'Kalan', key: 'balance', width: 14, style: { numFmt: MONEY_FORMAT } },
+    { header: 'Para birimi', key: 'currency', width: 12 },
+    { header: 'Kalan', key: 'balance', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
+    { header: 'Kalan (TL)', key: 'balanceTry', width: 16, style: { numFmt: MONEY_FORMAT } },
   ];
   for (const order of open) {
     debts.addRow({
       customer: order.customerName,
       no: order.orderNo,
       date: order.orderDate,
+      currency: order.currency,
       balance: kurusToTl(order.balanceKurus),
+      balanceTry: kurusToTl(toTryKurus(order.balanceKurus, order.exchangeRate)),
     });
   }
   styleHeader(debts);

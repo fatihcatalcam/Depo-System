@@ -7,7 +7,13 @@ import { QuantityInput } from '@/components/quantity-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatKurus, kurusToTl, parseTlInput } from '@/lib/money';
+import {
+  CURRENCY_LABELS,
+  formatKurus,
+  kurusToTl,
+  parseTlInput,
+  type Currency,
+} from '@/lib/money';
 import {
   createOrderAction,
   searchCustomersAction,
@@ -108,11 +114,29 @@ export interface OrderFormValues {
   invoice: InvoiceFields;
   notes: string;
   lines: LineRow[];
+  currency: Currency;
+  /** Kur, "42,1573" bicimindeki metin. TL sipariste bos. */
+  exchangeRate: string;
+  /**
+   * Para birimi degistirilemez: siparis onaylanmis ya da tahsilat girilmis.
+   * Kur yine de duzeltilebilir.
+   */
+  currencyLocked?: boolean;
+}
+
+/** Gunun kuru; sunucu sayfasi TCMB onbelleginden getiriyor. */
+export interface RateOption {
+  rate: string;
+  date: string;
+  /** Bugunun kuru degil, elde kalan en son kur. */
+  stale: boolean;
 }
 
 interface OrderFormProps {
   /** Secilebilecek saticilar; sunucu sayfasi getiriyor. */
   salespeople: SalespersonOption[];
+  /** Doviz kurlari. Bos gelirse kullanici kuru elle yazar. */
+  rates?: Partial<Record<Currency, RateOption>>;
   /** Doluysa form duzenleme kipinde acilir. */
   initial?: OrderFormValues;
   submitLabel?: string;
@@ -124,6 +148,9 @@ export interface OrderSubmitInput {
   newCustomerName?: string;
   salespersonId: string;
   orderDate: string;
+  currency: Currency;
+  /** "42,1573" bicimli metin; TL'de bos. */
+  exchangeRate?: string;
   plannedDeliveryDate: string | null;
   deliveryAddress: string;
   deliveryPhone?: string;
@@ -151,7 +178,13 @@ export interface OrderSubmitInput {
   }[];
 }
 
-export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: OrderFormProps) {
+export function OrderForm({
+  salespeople,
+  rates,
+  initial,
+  submitLabel,
+  onSubmit,
+}: OrderFormProps) {
   const [customer, setCustomer] = useState<SelectedCustomer | null>(initial?.customer ?? null);
   const [salespersonId, setSalespersonId] = useState(initial?.salespersonId ?? '');
   const [customerQuery, setCustomerQuery] = useState('');
@@ -166,6 +199,8 @@ export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: Order
   const [phone, setPhone] = useState(initial?.phone ?? '');
   const [phone2, setPhone2] = useState(initial?.phone2 ?? '');
   const [deliveryNotes, setDeliveryNotes] = useState(initial?.deliveryNotes ?? '');
+  const [currency, setCurrency] = useState<Currency>(initial?.currency ?? 'TRY');
+  const [exchangeRate, setExchangeRate] = useState(initial?.exchangeRate ?? '');
   const [discount, setDiscount] = useState(initial?.discount ?? '');
   const [manualTotal, setManualTotal] = useState(initial?.manualTotal ?? '');
   const [invoice, setInvoice] = useState<InvoiceFields>(initial?.invoice ?? EMPTY_INVOICE);
@@ -256,6 +291,15 @@ export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: Order
   const total = manualTotalKurus ?? autoTotal;
   const depositKurus = safeKurus(depositAmount);
 
+  // Kurun nereden geldigi gorunur olmali: eski bir kurla siparis girmek,
+  // raporlardaki TL karsiligini sessizce kaydirir.
+  const rateSource = currency === 'TRY' ? undefined : rates?.[currency];
+  const rateNote = rateSource
+    ? rateSource.stale
+      ? `Guncel kur alinamadi. ${rateSource.date} tarihli kur getirildi, gerekirse duzeltin.`
+      : `${rateSource.date} tarihli TCMB satis kuru. Gerekirse duzeltin.`
+    : 'Kur otomatik alinamadi, elle girin.';
+
   return (
     <form
       className="max-w-3xl space-y-6"
@@ -271,12 +315,18 @@ export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: Order
           toast.error('Satici secin.');
           return;
         }
+        if (currency !== 'TRY' && exchangeRate.trim() === '') {
+          toast.error('Kur girin. Raporlarda TL karsiligi buradan hesaplaniyor.');
+          return;
+        }
         startTransition(async () => {
           const input: OrderSubmitInput = {
             customerId: customer.kind === 'existing' ? customer.id : undefined,
             newCustomerName: customer.kind === 'new' ? customer.name : undefined,
             salespersonId,
             orderDate,
+            currency,
+            exchangeRate: currency === 'TRY' ? undefined : exchangeRate,
             plannedDeliveryDate: plannedDeliveryDate || null,
             deliveryAddress: address,
             deliveryPhone: phone || undefined,
@@ -670,7 +720,7 @@ export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: Order
                       Hediye
                     </span>
                   ) : (
-                    formatKurus(safeKurus(line.unitPrice) * line.quantity)
+                    formatKurus(safeKurus(line.unitPrice) * line.quantity, { currency })
                   )}
                 </span>
                 <Button
@@ -688,16 +738,67 @@ export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: Order
       </section>
 
       <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
+        {/* Para birimi siparisin tamamini kapsar: satir fiyatlari, toplam ve
+            tahsilatlar hep bundan. Tahsilat girildikten sonra degistirilemez,
+            yoksa alinan paranin neyden oldugu belirsizlesirdi. */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-3">
+          <Label htmlFor="currency" className="text-neutral-600">
+            Para birimi
+          </Label>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <select
+              id="currency"
+              value={currency}
+              disabled={initial?.currencyLocked}
+              onChange={(event) => {
+                const next = event.target.value as Currency;
+                setCurrency(next);
+                // Kuru hazir getiriyoruz; kullanici uzerine yazabilir.
+                setExchangeRate(next === 'TRY' ? '' : (rates?.[next]?.rate ?? ''));
+              }}
+              className="h-11 rounded-md border border-neutral-300 bg-white px-3 text-sm disabled:bg-neutral-50 disabled:text-neutral-400"
+            >
+              {(Object.keys(CURRENCY_LABELS) as Currency[]).map((code) => (
+                <option key={code} value={code}>
+                  {CURRENCY_LABELS[code]}
+                </option>
+              ))}
+            </select>
+
+            {currency === 'TRY' ? null : (
+              <div className="flex items-center gap-2">
+                <Label htmlFor="exchange-rate" className="text-xs text-neutral-500">
+                  Kur
+                </Label>
+                <Input
+                  id="exchange-rate"
+                  value={exchangeRate}
+                  onChange={(event) => setExchangeRate(event.target.value)}
+                  placeholder="0,0000"
+                  aria-label="Kur"
+                  className="h-11 w-28 text-right"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {currency === 'TRY' ? null : (
+          <p className="text-right text-xs text-neutral-500">
+            {rateNote}
+          </p>
+        )}
+
         <div className="flex items-center justify-between text-sm">
           <span className="text-neutral-600">Ara toplam</span>
-          <span className="tabular-nums">{formatKurus(subtotal)}</span>
+          <span className="tabular-nums">{formatKurus(subtotal, { currency })}</span>
         </div>
         {giftValue > 0 ? (
           // Hediyenin bedeli musteriye yansimiyor ama patrona yansiyor;
           // toplamin yaninda gormek karari bilincli kiliyor.
           <div className="flex items-center justify-between text-sm text-green-700">
             <span>Hediye edilen</span>
-            <span className="tabular-nums">{formatKurus(giftValue)}</span>
+            <span className="tabular-nums">{formatKurus(giftValue, { currency })}</span>
           </div>
         ) : null}
         <div className="flex items-center justify-between gap-3 text-sm">
@@ -746,7 +847,7 @@ export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: Order
         </div>
         <p className="text-right text-xs text-neutral-500">
           {manualTotalKurus !== null
-            ? `Elle yazildi - satir toplami ${formatKurus(subtotal)}`
+            ? `Elle yazildi - satir toplami ${formatKurus(subtotal, { currency })}`
             : 'Bos birakirsaniz satirlardan hesaplanir.'}
         </p>
       </section>
@@ -787,7 +888,7 @@ export function OrderForm({ salespeople, initial, submitLabel, onSubmit }: Order
             <p className="text-sm text-neutral-600">
               Kalan:{' '}
               <strong className="tabular-nums">
-                {formatKurus(Math.max(0, total - depositKurus))}
+                {formatKurus(Math.max(0, total - depositKurus), { currency })}
               </strong>
             </p>
           ) : (

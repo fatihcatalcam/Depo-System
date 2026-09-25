@@ -1,11 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/db/client';
+import { getRates } from '@/domain/exchange-rates';
 import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
+import { listPayments } from '@/domain/orders/payments';
 import { listSalespeople } from '@/domain/parties/salespeople';
 import { currentScope } from '@/lib/auth/current';
 import { NotFoundError } from '@/lib/errors';
-import { kurusToTl } from '@/lib/money';
+import { formatRate, kurusToTl, type Currency } from '@/lib/money';
+import type { RateOption } from '../../order-form';
 import { EditOrderForm } from './edit-order-form';
 
 function toTlInput(kurus: number): string {
@@ -47,6 +50,8 @@ export default async function SiparisDuzenlePage({
 
   // Isten ayrilan saticinin eski siparisi acildiginda adi listede kalmali;
   // yoksa select bos gorunur ve kaydedince satici sessizce silinirdi.
+  const [payments, rates] = await Promise.all([listPayments(db, scope, id), getRates(db)]);
+
   const salespeople = (await listSalespeople(db, { includeInactive: true }))
     .filter((person) => person.isActive || person.id === order.salespersonId)
     .map((person) => ({ id: person.id, name: person.name }));
@@ -76,6 +81,7 @@ export default async function SiparisDuzenlePage({
         orderId={id}
         linesLocked={deliveredAny}
         salespeople={salespeople}
+        rates={toRateOptions(rates)}
         initial={{
           customer: {
             kind: 'existing',
@@ -106,6 +112,12 @@ export default async function SiparisDuzenlePage({
             date: order.invoiceDate ?? '',
           },
           notes: order.notes ?? '',
+          currency: order.currency,
+          // TL'de kur alani gizli; doviz sipariste mevcut kur hazir gelsin.
+          exchangeRate: order.currency === 'TRY' ? '' : formatRate(order.exchangeRate),
+          // Para birimi yalnizca taslak ve tahsilatsiz sipariste degisebilir:
+          // alinmis para baska bir birimdeyse o tahsilat anlamsizlasirdi.
+          currencyLocked: order.status !== 'draft' || payments.length > 0,
           lines: order.lines.map((line) => ({
             key: line.id,
             itemType: line.itemType,
@@ -124,4 +136,20 @@ export default async function SiparisDuzenlePage({
       </Link>
     </div>
   );
+}
+
+/** Kuru forma metin olarak veriyoruz: kullanici uzerine yazabilsin diye. */
+function toRateOptions(
+  rates: Awaited<ReturnType<typeof getRates>>,
+): Partial<Record<Currency, RateOption>> {
+  const result: Partial<Record<Currency, RateOption>> = {};
+  for (const [code, info] of Object.entries(rates)) {
+    if (!info) continue;
+    result[code as Currency] = {
+      rate: formatRate(info.rate),
+      date: info.date,
+      stale: info.stale,
+    };
+  }
+  return result;
 }

@@ -4,6 +4,10 @@
     {
       "path": "/api/yedek",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/kur",
+      "schedule": "0 6 * * 1-5"
     }
   ]
 }

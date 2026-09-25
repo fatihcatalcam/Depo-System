@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PAYMENT_METHOD_LABELS, type Payment, type PaymentMethod } from '@/domain/orders/payments';
-import { formatKurus, kurusToTl } from '@/lib/money';
+import { formatKurus, kurusToTl, type Currency } from '@/lib/money';
 import { addPaymentAction, deletePaymentAction } from '../actions';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
@@ -22,6 +22,8 @@ interface Props {
   /** Odenenin kapora olarak alinmis kismi. */
   depositKurus: number;
   balanceKurus: number;
+  /** Siparisin para birimi; tutarlar bu simgeyle gosterilir. */
+  currency: Currency;
   payments: Payment[];
   canAddPayment: boolean;
   /**
@@ -37,6 +39,7 @@ export function PaymentPanel({
   paidKurus,
   depositKurus,
   balanceKurus,
+  currency,
   payments,
   canAddPayment,
   depositOnly,
@@ -56,22 +59,22 @@ export function PaymentPanel({
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between">
           <dt className="text-neutral-600">Siparis tutari</dt>
-          <dd className="tabular-nums">{formatKurus(totalKurus)}</dd>
+          <dd className="tabular-nums">{formatKurus(totalKurus, { currency })}</dd>
         </div>
         {depositKurus > 0 ? (
           <div className="flex justify-between">
             <dt className="text-neutral-600">Alinan ucret (kapora)</dt>
-            <dd className="tabular-nums text-green-700">{formatKurus(depositKurus)}</dd>
+            <dd className="tabular-nums text-green-700">{formatKurus(depositKurus, { currency })}</dd>
           </div>
         ) : null}
         <div className="flex justify-between">
           <dt className="text-neutral-600">Odenen</dt>
-          <dd className="tabular-nums text-green-700">{formatKurus(paidKurus)}</dd>
+          <dd className="tabular-nums text-green-700">{formatKurus(paidKurus, { currency })}</dd>
         </div>
         <div className="flex justify-between border-t border-neutral-200 pt-1 text-base font-semibold">
           <dt>Kalan</dt>
           <dd className={`tabular-nums ${balanceKurus > 0 ? 'text-red-600' : 'text-neutral-500'}`}>
-            {formatKurus(balanceKurus)}
+            {formatKurus(balanceKurus, { currency })}
           </dd>
         </div>
       </dl>
@@ -81,7 +84,7 @@ export function PaymentPanel({
           {payments.map((payment) => (
             <li key={payment.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="min-w-0">
-                <span className="tabular-nums">{formatKurus(payment.amountKurus)}</span>
+                <span className="tabular-nums">{formatKurus(payment.amountKurus, { currency })}</span>
                 {payment.isDeposit ? (
                   <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
                     Kapora

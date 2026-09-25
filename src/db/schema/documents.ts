@@ -14,7 +14,12 @@ import {
 } from 'drizzle-orm/pg-core';
 import { branches } from './branches';
 import { products, stockItems } from './catalog';
-import { orderLineItemTypeEnum, orderStatusEnum, paymentMethodEnum } from './enums';
+import {
+  currencyEnum,
+  orderLineItemTypeEnum,
+  orderStatusEnum,
+  paymentMethodEnum,
+} from './enums';
 import { customers, salespeople, suppliers } from './parties';
 
 /**
@@ -81,6 +86,20 @@ export const orders = pgTable(
     salespersonId: uuid('salesperson_id').references(() => salespeople.id, {
       onDelete: 'restrict',
     }),
+    /**
+     * Siparisin para birimi. Satir fiyatlari, toplamlar ve tahsilatlar hep
+     * bundan; siparis icinde karisik para birimi yok.
+     */
+    currency: currencyEnum('currency').notNull().default('TRY'),
+    /**
+     * Bir birimin **kurus karsiligi x 10.000**. 1 USD = 42,1573 TL ise
+     * `421573`. TL siparislerde her zaman `10000`.
+     *
+     * Tam sayi, cunku ondalikli sayi tutarlari bozar (bkz. `src/lib/money.ts`).
+     * Siparise kaydediliyor: kur yarin degisse bile bu siparisin raporlardaki
+     * TL karsiligi girildigi gunku kurla kalir.
+     */
+    exchangeRate: integer('exchange_rate').notNull().default(10_000),
     plannedDeliveryDate: date('planned_delivery_date'),
     // Anlik kopya: musteri adresini sonradan degistirse bile siparis nereye
     // gittiyse orada kalir.
@@ -125,6 +144,12 @@ export const orders = pgTable(
     // Prim hesabi "bu ay kim ne satti" diye soruyor.
     index('orders_salesperson_date_idx').on(t.salespersonId, t.orderDate),
     check('orders_discount_chk', sql`${t.discountKurus} >= 0`),
+    // TL'nin kuru tanim geregi 1,0000. Baska bir deger girilirse ayni tutar
+    // raporda baska cikardi.
+    check(
+      'orders_currency_rate_chk',
+      sql`(${t.currency}::text <> 'TRY' OR ${t.exchangeRate} = 10000) AND ${t.exchangeRate} > 0`,
+    ),
     check(
       'orders_manual_total_chk',
       sql`${t.manualTotalKurus} IS NULL OR ${t.manualTotalKurus} >= 0`,

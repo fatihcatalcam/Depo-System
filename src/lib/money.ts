@@ -29,8 +29,64 @@ export function parseTlInput(input: string): number {
   return Number(whole) * 100 + Number(kurusPart);
 }
 
+/**
+ * Desteklenen para birimleri. Sipariste secilir; sistemin geri kalani (stok
+ * degeri, alis fiyati, urun fiyati) her zaman TL.
+ */
+export type Currency = 'TRY' | 'USD' | 'EUR';
+
+export const CURRENCY_SYMBOLS: Record<Currency, string> = {
+  TRY: '₺',
+  USD: '$',
+  EUR: '€',
+};
+
+export const CURRENCY_LABELS: Record<Currency, string> = {
+  TRY: '₺ Turk Lirasi',
+  USD: '$ Dolar',
+  EUR: '€ Euro',
+};
+
+/** Kur olcegi: 1 birimin kurus karsiligi bu sayiyla carpilmis tam sayidir. */
+export const RATE_SCALE = 10_000;
+
+/** TL siparislerin kuru tanim geregi 1,0000. */
+export const TRY_RATE = RATE_SCALE;
+
+/**
+ * Siparisin kendi para birimindeki tutari TL karsiligina cevirir.
+ *
+ * Raporlar bunu kullanir: farkli para birimlerindeki siparisler ancak tek bir
+ * birime cevrildikten sonra toplanabilir.
+ */
+export function toTryKurus(amount: number, exchangeRate: number): number {
+  return Math.round((amount * exchangeRate) / RATE_SCALE);
+}
+
+/** Kullanicinin yazdigi kuru ("42,1573") tam sayi olcegine cevirir. */
+export function parseRateInput(input: string): number {
+  const cleaned = input.replace(/\s/g, '').replace(/\./g, '');
+  if (!/^\d+(,\d{1,4})?$/.test(cleaned)) {
+    throw new Error(`Gecersiz kur: ${input}`);
+  }
+  const [whole, fraction = ''] = cleaned.split(',');
+  return Number(whole) * RATE_SCALE + Number(fraction.padEnd(4, '0'));
+}
+
+/** Kuru ekranda gosterilecek bicime cevirir: 421573 -> "42,1573". */
+export function formatRate(rate: number): string {
+  const whole = Math.floor(rate / RATE_SCALE);
+  const fraction = (rate % RATE_SCALE).toString().padStart(4, '0');
+  return `${whole},${fraction}`;
+}
+
 export interface FormatOptions {
   withSymbol?: boolean;
+  /**
+   * Varsayilan TL: siparisle ilgisi olmayan cagri yerleri (stok degeri, urun
+   * fiyati, mal kabul) hicbir sey gecirmeden calismaya devam etsin diye.
+   */
+  currency?: Currency;
 }
 
 /**
@@ -39,7 +95,7 @@ export interface FormatOptions {
  * testleri kirilgan yapar.
  */
 export function formatKurus(kurus: number, options: FormatOptions = {}): string {
-  const { withSymbol = true } = options;
+  const { withSymbol = true, currency = 'TRY' } = options;
   const negative = kurus < 0;
   const absolute = Math.abs(kurus);
 
@@ -48,5 +104,5 @@ export function formatKurus(kurus: number, options: FormatOptions = {}): string 
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
   const body = `${negative ? '-' : ''}${grouped},${fraction}`;
-  return withSymbol ? `${body} ₺` : body;
+  return withSymbol ? `${body} ${CURRENCY_SYMBOLS[currency]}` : body;
 }

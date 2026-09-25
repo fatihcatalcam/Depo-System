@@ -10,6 +10,15 @@ export const orderStatusEnum = pgEnum('order_status', [
 
 export const paymentMethodEnum = pgEnum('payment_method', ['nakit', 'havale', 'kart', 'cek']);
 
+/**
+ * Siparisin para birimi.
+ *
+ * Bazi siparisler dolar ya da euro uzerinden aliniyor. Secim siparisin
+ * tamamini kapsar: satir fiyatlari, genel toplam ve tahsilatlar hep ayni
+ * birimden.
+ */
+export const currencyEnum = pgEnum('currency', ['TRY', 'USD', 'EUR']);
+
 export const movementTypeEnum = pgEnum('movement_type', [
   'goods_receipt',
   'delivery',

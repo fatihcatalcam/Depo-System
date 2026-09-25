@@ -8,6 +8,7 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
+import { toTryKurus, type Currency } from '@/lib/money';
 import { scopeFilter, type Scope } from './scope';
 
 export interface ShipmentItem {
@@ -34,8 +35,11 @@ export interface ShipmentStop {
   items: ShipmentItem[];
   totalKurus: number;
   paidKurus: number;
-  /** Sofore "su kadar tahsil et" demek icin. */
+  /** Sofore "su kadar tahsil et" demek icin. Siparisin kendi para biriminden. */
   balanceKurus: number;
+  /** Tutarlarin para birimi; sofor kagidinda dogru simge cikmali. */
+  currency: Currency;
+  exchangeRate: number;
 }
 
 export interface DailyShipment {
@@ -155,6 +159,8 @@ export async function getDailyShipment(
       totalKurus: row.order.totalKurus,
       paidKurus,
       balanceKurus: row.order.totalKurus - paidKurus,
+      currency: row.order.currency,
+      exchangeRate: row.order.exchangeRate,
     };
   });
 
@@ -179,6 +185,11 @@ export async function getDailyShipment(
     stops,
     pickingList,
     totalPieces: pickingList.reduce((sum, item) => sum + item.quantity, 0),
-    totalCollectionKurus: stops.reduce((sum, stop) => sum + Math.max(0, stop.balanceKurus), 0),
+    // Duraklar farkli para birimlerinden olabilir; gunun toplami ancak TL
+    // karsiliklari toplanarak anlamli olur.
+    totalCollectionKurus: stops.reduce(
+      (sum, stop) => sum + Math.max(0, toTryKurus(stop.balanceKurus, stop.exchangeRate)),
+      0,
+    ),
   };
 }

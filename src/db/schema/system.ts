@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigserial,
   check,
+  date,
   index,
   integer,
   pgTable,
@@ -12,7 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { branches } from './branches';
 import { stockItems } from './catalog';
-import { movementTypeEnum } from './enums';
+import { currencyEnum, movementTypeEnum } from './enums';
 
 /**
  * Degistirilemez kayit defteri. Her stok degisikliginin tek dogru kaynagi.
@@ -48,6 +49,31 @@ export const stockMovements = pgTable(
     index('stock_movements_item_idx').on(t.branchId, t.stockItemId, t.seq),
     index('stock_movements_ref_idx').on(t.referenceType, t.referenceId),
     check('stock_movements_change_chk', sql`${t.quantityChange} <> 0`),
+  ],
+);
+
+/**
+ * Gunluk doviz kurunun onbellegi.
+ *
+ * Kur TCMB'den cekiliyor ve buraya yaziliyor. Iki isi goruyor: her siparis
+ * girisinde disari cikmamak, ve servise ulasilamadiginda son bilinen kurla
+ * devam edebilmek — siparis girisi bir dis servisin ayakta olmasina
+ * baglanmamali.
+ *
+ * `rate`: bir birimin kurus karsiligi x 10.000 (orders.exchange_rate ile ayni
+ * olcek).
+ */
+export const exchangeRates = pgTable(
+  'exchange_rates',
+  {
+    date: date('date').notNull(),
+    currency: currencyEnum('currency').notNull(),
+    rate: integer('rate').notNull(),
+    fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.date, t.currency] }),
+    check('exchange_rates_rate_chk', sql`${t.rate} > 0`),
   ],
 );
 

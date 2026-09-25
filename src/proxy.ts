@@ -25,5 +25,5 @@ export const config = {
   // `api/yedek` de disarida: gunluk yedegi Vercel Cron cagiriyor, oturum
   // cerezi tasimiyor. Kendi kapisi var — `CRON_SECRET` basligi olmadan
   // istegi reddediyor.
-  matcher: ['/((?!giris|api/yedek|_next/|favicon.ico|manifest.webmanifest).*)'],
+  matcher: ['/((?!giris|api/yedek|api/kur|_next/|favicon.ico|manifest.webmanifest).*)'],
 };

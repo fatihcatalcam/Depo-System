@@ -113,3 +113,62 @@ sistem 452 adet oldugunu sanirdi.
 
 Ikinci bir fiziksel depo acilirsa degisecek tek sey `stock_branch_id`
 kolonundaki deger; kod ve semanin geri kalani hazir.
+
+
+---
+
+# Sipariste para birimi: TL / USD / EUR
+
+## Neden
+
+Bazi siparisler dolar ve euro uzerinden aliniyor. Sistemdeki her tutar tek
+para birimi varsayiyordu ve ekranda simge tek bir yerde sabit `₺` olarak
+basiliyordu.
+
+## Yapilanlar
+
+- [x] `orders.currency` (TRY/USD/EUR) ve `orders.exchange_rate` — kur, bir
+      birimin kurus karsiligi x 10.000 olarak tam sayi. Veritabani kisiti
+      TL'nin kurunu 1,0000'de tutuyor.
+- [x] Kur **siparise kaydediliyor**: kur yarin degisse bile eski siparisin
+      raporlardaki TL karsiligi girildigi gunku kurla kaliyor.
+- [x] `exchange_rates` tablosu: gunluk kurun onbellegi.
+- [x] `src/domain/exchange-rates.ts` — TCMB gunluk XML'inden satis kuru.
+      Servise ulasilamazsa **hata atmiyor**: son bilinen kuru `stale` isaretiyle
+      donuyor, o da yoksa kullanici elle yaziyor. Siparis girisi bir dis
+      servisin ayakta olmasina baglanmadi.
+- [x] `/api/kur` + hafta ici 06:00 cron: onbellek dukkan acilmadan dolsun.
+- [x] Formda para birimi secimi; doviz secilince kur hazir geliyor, uzerine
+      yazilabiliyor, hangi tarihin kuru oldugu yaninda yaziyor.
+- [x] Para birimi yalnizca **taslak ve tahsilatsiz** sipariste degistirilebilir.
+      Kur her zaman duzeltilebilir.
+- [x] `formatKurus(..., { currency })` — varsayilan TL, boylece siparisle
+      ilgisi olmayan cagri yerleri (stok degeri, urun fiyati) degismedi.
+- [x] Siparis listesi, detayi, tahsilat paneli, sevkiyat ve yazdirma
+      ciktilarinda dogru simge.
+- [x] **Toplamlar TL karsiligiyla**: raporlarda ciro/tahsilat/alacak, panodaki
+      ve listedeki acik bakiye, gunun sevkiyat tahsilati. Farkli para
+      birimlerindeki tutarlar cevrilmeden toplanamaz.
+- [x] Excel: "Para birimi", "Kur" ve "Toplam (TL)" sutunlari; alacak
+      sayfasinda "Kalan (TL)".
+
+## Dogrulama
+
+| Kontrol | Sonuc |
+|---|---|
+| `npm run lint` | temiz |
+| `npx tsc --noEmit` | temiz |
+| `npm test` | 36 dosya, 390 test, hepsi gecti |
+| `npm run build` | basarili |
+| Gocun canli veriyle denenmesi | transaction icinde uygulandi, ROLLBACK edildi; 14 siparisin hepsi TRY/1,0000 oldu, TL siparise yabanci kur yazilamadigi dogrulandi |
+
+## Kalan
+
+- [ ] `npm run db:migrate`
+- [ ] Deploy (`git push`)
+
+## Not
+
+`/api/kur` mevcut `CRON_SECRET` ile calisiyor, yeni bir ayar gerekmiyor. Cron
+ilk kez yarin sabah kosacak; o zamana kadar ilk doviz siparisinde kur zaten
+istek aninda cekiliyor.

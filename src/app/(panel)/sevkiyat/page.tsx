@@ -136,7 +136,8 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
 
                 {stop.balanceKurus > 0 ? (
                   <p className="mt-2 text-sm font-semibold text-red-600">
-                    Tahsil edilecek: {formatKurus(stop.balanceKurus)}
+                    Tahsil edilecek:{' '}
+                    {formatKurus(stop.balanceKurus, { currency: stop.currency })}
                   </p>
                 ) : (
                   <p className="mt-2 text-xs text-green-700">Odemesi tamamlanmis</p>

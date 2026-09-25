@@ -1,10 +1,12 @@
 'use client';
 
 import { updateOrderAction } from '../../actions';
+import type { Currency } from '@/lib/money';
 import {
   OrderForm,
   type OrderFormValues,
   type OrderSubmitInput,
+  type RateOption,
   type SalespersonOption,
 } from '../../order-form';
 
@@ -12,14 +14,17 @@ interface Props {
   orderId: string;
   initial: OrderFormValues;
   salespeople: SalespersonOption[];
+  rates?: Partial<Record<Currency, RateOption>>;
   /** Teslimati baslamis sipariste satirlar gonderilmez. */
   linesLocked: boolean;
 }
 
-export function EditOrderForm({ orderId, initial, salespeople, linesLocked }: Props) {
+export function EditOrderForm({ orderId, initial, salespeople, rates, linesLocked }: Props) {
   async function submit(input: OrderSubmitInput) {
     return updateOrderAction(orderId, {
       orderDate: input.orderDate,
+      currency: input.currency,
+      exchangeRate: input.exchangeRate,
       // Bos string bilerek gonderiliyor: saticiyi kaldirmak da bir secim.
       salespersonId: input.salespersonId,
       plannedDeliveryDate: input.plannedDeliveryDate,
@@ -47,6 +52,7 @@ export function EditOrderForm({ orderId, initial, salespeople, linesLocked }: Pr
   return (
     <OrderForm
       salespeople={salespeople}
+      rates={rates}
       initial={initial}
       submitLabel="Degisiklikleri kaydet"
       onSubmit={submit}
