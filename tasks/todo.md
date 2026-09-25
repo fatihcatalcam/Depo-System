@@ -164,11 +164,68 @@ basiliyordu.
 
 ## Kalan
 
-- [ ] `npm run db:migrate`
-- [ ] Deploy (`git push`)
+- [x] `npm run db:migrate`
+- [x] Deploy (`git push`)
 
 ## Not
 
 `/api/kur` mevcut `CRON_SECRET` ile calisiyor, yeni bir ayar gerekmiyor. Cron
 ilk kez yarin sabah kosacak; o zamana kadar ilk doviz siparisinde kur zaten
 istek aninda cekiliyor.
+
+
+---
+
+# Stok listesi: goz yormayan duzen
+
+## Neden
+
+567 parca duz bir tabloda siralaniyordu. Sorun tek tek satirlarda degil,
+tekrarda ve yogunlukta:
+
+- Ayni model adi arka arkaya on satirda tekrar ediyordu ("BAMBOO SLEEP BAZA"
+  x10), ayirt eden tek sey ikinci sutundaki boyuttu.
+- Satir basina uc sayi vardi: mevcut, rezerve, serbest. Rezerve olmayan
+  satirda (cogu satirda) mevcut ile serbest ayni sey.
+- Her satirda bir +/- kutusu **ve** bir not kutusu vardi: 200 satirda 400
+  giris alani.
+- Tablo 820 piksel genislik istiyordu; telefonda yan yana kaydirmak
+  gerekiyordu.
+- Liste sessizce 200 kayitta kesiliyordu; basliktaki sayi da 200 yaziyordu,
+  oysa depoda 567 parca var.
+
+## Yapilanlar
+
+- [x] `grouping.ts` — 567 parca 123 modele gruplandi. Model adi bir kez
+      yaziliyor, boyutlar altinda.
+- [x] Kapali grup basliginda **yalnizca stogu olan boyutlar** ozetleniyor
+      ("160x200: 2 · 180x200: 1"). "Neyimiz var" sorusu hicbir sey acmadan
+      cevaplaniyor; sifirlar grup acilinca gorunuyor.
+- [x] Sifir toplamli model soluk gri, dolu olan koyu ve kalin: goz kendiliginden
+      stogu olana gidiyor.
+- [x] Tek sayi: rezerve varsa "2 rezerve · 3 serbest" ayrica yaziliyor, yoksa
+      hic yazilmiyor.
+- [x] Tek boyutu olan 60 model icin grup kurulmuyor, dogrudan satir.
+- [x] Tablo kalkti; duzen dar ekrana siginiyor, yatay kaydirma yok.
+- [x] SKU listeden kalkti (kart sayfasinda duruyor, arama hala SKU ve barkodla
+      calisiyor).
+- [x] "Sadece stogu olanlar" ve "Hepsini ac/kapat" — bunlar adrese yazilmiyor,
+      filtre degil bakis acisi.
+- [x] 200 siniri kaldirildi; baslikta "123 model · 567 parca".
+- [x] Kapali grubun satirlari hic cizilmiyor: DOM 567 satir yerine 123 satir.
+
+## Dogrulama
+
+| Kontrol | Sonuc |
+|---|---|
+| `npm run lint` | temiz |
+| `npx tsc --noEmit` | temiz |
+| `npm test` | 37 dosya, 397 test (7'si yeni gruplama testi) |
+| `npm run build` | basarili |
+| Tarayici | canli veriyle bakildi |
+
+## Not
+
+Notlar yalnizca grup acikken gorunuyor. Bugun 567 parcanin 8'inde not var;
+notu olan parcayi aramadan bulmak gerekirse grup basligina kucuk bir isaret
+eklenebilir.

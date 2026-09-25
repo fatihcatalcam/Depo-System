@@ -8,13 +8,22 @@ import { isStockLocked } from '@/lib/auth/locks';
 import { cn } from '@/lib/utils';
 import { listCategoryTree } from '@/domain/catalog/categories';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
-import { QuickAdjust } from './quick-adjust';
-import { QuickNote } from './quick-note';
+import { groupStockItems, type StockListItem } from './grouping';
 import { StockFilters } from './stock-filters';
+import { StockList } from './stock-list';
 
 interface PageProps {
   searchParams: Promise<{ q?: string; kategori?: string }>;
 }
+
+/**
+ * Stok listesi butun kartlari gostermeli.
+ *
+ * Varsayilan sinir (200) urun secicileri icin var: orada kullanici yazdikca
+ * daralan bir liste soz konusu. Burada oyle degil — 567 kartin 200'unu
+ * gostermek, ekrandaki adedin neden eksik oldugunu aciklanamaz hale getirir.
+ */
+const LIST_LIMIT = 5000;
 
 export default async function StokPage({ searchParams }: PageProps) {
   const params = await searchParams;
@@ -25,15 +34,36 @@ export default async function StokPage({ searchParams }: PageProps) {
     listStockItemsWithAvailability(db, scope.stockBranchId, {
       query: params.q,
       categoryId: params.kategori || null,
+      limit: LIST_LIMIT,
     }),
   ]);
+
+  // Istemciye yalnizca listenin kullandigi alanlar gidiyor: kart tablosunun
+  // tamami (barkod, alis fiyati, tarihler) 567 kez tasinacak veri degil.
+  const rows: StockListItem[] = items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    sizeLabel: item.sizeLabel,
+    onHand: item.onHand,
+    reserved: item.reserved,
+    available: item.available,
+    isBelowMinimum: item.isBelowMinimum,
+    notes: item.notes,
+  }));
+
+  // Arama birkac model birakir, gruplari acik getirmek dogru. Kategori secimi
+  // oyle degil: "Yatak" tek basina 180 parca, acik gelirse hicbir sey kazanmiyoruz.
+  const searching = Boolean(params.q?.trim());
+  const modelCount = groupStockItems(rows).length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">Stok</h1>
-          <p className="text-sm text-neutral-500">{items.length} parca listeleniyor</p>
+          <p className="text-sm text-neutral-500">
+            {modelCount} model · {rows.length} parca
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <LockToggle locked={locked} />
@@ -47,66 +77,16 @@ export default async function StokPage({ searchParams }: PageProps) {
         <StockFilters categories={categories} />
       </Suspense>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-        <table className="w-full min-w-[820px] text-sm">
-          <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-xs uppercase text-neutral-500">
-            <tr>
-              <th className="p-3">Parca</th>
-              <th className="p-3">Boyut</th>
-              <th className="p-3 text-center">Mevcut</th>
-              <th className="p-3 text-right">Rezerve</th>
-              <th className="p-3 text-right">Serbest</th>
-              <th className="p-3">Not</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-b border-neutral-100 last:border-0">
-                <td className="p-3">
-                  <Link href={`/stok/${item.id}`} className="font-medium hover:underline">
-                    {item.name}
-                  </Link>
-                  <div className="text-xs text-neutral-400">{item.sku}</div>
-                </td>
-                <td className="p-3 text-neutral-600">
-                  {item.sizeLabel ?? '—'}
-                  {item.variantLabel ? (
-                    <div className="text-xs text-neutral-400">{item.variantLabel}</div>
-                  ) : null}
-                </td>
-                <td className="p-2">
-                  <QuickAdjust
-                    stockItemId={item.id}
-                    stockItemName={item.name}
-                    onHand={item.onHand}
-                    locked={locked}
-                  />
-                </td>
-                <td className="p-3 text-right tabular-nums text-neutral-500">{item.reserved}</td>
-                <td
-                  className={`p-3 text-right font-semibold tabular-nums ${
-                    item.isBelowMinimum ? 'text-red-600' : 'text-neutral-900'
-                  }`}
-                >
-                  {item.available}
-                </td>
-                <td className="w-56 p-2 align-top">
-                  <QuickNote
-                    stockItemId={item.id}
-                    stockItemName={item.name}
-                    note={item.notes}
-                    locked={locked}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {items.length === 0 ? (
-          <p className="p-6 text-center text-sm text-neutral-500">Kayit bulunamadi.</p>
-        ) : null}
-      </div>
+      {/*
+        Arama degisince liste bastan kuruluyor: acik/kapali secimleri onceki
+        sonuclara aitti, yeni sonuclarda tasimanin anlami yok.
+      */}
+      <StockList
+        key={`${params.q ?? ''}|${params.kategori ?? ''}`}
+        items={rows}
+        locked={locked}
+        defaultOpen={searching}
+      />
     </div>
   );
 }
