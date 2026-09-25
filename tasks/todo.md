@@ -222,10 +222,39 @@ tekrarda ve yogunlukta:
 | `npx tsc --noEmit` | temiz |
 | `npm test` | 37 dosya, 397 test (7'si yeni gruplama testi) |
 | `npm run build` | basarili |
-| Tarayici | canli veriyle bakildi |
+| Tarayici | canli veriyle bakildi: 375 px ve genis ekran, grup acma, arama, "sadece stogu olanlar" (51 grup + 4 tek satir = 55 model; veritabani da 55 diyor) |
 
 ## Not
 
-Notlar yalnizca grup acikken gorunuyor. Bugun 567 parcanin 8'inde not var;
-notu olan parcayi aramadan bulmak gerekirse grup basligina kucuk bir isaret
-eklenebilir.
+Not kutusu boyut satirinda, model satirinda degil: not bir boyuta ait ve 567
+parcanin 8'inde not var. Tek boyutlu modelin notu kart sayfasindan yazilir,
+varsa listede okunur. Notu olan parcayi aramadan bulmak gerekirse grup
+basligina kucuk bir isaret eklenebilir.
+
+---
+
+# Dolap govdelerine GVD, Latex Master baslik olculeri
+
+## Yapilanlar
+
+- [x] `0013_dolap-govde-latex-baslik.sql` — dolap govdesi olan 9 kartin sonuna
+      GVD eklendi. Kapak kartlarina dokunulmadi; ne olduklari adlarinda yaziyor.
+- [x] Ayni gocte LATEX MASTER BASLIK olculeri 10'ar cm buyudu:
+      150->160, 160->170, 180->190, 200->210.
+
+## Dogrulama
+
+| Kontrol | Sonuc |
+|---|---|
+| Gocun canli veriyle denenmesi | transaction icinde uygulandi, ROLLBACK edildi: tam 13 satir degisti, cift GVD yok, ayni ad+boyutta mukerrer kart olusmadi |
+| `npm test` | 37 dosya, 397 test (goc bos veritabaninda da sorunsuz kosuyor) |
+
+## Kalan
+
+- [ ] `npm run db:migrate` (0013)
+
+## Not
+
+Veride "DOKAP" yazan uc kart var (`... DOKAP 3 KAPI`) — "DOLAP" yazilacakken
+yazilmis gibi duruyor. Istenen sadece GVD eklemekti, o yuzden yazim oldugu
+gibi birakildi.

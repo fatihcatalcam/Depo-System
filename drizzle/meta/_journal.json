@@ -92,6 +92,13 @@
       "when": 1790277116356,
       "tag": "0012_para-birimi",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790363516356,
+      "tag": "0013_dolap-govde-latex-baslik",
+      "breakpoints": true
     }
   ]
 }
