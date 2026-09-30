@@ -1,6 +1,7 @@
 'use client';
 
 import { updateOrderAction } from '../../actions';
+import type { OrderCatalog } from '@/domain/orders/catalog';
 import type { Currency } from '@/lib/money';
 import {
   OrderForm,
@@ -14,12 +15,20 @@ interface Props {
   orderId: string;
   initial: OrderFormValues;
   salespeople: SalespersonOption[];
+  catalog: OrderCatalog;
   rates?: Partial<Record<Currency, RateOption>>;
   /** Teslimati baslamis sipariste satirlar gonderilmez. */
   linesLocked: boolean;
 }
 
-export function EditOrderForm({ orderId, initial, salespeople, rates, linesLocked }: Props) {
+export function EditOrderForm({
+  orderId,
+  initial,
+  salespeople,
+  catalog,
+  rates,
+  linesLocked,
+}: Props) {
   async function submit(input: OrderSubmitInput) {
     return updateOrderAction(orderId, {
       orderDate: input.orderDate,
@@ -52,6 +61,7 @@ export function EditOrderForm({ orderId, initial, salespeople, rates, linesLocke
   return (
     <OrderForm
       salespeople={salespeople}
+      catalog={catalog}
       rates={rates}
       initial={initial}
       submitLabel="Degisiklikleri kaydet"

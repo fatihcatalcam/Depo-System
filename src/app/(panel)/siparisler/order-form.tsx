@@ -1,12 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { QuantityInput } from '@/components/quantity-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { OrderCatalog } from '@/domain/orders/catalog';
+import { searchCatalog } from '@/lib/catalog-search';
 import {
   CURRENCY_LABELS,
   formatKurus,
@@ -14,11 +16,7 @@ import {
   parseTlInput,
   type Currency,
 } from '@/lib/money';
-import {
-  createOrderAction,
-  searchCustomersAction,
-  searchOrderItemsAction,
-} from './actions';
+import { createOrderAction, searchCustomersAction } from './actions';
 
 interface LineRow {
   key: string;
@@ -132,9 +130,21 @@ export interface RateOption {
   stale: boolean;
 }
 
+/** Arama kutusunda gosterilen en fazla sonuc, her grup icin. */
+const HIT_LIMIT = 15;
+
+/**
+ * Musteri aramasi sunucuda kaliyor (musteri sayisi buyuyecek), ama her tusta
+ * degil: yazmayi biraktiktan bu kadar sonra. Sunucu eylemleri sirayla
+ * calistigi icin her tus bir oncekini bekleyen bir istek demekti.
+ */
+const CUSTOMER_SEARCH_DELAY_MS = 200;
+
 interface OrderFormProps {
   /** Secilebilecek saticilar; sunucu sayfasi getiriyor. */
   salespeople: SalespersonOption[];
+  /** Urun aramasi bu katalogda, tarayicida yapiliyor. */
+  catalog: OrderCatalog;
   /** Doviz kurlari. Bos gelirse kullanici kuru elle yazar. */
   rates?: Partial<Record<Currency, RateOption>>;
   /** Doluysa form duzenleme kipinde acilir. */
@@ -180,6 +190,7 @@ export interface OrderSubmitInput {
 
 export function OrderForm({
   salespeople,
+  catalog,
   rates,
   initial,
   submitLabel,
@@ -210,22 +221,30 @@ export function OrderForm({
   const [lines, setLines] = useState<LineRow[]>(initial?.lines ?? []);
   const [customName, setCustomName] = useState('');
   const [itemQuery, setItemQuery] = useState('');
-  const [productHits, setProductHits] = useState<
-    { id: string; name: string; code: string; defaultPriceKurus: number | null }[]
-  >([]);
-  const [stockHits, setStockHits] = useState<
-    { id: string; name: string; sku: string; sizeLabel: string | null; variantLabel: string | null }[]
-  >([]);
+  // Sonuc listesi yalnizca arama kutusu kullanilirken acik; satir eklenince
+  // kapaniyor ki eklenen satirlar gorunsun.
+  const [itemsOpen, setItemsOpen] = useState(false);
+  const customerRequest = useRef(0);
+  const customerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  async function findCustomers(value: string) {
+  function findCustomers(value: string) {
     setCustomerQuery(value);
+    if (customerTimer.current) clearTimeout(customerTimer.current);
     if (value.trim().length < 2) {
+      // Yolda olan eski istegin sonucu, bosaltilmis listeyi geri doldurmasin.
+      customerRequest.current += 1;
       setCustomerHits([]);
       return;
     }
-    setCustomerHits(await searchCustomersAction(value));
+    customerTimer.current = setTimeout(async () => {
+      const request = ++customerRequest.current;
+      const hits = await searchCustomersAction(value);
+      // Yalnizca en son aramanin sonucu yaziliyor; gec gelen eski sonuc,
+      // yeni yazilanin ustune binmesin.
+      if (request === customerRequest.current) setCustomerHits(hits);
+    }, CUSTOMER_SEARCH_DELAY_MS);
   }
 
   function pickCustomer(hit: CustomerHit) {
@@ -244,18 +263,23 @@ export function OrderForm({
     setCustomerHits([]);
   }
 
-  async function findItems(value: string) {
-    setItemQuery(value);
-    const result = await searchOrderItemsAction(value);
-    setProductHits(result.products);
-    setStockHits(result.stockItems);
-  }
+  const productHits = useMemo(
+    () => (itemsOpen ? searchCatalog(catalog.products, itemQuery, HIT_LIMIT) : []),
+    [catalog.products, itemQuery, itemsOpen],
+  );
+  // Tek parcalar 570 civarinda: bos aramada hepsini dokmek listeyi bogar.
+  const stockHits = useMemo(
+    () =>
+      itemsOpen && itemQuery.trim().length >= 2
+        ? searchCatalog(catalog.stockItems, itemQuery, HIT_LIMIT)
+        : [],
+    [catalog.stockItems, itemQuery, itemsOpen],
+  );
 
   function addLine(row: Omit<LineRow, 'key'>) {
     setLines((current) => [...current, { ...row, key: crypto.randomUUID() }]);
     setItemQuery('');
-    setProductHits([]);
-    setStockHits([]);
+    setItemsOpen(false);
   }
 
   /** Katalogda olmayan urun: adi elle yaziliyor, stok karti aranmiyor. */
@@ -552,8 +576,14 @@ export function OrderForm({
         <Input
           id="item-search"
           value={itemQuery}
-          onChange={(event) => void findItems(event.target.value)}
-          onFocus={() => void findItems(itemQuery)}
+          onChange={(event) => {
+            setItemQuery(event.target.value);
+            setItemsOpen(true);
+          }}
+          onFocus={() => setItemsOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setItemsOpen(false);
+          }}
           placeholder="Urun seti veya tek parca ara"
           className="h-11"
         />

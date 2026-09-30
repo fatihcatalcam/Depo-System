@@ -3,8 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db/client';
-import { listProducts } from '@/domain/catalog/products';
-import { searchStockItems } from '@/domain/catalog/stock-items';
 import { createDelivery, deliverRemaining } from '@/domain/orders/deliveries';
 import {
   cancelOrder,
@@ -374,35 +372,6 @@ export async function deletePaymentAction(
   } catch (error) {
     return toResult(error);
   }
-}
-
-/** Siparis satiri eklerken kullanilan arama. */
-export async function searchOrderItemsAction(query: string) {
-  const trimmed = query.trim();
-  const [productList, stockList] = await Promise.all([
-    listProducts(db),
-    trimmed.length >= 2 ? searchStockItems(db, { query: trimmed, limit: 15 }) : Promise.resolve([]),
-  ]);
-
-  const lowered = trimmed.toLocaleLowerCase('tr-TR');
-  return {
-    products: productList
-      .filter((product) => !trimmed || product.name.toLocaleLowerCase('tr-TR').includes(lowered))
-      .slice(0, 15)
-      .map((product) => ({
-        id: product.id,
-        name: product.name,
-        code: product.code,
-        defaultPriceKurus: product.defaultPriceKurus,
-      })),
-    stockItems: stockList.map((item) => ({
-      id: item.id,
-      name: item.name,
-      sku: item.sku,
-      sizeLabel: item.sizeLabel,
-      variantLabel: item.variantLabel,
-    })),
-  };
 }
 
 export async function searchCustomersAction(query: string) {

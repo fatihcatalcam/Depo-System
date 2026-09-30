@@ -1,11 +1,16 @@
 import { db } from '@/db/client';
 import { getRates } from '@/domain/exchange-rates';
+import { loadOrderCatalog } from '@/domain/orders/catalog';
 import { listSalespeople } from '@/domain/parties/salespeople';
 import { formatRate, type Currency } from '@/lib/money';
 import { OrderForm, type RateOption } from '../order-form';
 
 export default async function YeniSiparisPage() {
-  const [salespeople, rates] = await Promise.all([listSalespeople(db), getRates(db)]);
+  const [salespeople, rates, catalog] = await Promise.all([
+    listSalespeople(db),
+    getRates(db),
+    loadOrderCatalog(db),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -17,6 +22,7 @@ export default async function YeniSiparisPage() {
       </div>
       <OrderForm
         salespeople={salespeople.map((person) => ({ id: person.id, name: person.name }))}
+        catalog={catalog}
         rates={toRateOptions(rates)}
       />
     </div>

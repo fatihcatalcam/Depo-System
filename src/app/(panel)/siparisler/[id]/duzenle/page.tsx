@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/db/client';
 import { getRates } from '@/domain/exchange-rates';
+import { loadOrderCatalog } from '@/domain/orders/catalog';
 import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
 import { listPayments } from '@/domain/orders/payments';
 import { listSalespeople } from '@/domain/parties/salespeople';
@@ -50,7 +51,11 @@ export default async function SiparisDuzenlePage({
 
   // Isten ayrilan saticinin eski siparisi acildiginda adi listede kalmali;
   // yoksa select bos gorunur ve kaydedince satici sessizce silinirdi.
-  const [payments, rates] = await Promise.all([listPayments(db, scope, id), getRates(db)]);
+  const [payments, rates, catalog] = await Promise.all([
+    listPayments(db, scope, id),
+    getRates(db),
+    loadOrderCatalog(db),
+  ]);
 
   const salespeople = (await listSalespeople(db, { includeInactive: true }))
     .filter((person) => person.isActive || person.id === order.salespersonId)
@@ -81,6 +86,7 @@ export default async function SiparisDuzenlePage({
         orderId={id}
         linesLocked={deliveredAny}
         salespeople={salespeople}
+        catalog={catalog}
         rates={toRateOptions(rates)}
         initial={{
           customer: {
