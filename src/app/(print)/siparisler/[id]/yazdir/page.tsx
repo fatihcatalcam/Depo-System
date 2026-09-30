@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { PrintHeader } from '@/components/print-header';
 import { db } from '@/db/client';
 import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
-import { PAYMENT_METHOD_LABELS, listPayments } from '@/domain/orders/payments';
+import { listPayments } from '@/domain/orders/payments';
+import { formatPaymentMethod } from '@/lib/payment-methods';
 import { formatDate } from '@/lib/dates';
 import { NotFoundError } from '@/lib/errors';
 import { currentScope } from '@/lib/auth/current';
@@ -188,7 +189,7 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
             {payments.map((payment) => (
               <li key={payment.id} className="flex justify-between border-b border-neutral-200 py-1">
                 <span>
-                  {formatDate(payment.paidAt)} · {PAYMENT_METHOD_LABELS[payment.method]}
+                  {formatDate(payment.paidAt)} · {formatPaymentMethod(payment.method, payment.installments)}
                   {payment.notes ? ` · ${payment.notes}` : ''}
                 </span>
                 <span className="tabular-nums">{formatKurus(payment.amountKurus, { currency: order.currency })}</span>

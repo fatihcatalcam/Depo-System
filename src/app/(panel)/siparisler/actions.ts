@@ -15,6 +15,7 @@ import { searchCustomers } from '@/domain/parties/parties';
 import { currentScope } from '@/lib/auth/current';
 import { DomainError, NegativeStockError } from '@/lib/errors';
 import { parseRateInput, parseTlInput, TRY_RATE, type Currency } from '@/lib/money';
+import { MAX_INSTALLMENTS, PAYMENT_METHODS } from '@/lib/payment-methods';
 
 export interface ActionResult {
   ok: boolean;
@@ -98,6 +99,9 @@ function currencyFields(
   return { currency, exchangeRate: trimmed ? parseRateInput(trimmed) : undefined };
 }
 
+/** Taksit sayisi; bos tek cekim. Yontemle uyumu alan katmani denetliyor. */
+const installmentsSchema = z.number().int().min(1).max(MAX_INSTALLMENTS).nullable().optional();
+
 const orderSchema = z.object({
   ...invoiceShape,
   // Yeni sipariste zorunlu: prim buna gore hesaplaniyor, sonradan "bunu kim
@@ -116,12 +120,15 @@ const orderSchema = z.object({
   deliveryNotes: z.string().optional(),
   discount: z.string().optional(),
   manualTotal: z.string().optional(),
-  /** Siparis alinirken pesin alinan ucret. */
-  deposit: z
-    .object({
-      amount: z.string().min(1),
-      method: z.enum(['nakit', 'havale', 'kart', 'cek']),
-    })
+  /** Siparis alinirken pesin alinan ucretler; nakit + kart gibi birden fazla olabilir. */
+  deposits: z
+    .array(
+      z.object({
+        amount: z.string().min(1),
+        method: z.enum(PAYMENT_METHODS),
+        installments: installmentsSchema,
+      }),
+    )
     .optional(),
   notes: z.string().optional(),
   lines: z.array(lineSchema).min(1, 'En az bir satir ekleyin.'),
@@ -165,14 +172,13 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
       invoiceAddress: parsed.data.invoiceAddress,
       invoiceNo: parsed.data.invoiceNo,
       invoiceDate: parsed.data.invoiceDate,
-      deposit: parsed.data.deposit
-        ? {
-            amountKurus: parseTlInput(parsed.data.deposit.amount),
-            method: parsed.data.deposit.method,
-            paidAt: parsed.data.orderDate,
-            notes: 'Kapora',
-          }
-        : null,
+      deposits: (parsed.data.deposits ?? []).map((deposit) => ({
+        amountKurus: parseTlInput(deposit.amount),
+        method: deposit.method,
+        installments: deposit.installments ?? null,
+        paidAt: parsed.data.orderDate,
+        notes: 'Kapora',
+      })),
       lines: parsed.data.lines.map((line) => ({
         itemType: line.itemType,
         productId: line.productId ?? null,
@@ -335,7 +341,8 @@ export async function deliverStopAction(
 
 const paymentSchema = z.object({
   amount: z.string().min(1, 'Tutar girin.'),
-  method: z.enum(['nakit', 'havale', 'kart', 'cek']),
+  method: z.enum(PAYMENT_METHODS),
+  installments: installmentsSchema,
   isDeposit: z.boolean().optional(),
   paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.'),
   notes: z.string().optional(),
@@ -350,6 +357,7 @@ export async function addPaymentAction(orderId: string, input: unknown): Promise
       orderId,
       amountKurus: parseTlInput(parsed.data.amount),
       method: parsed.data.method,
+      installments: parsed.data.installments ?? null,
       isDeposit: parsed.data.isDeposit ?? false,
       paidAt: parsed.data.paidAt,
       notes: parsed.data.notes,

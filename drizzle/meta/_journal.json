@@ -99,6 +99,13 @@
       "when": 1790363516356,
       "tag": "0013_dolap-govde-latex-baslik",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790798448933,
+      "tag": "0014_odeme-taksit",
+      "breakpoints": true
     }
   ]
 }

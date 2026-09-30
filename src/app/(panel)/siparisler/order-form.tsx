@@ -16,7 +16,9 @@ import {
   parseTlInput,
   type Currency,
 } from '@/lib/money';
+import type { PaymentMethod } from '@/lib/payment-methods';
 import { createOrderAction, searchCustomersAction } from './actions';
+import { DepositRows, emptyDepositRow, type DepositRow } from './deposit-rows';
 
 interface LineRow {
   key: string;
@@ -81,15 +83,6 @@ const EMPTY_INVOICE: InvoiceFields = {
 function hasInvoice(invoice: InvoiceFields): boolean {
   return Object.values(invoice).some((value) => value.trim() !== '');
 }
-
-const DEPOSIT_METHODS = {
-  nakit: 'Nakit',
-  havale: 'Havale / EFT',
-  kart: 'Kredi karti',
-  cek: 'Cek',
-} as const;
-
-type DepositMethod = keyof typeof DEPOSIT_METHODS;
 
 export interface SalespersonOption {
   id: string;
@@ -174,8 +167,8 @@ export interface OrderSubmitInput {
   invoiceAddress?: string;
   invoiceNo?: string;
   invoiceDate?: string;
-  /** Yalnizca yeni sipariste: pesin alinan ucret. */
-  deposit?: { amount: string; method: DepositMethod };
+  /** Yalnizca yeni sipariste: pesin alinan ucretler (nakit + kart gibi). */
+  deposits?: { amount: string; method: PaymentMethod; installments: number | null }[];
   notes?: string;
   lines: {
     itemType: 'product' | 'stock_item' | 'custom';
@@ -215,8 +208,7 @@ export function OrderForm({
   const [discount, setDiscount] = useState(initial?.discount ?? '');
   const [manualTotal, setManualTotal] = useState(initial?.manualTotal ?? '');
   const [invoice, setInvoice] = useState<InvoiceFields>(initial?.invoice ?? EMPTY_INVOICE);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [depositMethod, setDepositMethod] = useState<DepositMethod>('nakit');
+  const [deposits, setDeposits] = useState<DepositRow[]>(() => [emptyDepositRow()]);
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [lines, setLines] = useState<LineRow[]>(initial?.lines ?? []);
   const [customName, setCustomName] = useState('');
@@ -313,7 +305,6 @@ export function OrderForm({
   // bu" demek. Iki mod ayni anda gecerli degil.
   const manualTotalKurus = manualTotal.trim() === '' ? null : safeKurus(manualTotal);
   const total = manualTotalKurus ?? autoTotal;
-  const depositKurus = safeKurus(depositAmount);
 
   // Kurun nereden geldigi gorunur olmali: eski bir kurla siparis girmek,
   // raporlardaki TL karsiligini sessizce kaydirir.
@@ -368,10 +359,15 @@ export function OrderForm({
             invoiceDate: invoice.date,
             // Kapora yalnizca yeni sipariste alinir; sonrakiler odeme
             // panelinden girilir.
-            deposit:
-              !initial && depositKurus > 0
-                ? { amount: depositAmount, method: depositMethod }
-                : undefined,
+            deposits: initial
+              ? undefined
+              : deposits
+                  .filter((row) => safeKurus(row.amount) > 0)
+                  .map((row) => ({
+                    amount: row.amount,
+                    method: row.method,
+                    installments: row.installments,
+                  })),
             notes: notes || undefined,
             lines: lines.map((line) => ({
               itemType: line.itemType,
@@ -887,46 +883,13 @@ export function OrderForm({
       {initial ? null : (
         <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
           <h2 className="text-sm font-semibold">Alinan ucret (kapora)</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="deposit-amount">Tutar</Label>
-              <Input
-                id="deposit-amount"
-                value={depositAmount}
-                onChange={(event) => setDepositAmount(event.target.value)}
-                placeholder="0,00"
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="deposit-method">Yontem</Label>
-              <select
-                id="deposit-method"
-                value={depositMethod}
-                onChange={(event) => setDepositMethod(event.target.value as DepositMethod)}
-                className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm"
-              >
-                {Object.entries(DEPOSIT_METHODS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {depositKurus > 0 ? (
-            <p className="text-sm text-neutral-600">
-              Kalan:{' '}
-              <strong className="tabular-nums">
-                {formatKurus(Math.max(0, total - depositKurus), { currency })}
-              </strong>
-            </p>
-          ) : (
-            <p className="text-xs text-neutral-500">
-              Pesin alinan yoksa bos birakin. Sonraki tahsilatlar siparis
-              sayfasindaki odeme bolumunden girilir.
-            </p>
-          )}
+          <DepositRows
+            rows={deposits}
+            onChange={setDeposits}
+            currency={currency}
+            totalKurus={total}
+            toKurus={safeKurus}
+          />
         </section>
       )}
 

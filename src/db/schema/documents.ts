@@ -7,6 +7,7 @@ import {
   index,
   integer,
   pgTable,
+  smallint,
   text,
   timestamp,
   unique,
@@ -288,6 +289,12 @@ export const payments = pgTable(
      * "alinan ucret" diye yazilabilmesi.
      */
     isDeposit: boolean('is_deposit').notNull().default(false),
+    /**
+     * Kartla odemede taksit sayisi; bos = tek cekim. Musterinin borcu yine
+     * odeme aninda kapaniyor — taksit, paranin bankadan dukkana nasil
+     * gelecegini soyluyor, kagitta ve raporda gorunsun diye tutuluyor.
+     */
+    installments: smallint('installments'),
     paidAt: date('paid_at').notNull(),
     notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -295,5 +302,12 @@ export const payments = pgTable(
   (t) => [
     index('payments_order_idx').on(t.orderId),
     check('payments_amount_chk', sql`${t.amountKurus} > 0`),
+    // Metin karsilastirmasi bilerek: gocler tek bir transaction'da kosuyor ve
+    // Postgres yeni eklenen enum degerinin ayni transaction'da enum olarak
+    // kullanilmasina izin vermiyor.
+    check(
+      'payments_installments_chk',
+      sql`${t.installments} IS NULL OR (${t.installments} BETWEEN 2 AND 9 AND ${t.method}::text IN ('kart', 'kart_portal'))`,
+    ),
   ],
 );

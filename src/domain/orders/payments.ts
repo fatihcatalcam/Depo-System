@@ -4,21 +4,23 @@ import type { DbOrTx } from '@/db/types';
 import { derivePaymentStatus, getPaidTotal, type PaymentStatus } from '@/domain/orders/orders';
 import { scopeFilter, type Scope } from '@/domain/scope';
 import { DomainError, NotFoundError } from '@/lib/errors';
+import {
+  PAYMENT_METHOD_LABELS,
+  resolveInstallments,
+  type PaymentMethod,
+} from '@/lib/payment-methods';
 
 export type Payment = typeof payments.$inferSelect;
-export type PaymentMethod = Payment['method'];
-
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  nakit: 'Nakit',
-  havale: 'Havale / EFT',
-  kart: 'Kredi karti',
-  cek: 'Cek',
-};
+export type { PaymentMethod };
+// Sunucu tarafindaki cagri yerleri eskisi gibi buradan alabilsin.
+export { PAYMENT_METHOD_LABELS };
 
 export interface AddPaymentInput {
   orderId: string;
   amountKurus: number;
   method: PaymentMethod;
+  /** Kartla odemede taksit; bos ya da 1 tek cekim. */
+  installments?: number | null;
   /** Kapora: mal teslim edilmeden once alinan ucret. */
   isDeposit?: boolean;
   /** ISO tarih (YYYY-MM-DD). */
@@ -45,6 +47,7 @@ export async function addPayment(
   if (!Number.isInteger(input.amountKurus) || input.amountKurus <= 0) {
     throw new DomainError('Odeme tutari sifirdan buyuk olmali.', 'INVALID_AMOUNT');
   }
+  const installments = resolveInstallments(input.method, input.installments);
 
   const [order] = await db
     .select()
@@ -72,6 +75,7 @@ export async function addPayment(
       orderId: input.orderId,
       amountKurus: input.amountKurus,
       method: input.method,
+      installments,
       isDeposit: input.isDeposit ?? false,
       paidAt: input.paidAt,
       notes: input.notes?.trim() || null,

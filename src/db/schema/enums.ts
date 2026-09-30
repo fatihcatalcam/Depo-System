@@ -8,7 +8,17 @@ export const orderStatusEnum = pgEnum('order_status', [
   'cancelled',
 ]);
 
-export const paymentMethodEnum = pgEnum('payment_method', ['nakit', 'havale', 'kart', 'cek']);
+/**
+ * Sira veritabanindaki sira: yeni deger `ALTER TYPE ... ADD VALUE` ile sona
+ * ekleniyor. Ekranda gorunen sira `src/lib/payment-methods.ts` icinde.
+ */
+export const paymentMethodEnum = pgEnum('payment_method', [
+  'nakit',
+  'havale',
+  'kart',
+  'cek',
+  'kart_portal',
+]);
 
 /**
  * Siparisin para birimi.

@@ -22,6 +22,7 @@ import { warehouseOf } from '@/domain/stock/warehouse';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
 import { RATE_SCALE, TRY_RATE, type Currency } from '@/lib/money';
+import { resolveInstallments, type PaymentMethod } from '@/lib/payment-methods';
 
 export type Order = typeof orders.$inferSelect;
 export type OrderStatus = Order['status'];
@@ -88,7 +89,9 @@ export interface InvoiceInput {
 /** Kapora: siparis alinirken pesin alinan ucret. */
 export interface DepositInput {
   amountKurus: number;
-  method: 'nakit' | 'havale' | 'kart' | 'cek';
+  method: PaymentMethod;
+  /** Kartla odemede taksit; bos ya da 1 tek cekim. */
+  installments?: number | null;
   /** ISO tarih (YYYY-MM-DD). Bos birakilirsa siparis tarihi kullanilir. */
   paidAt?: string;
   notes?: string | null;
@@ -136,7 +139,11 @@ export interface CreateOrderInput extends InvoiceInput {
    */
   manualTotalKurus?: number | null;
   /** Siparis alinirken pesin alinan ucret; ayni transaction'a yazilir. */
-  deposit?: DepositInput | null;
+  /**
+   * Siparis verilirken alinan ucretler. Birden fazla olabilir: musteri bir
+   * kismini nakit, kalanini kartla oduyor.
+   */
+  deposits?: DepositInput[];
   notes?: string | null;
   lines: OrderLineInput[];
 }
@@ -189,22 +196,29 @@ export async function createOrder(
 
     await insertLines(tx, order.id, resolved);
 
-    if (input.deposit && input.deposit.amountKurus > 0) {
-      // Kapora siparisle ayni transaction'a yaziliyor. Taslak siparise odeme
-      // eklenmesi normalde yasak — ama kapora tam olarak bunun icin var:
-      // musteri parayi siparis verirken birakiyor, siparis henuz onaylanmamis
-      // oluyor. Yasak, sonradan gelen odemeleri kastediyor.
-      const deposit = input.deposit;
-      if (!Number.isInteger(deposit.amountKurus) || deposit.amountKurus <= 0) {
+    // Kapora siparisle ayni transaction'a yaziliyor. Taslak siparise odeme
+    // eklenmesi normalde yasak — ama kapora tam olarak bunun icin var: musteri
+    // parayi siparis verirken birakiyor, siparis henuz onaylanmamis oluyor.
+    // Yasak, sonradan gelen odemeleri kastediyor.
+    const deposits = (input.deposits ?? []).filter((deposit) => deposit.amountKurus !== 0);
+    let depositTotal = 0;
+    for (const deposit of deposits) {
+      if (!Number.isInteger(deposit.amountKurus) || deposit.amountKurus < 0) {
         throw new DomainError('Kapora tutari sifirdan buyuk olmali.', 'INVALID_AMOUNT');
       }
-      if (deposit.amountKurus > totals.total) {
-        throw new DomainError('Kapora siparis tutarindan buyuk olamaz.', 'INVALID_AMOUNT');
-      }
+      depositTotal += deposit.amountKurus;
+    }
+    // Toplam kontrolu tek tek degil birlikte: 30.000 nakit + 30.000 kart,
+    // 50.000'lik sipariste ikisi de tek basina gecer ama birlikte gecmemeli.
+    if (depositTotal > totals.total) {
+      throw new DomainError('Kapora siparis tutarindan buyuk olamaz.', 'INVALID_AMOUNT');
+    }
+    for (const deposit of deposits) {
       await tx.insert(payments).values({
         orderId: order.id,
         amountKurus: deposit.amountKurus,
         method: deposit.method,
+        installments: resolveInstallments(deposit.method, deposit.installments),
         isDeposit: true,
         paidAt: deposit.paidAt ?? input.orderDate,
         notes: deposit.notes?.trim() || null,

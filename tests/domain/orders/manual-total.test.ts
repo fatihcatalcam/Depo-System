@@ -174,7 +174,7 @@ describe('siparisle birlikte kapora', () => {
       customerId: customer.id,
       orderDate: '2026-09-10',
       deliveryAddress: 'Adres',
-      deposit: { amountKurus: 1_000_000, method: 'nakit' },
+      deposits: [{ amountKurus: 1_000_000, method: 'nakit' }],
       lines: [
         { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 5_000_000 },
       ],
@@ -199,7 +199,7 @@ describe('siparisle birlikte kapora', () => {
         customerId: customer.id,
         orderDate: '2026-09-10',
         deliveryAddress: 'Adres',
-        deposit: { amountKurus: 9_000_000, method: 'nakit' },
+        deposits: [{ amountKurus: 9_000_000, method: 'nakit' }],
         lines: [
           {
             itemType: 'product',
@@ -223,7 +223,7 @@ describe('siparisle birlikte kapora', () => {
         customerId: customer.id,
         orderDate: '2026-09-10',
         deliveryAddress: 'Adres',
-        deposit: { amountKurus: 9_000_000, method: 'nakit' },
+        deposits: [{ amountKurus: 9_000_000, method: 'nakit' }],
         lines: [
           {
             itemType: 'product',
@@ -250,7 +250,7 @@ describe('siparisle birlikte kapora', () => {
       orderDate: '2026-09-10',
       deliveryAddress: 'Adres',
       manualTotalKurus: 5_000_000,
-      deposit: { amountKurus: 1_500_000, method: 'havale' },
+      deposits: [{ amountKurus: 1_500_000, method: 'havale' }],
       lines: [
         { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 0 },
         { itemType: 'custom', description: 'Ozel olcu komodin', quantity: 1, unitPriceKurus: 0 },

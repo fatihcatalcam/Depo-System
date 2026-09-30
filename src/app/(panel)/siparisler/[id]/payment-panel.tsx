@@ -6,8 +6,17 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PAYMENT_METHOD_LABELS, type Payment, type PaymentMethod } from '@/domain/orders/payments';
+import type { Payment } from '@/domain/orders/payments';
 import { formatKurus, kurusToTl, type Currency } from '@/lib/money';
+// Etiketler sunucu kodu icermeyen modulden: bu bilesen tarayicida calisiyor.
+import {
+  allowsInstallments,
+  formatPaymentMethod,
+  INSTALLMENT_OPTIONS,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHODS,
+  type PaymentMethod,
+} from '@/lib/payment-methods';
 import { addPaymentAction, deletePaymentAction } from '../actions';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
@@ -46,6 +55,7 @@ export function PaymentPanel({
 }: Props) {
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('nakit');
+  const [installments, setInstallments] = useState<number | null>(null);
   const [isDeposit, setIsDeposit] = useState(depositOnly);
   const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
@@ -91,7 +101,7 @@ export function PaymentPanel({
                   </span>
                 ) : null}
                 <span className="ml-2 text-xs text-neutral-500">
-                  {PAYMENT_METHOD_LABELS[payment.method]} ·{' '}
+                  {formatPaymentMethod(payment.method, payment.installments)} ·{' '}
                   {dateFormatter.format(new Date(`${payment.paidAt}T00:00:00Z`))}
                 </span>
                 {payment.notes ? (
@@ -133,6 +143,7 @@ export function PaymentPanel({
               const result = await addPaymentAction(orderId, {
                 amount,
                 method,
+                installments: allowsInstallments(method) ? installments : null,
                 isDeposit,
                 paidAt,
                 notes: notes || undefined,
@@ -140,6 +151,7 @@ export function PaymentPanel({
               if (result.ok) {
                 toast.success(isDeposit ? 'Kapora kaydedildi.' : 'Odeme kaydedildi.');
                 setAmount('');
+                setInstallments(null);
                 setNotes('');
                 router.refresh();
               } else {
@@ -181,13 +193,33 @@ export function PaymentPanel({
                 onChange={(event) => setMethod(event.target.value as PaymentMethod)}
                 className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm"
               >
-                {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                {PAYMENT_METHODS.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {PAYMENT_METHOD_LABELS[value]}
                   </option>
                 ))}
               </select>
             </div>
+            {allowsInstallments(method) ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="payment-installments">Taksit</Label>
+                <select
+                  id="payment-installments"
+                  value={installments ?? ''}
+                  onChange={(event) =>
+                    setInstallments(event.target.value ? Number(event.target.value) : null)
+                  }
+                  className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm"
+                >
+                  <option value="">Tek cekim</option>
+                  {INSTALLMENT_OPTIONS.map((count) => (
+                    <option key={count} value={count}>
+                      {count} taksit
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="payment-date">Tarih</Label>
               <Input
