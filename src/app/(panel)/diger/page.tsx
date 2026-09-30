@@ -5,12 +5,19 @@ import {
   PackagePlus,
   QrCode,
   Settings,
+  Sheet,
   Users,
   Warehouse,
 } from 'lucide-react';
 import Link from 'next/link';
 
 const LINKS = [
+  {
+    href: '/siparisler/ozet',
+    label: 'Siparis ozeti',
+    description: 'Excel listesi gibi: kim, ne, ne zaman, nereye ve odeme',
+    icon: Sheet,
+  },
   {
     href: '/mal-kabul',
     label: 'Mal kabul',
