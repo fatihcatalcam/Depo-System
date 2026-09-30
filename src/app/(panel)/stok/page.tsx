@@ -7,21 +7,19 @@ import { currentScope } from '@/lib/auth/current';
 import { isStockLocked } from '@/lib/auth/locks';
 import { cn } from '@/lib/utils';
 import { listCategoryTree } from '@/domain/catalog/categories';
+import { listProductComponentRows } from '@/domain/catalog/products';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
-import { groupStockItems, type StockListItem } from './grouping';
+import { buildStockGrid, filterStockGrid, type GridItem, type GridProduct } from './grid';
 import { StockFilters } from './stock-filters';
-import { StockList } from './stock-list';
+import { StockGridView } from './stock-grid-view';
 
 interface PageProps {
   searchParams: Promise<{ q?: string; kategori?: string }>;
 }
 
 /**
- * Stok listesi butun kartlari gostermeli.
- *
- * Varsayilan sinir (200) urun secicileri icin var: orada kullanici yazdikca
- * daralan bir liste soz konusu. Burada oyle degil — 567 kartin 200'unu
- * gostermek, ekrandaki adedin neden eksik oldugunu aciklanamaz hale getirir.
+ * Butun kartlar gelmeli. Varsayilan sinir (200) urun secicileri icin var;
+ * burada 567 kartin 200'unu gostermek ekrandaki adedi aciklanamaz yapar.
  */
 const LIST_LIMIT = 5000;
 
@@ -29,40 +27,62 @@ export default async function StokPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const scope = await currentScope();
   const locked = await isStockLocked(scope);
-  const [categories, items] = await Promise.all([
+  const [categories, stock, componentRows] = await Promise.all([
     listCategoryTree(db),
-    listStockItemsWithAvailability(db, scope.stockBranchId, {
-      query: params.q,
-      categoryId: params.kategori || null,
-      limit: LIST_LIMIT,
-    }),
+    listStockItemsWithAvailability(db, scope.stockBranchId, { limit: LIST_LIMIT }),
+    listProductComponentRows(db),
   ]);
 
-  // Istemciye yalnizca listenin kullandigi alanlar gidiyor: kart tablosunun
-  // tamami (barkod, alis fiyati, tarihler) 567 kez tasinacak veri degil.
-  const rows: StockListItem[] = items.map((item) => ({
+  const categoryNames = new Map<string, string>();
+  const collect = (nodes: typeof categories) => {
+    for (const node of nodes) {
+      categoryNames.set(node.id, node.name);
+      collect(node.children);
+    }
+  };
+  collect(categories);
+
+  // Istemciye yalnizca ekranin kullandigi alanlar gidiyor: kart tablosunun
+  // tamami (alis fiyati, tarihler) 567 kez tasinacak veri degil.
+  const items: GridItem[] = stock.map((item) => ({
     id: item.id,
     name: item.name,
     sizeLabel: item.sizeLabel,
+    categoryId: item.categoryId,
+    categoryName: item.categoryId ? (categoryNames.get(item.categoryId) ?? null) : null,
     onHand: item.onHand,
     reserved: item.reserved,
-    available: item.available,
-    isBelowMinimum: item.isBelowMinimum,
     notes: item.notes,
+    sku: item.sku,
+    barcode: item.barcode,
   }));
 
-  // Arama birkac model birakir, gruplari acik getirmek dogru. Kategori secimi
-  // oyle degil: "Yatak" tek basina 180 parca, acik gelirse hicbir sey kazanmiyoruz.
-  const searching = Boolean(params.q?.trim());
-  const modelCount = groupStockItems(rows).length;
+  const products = new Map<string, GridProduct>();
+  for (const row of componentRows) {
+    const product = products.get(row.productId) ?? {
+      id: row.productId,
+      name: row.productName,
+      components: [],
+    };
+    product.components.push({ stockItemId: row.stockItemId, quantity: row.quantity });
+    products.set(row.productId, product);
+  }
+
+  // Takimlar butun kartlar uzerinden kuruluyor, arama sonra: aranan parca bir
+  // takimin icindeyse satiri eksiksiz gelsin, yalniz o parca degil.
+  const grid = filterStockGrid(buildStockGrid(items, [...products.values()]), {
+    query: params.q,
+    categoryId: params.kategori || null,
+  });
+  const setRows = grid.models.reduce((sum, model) => sum + model.sets.length, 0);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Stok</h1>
-          <p className="text-sm text-neutral-500">
-            {modelCount} model · {rows.length} parca
+          <h1 className="text-xl font-semibold">Stok</h1>
+          <p className="text-base text-neutral-500">
+            {setRows} takim · {grid.others.length} diger urun
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -77,16 +97,7 @@ export default async function StokPage({ searchParams }: PageProps) {
         <StockFilters categories={categories} />
       </Suspense>
 
-      {/*
-        Arama degisince liste bastan kuruluyor: acik/kapali secimleri onceki
-        sonuclara aitti, yeni sonuclarda tasimanin anlami yok.
-      */}
-      <StockList
-        key={`${params.q ?? ''}|${params.kategori ?? ''}`}
-        items={rows}
-        locked={locked}
-        defaultOpen={searching}
-      />
+      <StockGridView grid={grid} locked={locked} />
     </div>
   );
 }

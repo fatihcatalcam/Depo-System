@@ -147,6 +147,32 @@ export async function listProducts(db: DbOrTx, includeInactive = false): Promise
     .orderBy(asc(products.name));
 }
 
+export interface ProductComponentRow {
+  productId: string;
+  productName: string;
+  stockItemId: string;
+  quantity: number;
+}
+
+/**
+ * Aktif urunlerin butun bilesenleri, tek sorguda. Stok ekrani takimlari
+ * (yatak + baza + baslik) bundan kuruyor; urun basina ayri sorgu 180 kez
+ * veritabanina gitmek olurdu.
+ */
+export async function listProductComponentRows(db: DbOrTx): Promise<ProductComponentRow[]> {
+  return db
+    .select({
+      productId: products.id,
+      productName: products.name,
+      stockItemId: productComponents.stockItemId,
+      quantity: productComponents.quantity,
+    })
+    .from(productComponents)
+    .innerJoin(products, eq(products.id, productComponents.productId))
+    .where(eq(products.isActive, true))
+    .orderBy(asc(products.name));
+}
+
 export interface CounterpartCandidate {
   id: string;
   label: string;
