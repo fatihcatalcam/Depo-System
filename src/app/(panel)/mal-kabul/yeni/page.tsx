@@ -1,5 +1,6 @@
 import { db } from '@/db/client';
 import { listSuppliers } from '@/domain/parties/parties';
+import { isReceiptReaderConfigured } from '@/domain/receipt-reader';
 import { ReceiptForm } from './receipt-form';
 
 export default async function YeniMalKabulPage() {
@@ -13,7 +14,7 @@ export default async function YeniMalKabulPage() {
           Gelen parcalari ekleyin. Kaydettiginizde hepsi tek seferde stoga girer.
         </p>
       </div>
-      <ReceiptForm suppliers={suppliers} />
+      <ReceiptForm suppliers={suppliers} aiEnabled={isReceiptReaderConfigured()} />
     </div>
   );
 }

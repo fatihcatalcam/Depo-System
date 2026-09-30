@@ -6,6 +6,12 @@ import { db } from '@/db/client';
 import { searchStockItems } from '@/domain/catalog/stock-items';
 import { createGoodsReceipt } from '@/domain/goods-receipt';
 import { createSupplier } from '@/domain/parties/parties';
+import {
+  readReceiptDocument,
+  RECEIPT_MIME_TYPES,
+  type ReadResult,
+  type ReceiptMimeType,
+} from '@/domain/receipt-reader';
 import { currentScope } from '@/lib/auth/current';
 import { DomainError } from '@/lib/errors';
 import { parseTlInput } from '@/lib/money';
@@ -88,4 +94,40 @@ export async function findStockItemsAction(query: string) {
     sizeLabel: item.sizeLabel,
     barcode: item.barcode,
   }));
+}
+
+/**
+ * Vercel bir istegin govdesini 4,5 MB'ta kesiyor; sunucu eylemi siniri da
+ * `next.config.ts` icinde 4 MB. Fotograflar tarayicida kucultulup geliyor,
+ * bu sinira yalnizca buyuk PDF'ler takilir.
+ */
+const MAX_DOCUMENT_BYTES = 3.8 * 1024 * 1024;
+
+/**
+ * Irsaliyeyi okuyup form icin satir onerir. Stoga yazmaz: kayit yine
+ * kullanicinin "Kaydet" dugmesiyle, `createGoodsReceiptAction` uzerinden.
+ */
+export async function readReceiptDocumentAction(formData: FormData): Promise<ReadResult> {
+  // Oturum kontrolu: disaridan cagrilip yapay zeka faturasi sisirilmesin.
+  await currentScope();
+
+  const file = formData.get('document');
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Belge secilmedi.' };
+  if (!RECEIPT_MIME_TYPES.includes(file.type as ReceiptMimeType)) {
+    return { ok: false, error: 'Fotograf (JPG, PNG) ya da PDF yukleyin.' };
+  }
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    return { ok: false, error: 'Belge cok buyuk. PDF yerine belgenin fotografini cekin.' };
+  }
+
+  try {
+    return await readReceiptDocument(db, {
+      name: file.name,
+      mimeType: file.type as ReceiptMimeType,
+      base64: Buffer.from(await file.arrayBuffer()).toString('base64'),
+    });
+  } catch (error) {
+    console.error(error);
+    return { ok: false, error: 'Belge okunamadi.' };
+  }
 }
