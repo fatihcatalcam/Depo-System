@@ -20,10 +20,15 @@ import type { DbOrTx } from '@/db/types';
 const ENDPOINT = 'https://api.openai.com/v1/responses';
 
 /**
- * Varsayilan model; `OPENAI_MODEL` ile degistirilebilir. Irsaliye okumak
- * dogruluk isteyen ama seyrek bir is: belge basina maliyet onemsiz.
+ * Varsayilan model; `OPENAI_MODEL` ile degistirilebilir.
+ *
+ * Luna, OpenAI'nin en verimli modeli: gorsel girdi ve yapilandirilmis cikti
+ * destekliyor, bu is icin yeterli. Asil zor kisim (hangi satirin hangi kart
+ * oldugu) zaten numarali katalogla daraltilmis durumda. Belge basina ~10 bin
+ * token girdi: kurus mertebesinde. Okuma yetmezse ust model OPENAI_MODEL ile
+ * secilir, kod degismez.
  */
-const DEFAULT_MODEL = 'gpt-6-astra';
+export const DEFAULT_MODEL = 'gpt-6-luna';
 
 /** Okuma ~10-30 sn surebiliyor; sonsuza kadar beklemesin. */
 const TIMEOUT_MS = 90_000;

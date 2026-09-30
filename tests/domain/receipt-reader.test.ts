@@ -1,6 +1,10 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { searchStockItems } from '@/domain/catalog/stock-items';
-import { readReceiptDocument, type ReceiptDocument } from '@/domain/receipt-reader';
+import {
+  DEFAULT_MODEL,
+  readReceiptDocument,
+  type ReceiptDocument,
+} from '@/domain/receipt-reader';
 import { makeBedSet } from '../helpers/order-fixtures';
 import { createTestDb, type TestDb } from '../helpers/test-db';
 
@@ -137,6 +141,18 @@ describe('irsaliye okuma', () => {
       image_url: 'data:image/jpeg;base64,AAAA',
       detail: 'high',
     });
+  });
+
+  it('model verilmezse varsayilan Luna', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-anahtar');
+    vi.stubEnv('OPENAI_MODEL', '');
+    const fetchImpl = openAiReply({ waybill_no: null, date: null, supplier_name: null, lines: [] });
+
+    await readReceiptDocument(ctx.db, DOCUMENT, { fetchImpl });
+
+    const body = JSON.parse((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(DEFAULT_MODEL).toBe('gpt-6-luna');
+    expect(body.model).toBe('gpt-6-luna');
   });
 
   it('PDF dosya olarak gider', async () => {
