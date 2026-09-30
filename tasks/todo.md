@@ -251,10 +251,48 @@ basligina kucuk bir isaret eklenebilir.
 
 ## Kalan
 
-- [ ] `npm run db:migrate` (0013)
+- [x] `npm run db:migrate` (0013)
 
 ## Not
 
 Veride "DOKAP" yazan uc kart var (`... DOKAP 3 KAPI`) — "DOLAP" yazilacakken
 yazilmis gibi duruyor. Istenen sadece GVD eklemekti, o yuzden yazim oldugu
 gibi birakildi.
+
+
+---
+
+# Dukkandan gelen 14 madde
+
+Plan: `~/.claude/plans/woolly-discovering-manatee.md`. Kararlar: YZ mal kabul
+formu doldurur, kullanici onaylar; stok renkleri ve set sayisi fiziksel adede
+gore. **Kullanici "pushla" demeden push yok.**
+
+- [x] 1. Sabit sol menu, siparis satirina tiklama, musteri altinda telefon, siparis aramasi
+- [x] 2. Siparis formunda aninda urun aramasi (katalog istemcide, normalize arama)
+- [x] 3. Kart (portal), taksit (2-9), siparis olustururken coklu kapora
+- [x] 4. Teslimatta il / ilce / ulke (+ mevcut siparislerin doldurulmasi)
+- [x] 5. Stok ekrani: yatak | baza | baslik | set, renkler, buyuk punto
+- [x] 6. Siparis ozeti sayfasi (Excel duzeni + odeme kirilimi) ve baskisi
+- [x] 7. Haftalik sevkiyat ozeti (Pzt-Paz, fatura bilgisiyle) ve baskisi
+- [x] 8. Mal kabulde yapay zeka (OpenAI, formu doldurur)
+- [x] Goc 0014 + 0015 kuru deneme (49 siparisin 19'unda ilce adresten bulundu, yanlis eslesme yok)
+- [ ] Kullanici `npm run db:migrate`
+- [ ] Yerelde tarayici testi, kullaniciya rapor
+
+## Dogrulama
+
+| Kontrol | Sonuc |
+|---|---|
+| `npm run lint` / `tsc` | temiz |
+| `npm test` | 45 dosya, 463 test (+29 yeni test dosyasi icerigi) |
+| `npm run build` | basarili |
+| Gocler (0014+0015) | canli veride tek transaction'da uygulandi, ROLLBACK |
+| Tarayici | bekliyor: goc + giris gerekli |
+
+## Kalan
+
+- [ ] `npm run db:migrate`
+- [ ] Yerelde tarayici testi (giris gerekli)
+- [ ] YZ mal kabul icin `OPENAI_API_KEY` (Vercel + .env.local) — kullanici ekler
+- [ ] Kullanici inceleyip "pushla" deyince push

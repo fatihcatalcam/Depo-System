@@ -1,0 +1,33 @@
+# Dersler
+
+Her duzeltmeden sonra buraya bir kural. Oturum basinda okunur.
+
+## Komutlar
+
+- **Dogrulama komutunu borudan gecirip `&&` ile commit'e baglama.**
+  `npx tsc --noEmit 2>&1 | head && git commit` — borunun cikis kodu `head`'in,
+  tsc'nin degil; tip hatasi varken commit gecti (2026-09-30). Once
+  `npx tsc --noEmit; echo "tsc $?"`, sonra ayri komutta commit.
+- Uzun Python/TS icerigi Bash heredoc'una yazma: tirnaklar ve backtick'ler
+  heredoc'u bozuyor. Betigi Write ile scratchpad'e yaz, `python <yol>` ile calistir.
+- Bu projede `prettier` yok; `npx prettier` calistirma (tek tirnaklari cift
+  tirnaga ceviriyor, projenin bicimi degil).
+
+## Veritabani
+
+- Drizzle gocleri **bekleyen hepsini tek transaction'da** calistiriyor. Yeni
+  enum degeri (`ALTER TYPE ... ADD VALUE`) ayni transaction'da enum olarak
+  kullanilamiyor; kisitlarda `kolon::text IN (...)` ile karsilastir. Ayri goc
+  dosyasina koymak yetmez.
+- Kuru deneme betiginde de ayni kural: yeni enum degerini okumak icin
+  `enum_range()` degil `pg_enum` katalogu.
+- Canli veride her goc once `BEGIN ... ROLLBACK` ile denenir; ciktisi
+  kullaniciya gosterilir.
+
+## Arayuz
+
+- Sunucu eylemine gonderilen alani degistirince (ornegin `deposit` ->
+  `deposits`) formu da ayni commit'te degistir: zod bilinmeyen alani sessizce
+  atiyor, kapora hic hata vermeden kaybolurdu.
+- Istemci bileseni, sunucu kodu iceren bir moduldan **deger** import etmesin
+  (etiketler, sabitler). `src/lib/` altinda sunucusuz modul kullan.
