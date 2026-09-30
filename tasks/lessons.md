@@ -31,3 +31,14 @@ Her duzeltmeden sonra buraya bir kural. Oturum basinda okunur.
   atiyor, kapora hic hata vermeden kaybolurdu.
 - Istemci bileseni, sunucu kodu iceren bir moduldan **deger** import etmesin
   (etiketler, sabitler). `src/lib/` altinda sunucusuz modul kullan.
+
+## Tarayici paneli
+
+- Panelin ekran goruntusu bazen bir adim geriden geliyor; alan degerini
+  `javascript_tool` ile oku, goruntuye guvenme.
+- Panel zamanlayicilari kisiyor (setTimeout ~1 sn). Hiz olcerken
+  `MutationObserver` + `performance.now()` kullan; ilk olcum 1 sn cikmisti,
+  gercegi 25 ms.
+- Canli veritabaninda deneme kaydi: once sayim + sayac anlik goruntusu,
+  temizlik betigi numara + ad + durum birlikte tutmazsa dokunmaz, once
+  ROLLBACK ile onizleme, sonra uygulama, sonra anlik goruntuyle karsilastirma.

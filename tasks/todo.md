@@ -277,8 +277,8 @@ gore. **Kullanici "pushla" demeden push yok.**
 - [x] 7. Haftalik sevkiyat ozeti (Pzt-Paz, fatura bilgisiyle) ve baskisi
 - [x] 8. Mal kabulde yapay zeka (OpenAI, formu doldurur)
 - [x] Goc 0014 + 0015 kuru deneme (49 siparisin 19'unda ilce adresten bulundu, yanlis eslesme yok)
-- [ ] Kullanici `npm run db:migrate`
-- [ ] Yerelde tarayici testi, kullaniciya rapor
+- [x] Kullanici `npm run db:migrate` (0014-0016; 17 goc)
+- [x] Yerelde tarayici testi, kullaniciya rapor
 
 ## Dogrulama
 
@@ -288,11 +288,12 @@ gore. **Kullanici "pushla" demeden push yok.**
 | `npm test` | 45 dosya, 463 test (+29 yeni test dosyasi icerigi) |
 | `npm run build` | basarili |
 | Gocler (0014+0015) | canli veride tek transaction'da uygulandi, ROLLBACK |
-| Tarayici | bekliyor: goc + giris gerekli |
+| Tarayici | stok (masaustu + 375 px), siparis aramasi ("basaksehir" -> BAŞAKŞEHİR), satira tiklama, ozet, haftalik sevkiyat; deneme siparisi: Kartal/İstanbul, nakit 3.000 + kart 6 taksit 4.000 dogru kaydedildi, sonra silindi — sayimlar ve sayaclar test oncesiyle ayni |
+| Urun aramasi | 22-38 ms (gelistirme surumu) |
 
 ## Kalan
 
-- [ ] `npm run db:migrate`
-- [ ] Yerelde tarayici testi (giris gerekli)
+- [x] `npm run db:migrate`
+- [x] Yerelde tarayici testi
 - [ ] YZ mal kabul icin `OPENAI_API_KEY` (Vercel + .env.local) — kullanici ekler
 - [ ] Kullanici inceleyip "pushla" deyince push
