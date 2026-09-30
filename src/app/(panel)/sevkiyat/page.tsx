@@ -25,14 +25,22 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-lg font-semibold">Gunluk sevkiyat</h1>
-        <p className="text-sm text-neutral-500">
-          {formatLongDate(date)}
-          {/* Merkez iki subenin sevkiyatini birlikte goruyor; kagit
-              ciktisini yanlis subeye vermemesi icin acikca yaziyoruz. */}
-          {user.isCentral ? ' · iki sube birlikte' : ` · ${user.label}`}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold">Gunluk sevkiyat</h1>
+          <p className="text-sm text-neutral-500">
+            {formatLongDate(date)}
+            {/* Merkez iki subenin sevkiyatini birlikte goruyor; kagit
+                ciktisini yanlis subeye vermemesi icin acikca yaziyoruz. */}
+            {user.isCentral ? ' · iki sube birlikte' : ` · ${user.label}`}
+          </p>
+        </div>
+        <Link
+          href={`/sevkiyat/haftalik?hafta=${date}`}
+          className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
+        >
+          Haftalik ozet
+        </Link>
       </div>
 
       <DatePicker date={date} />

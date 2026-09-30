@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, between, eq, inArray, sql } from 'drizzle-orm';
 import {
   customers,
   orderLineComponents,
@@ -8,6 +8,7 @@ import {
   stockItems,
 } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
+import { addDays, startOfWeek } from '@/lib/dates';
 import { toTryKurus, type Currency } from '@/lib/money';
 import { scopeFilter, type Scope } from './scope';
 
@@ -24,6 +25,9 @@ export interface ShipmentItem {
 export interface ShipmentStop {
   orderId: string;
   orderNo: string;
+  plannedDeliveryDate: string;
+  /** Haftalik ozette teslim edilmis duraklar da var; gunluk listede yok. */
+  status: 'confirmed' | 'partially_delivered' | 'delivered';
   customerName: string;
   customerPhone: string | null;
   customerPhone2: string | null;
@@ -43,6 +47,15 @@ export interface ShipmentStop {
   /** Tutarlarin para birimi; sofor kagidinda dogru simge cikmali. */
   currency: Currency;
   exchangeRate: number;
+  /** Fatura bilgisi; haftalik ozette gosteriliyor. Faturasiz sipariste bos. */
+  invoice: {
+    title: string | null;
+    taxOffice: string | null;
+    taxNumber: string | null;
+    address: string | null;
+    no: string | null;
+    date: string | null;
+  };
 }
 
 export interface DailyShipment {
@@ -69,6 +82,35 @@ export async function getDailyShipment(
   scope: Scope,
   date: string,
 ): Promise<DailyShipment> {
+  const stops = await getShipmentStops(db, scope, date, date, { includeDelivered: false });
+  return summarize(date, stops);
+}
+
+interface RangeOptions {
+  /**
+   * Teslim edilmis siparisler de gelsin mi. Gunluk sevkiyat yapilacak isi
+   * gosteriyor, teslim edilen dusuyor. Haftalik ozet ise haftanin kaydi:
+   * carsamba gunu bakildiginda pazartesinin teslimatlari kaybolmamali.
+   */
+  includeDelivered: boolean;
+}
+
+/**
+ * Tarih araligindaki duraklar, teslim tarihine ve siparis numarasina gore.
+ * Gunluk ve haftalik sevkiyat ayni sorgudan geciyor: iki ayri yol, zamanla
+ * birbirinden farkli sonuc veren iki liste demek.
+ */
+async function getShipmentStops(
+  db: DbOrTx,
+  scope: Scope,
+  from: string,
+  to: string,
+  options: RangeOptions,
+): Promise<ShipmentStop[]> {
+  const statuses = options.includeDelivered
+    ? (['confirmed', 'partially_delivered', 'delivered'] as const)
+    : (['confirmed', 'partially_delivered'] as const);
+
   const orderRows = await db
     .select({
       order: orders,
@@ -84,16 +126,14 @@ export async function getDailyShipment(
     .innerJoin(customers, eq(customers.id, orders.customerId))
     .where(
       and(
-        eq(orders.plannedDeliveryDate, date),
-        inArray(orders.status, ['confirmed', 'partially_delivered']),
+        between(orders.plannedDeliveryDate, from, to),
+        inArray(orders.status, [...statuses]),
         scopeFilter(scope, orders.branchId),
       ),
     )
-    .orderBy(asc(orders.orderNo));
+    .orderBy(asc(orders.plannedDeliveryDate), asc(orders.orderNo));
 
-  if (orderRows.length === 0) {
-    return { date, stops: [], pickingList: [], totalPieces: 0, totalCollectionKurus: 0 };
-  }
+  if (orderRows.length === 0) return [];
 
   const componentRows = await db
     .select({
@@ -101,7 +141,11 @@ export async function getDailyShipment(
       componentId: orderLineComponents.id,
       stockItemId: orderLineComponents.stockItemId,
       lineDescription: orderLines.description,
-      remaining: sql<number>`(${orderLineComponents.totalQuantity} - ${orderLineComponents.deliveredQuantity})::int`,
+      // Teslim edilmis sipariste kalan sifir; ozette ne gittigi gorunsun diye
+      // tamami. Digerlerinde sofore gidecek olan: kalan.
+      remaining: sql<number>`(case when ${orders.status} = 'delivered'
+        then ${orderLineComponents.totalQuantity}
+        else ${orderLineComponents.totalQuantity} - ${orderLineComponents.deliveredQuantity} end)::int`,
       stockItemName: stockItems.name,
       stockItemSku: stockItems.sku,
       sizeLabel: stockItems.sizeLabel,
@@ -109,6 +153,7 @@ export async function getDailyShipment(
     })
     .from(orderLineComponents)
     .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
+    .innerJoin(orders, eq(orders.id, orderLines.orderId))
     // leftJoin: serbest satirin stok karti yok ama sofor onu da goturuyor.
     // innerJoin olsaydi disaridan yaptirilan urun toplama listesinden duserdi.
     .leftJoin(stockItems, eq(stockItems.id, orderLineComponents.stockItemId))
@@ -118,12 +163,12 @@ export async function getDailyShipment(
           orderLines.orderId,
           orderRows.map((row) => row.order.id),
         ),
-        sql`${orderLineComponents.totalQuantity} > ${orderLineComponents.deliveredQuantity}`,
+        sql`(${orderLineComponents.totalQuantity} > ${orderLineComponents.deliveredQuantity} or ${orders.status} = 'delivered')`,
       ),
     )
     .orderBy(asc(stockItems.name), asc(stockItems.sizeLabel));
 
-  const stops: ShipmentStop[] = orderRows.map((row) => {
+  return orderRows.map((row): ShipmentStop => {
     // Ayni parca birden fazla satirda olabilir (ornegin iki farkli set ayni
     // baslıgi iceriyorsa); durak listesinde tek satirda toplanir.
     const merged = new Map<string, ShipmentItem>();
@@ -151,6 +196,9 @@ export async function getDailyShipment(
     return {
       orderId: row.order.id,
       orderNo: row.order.orderNo,
+      // Aralik sorgusu teslim tarihi olanlari getiriyor; bos olamaz.
+      plannedDeliveryDate: row.order.plannedDeliveryDate as string,
+      status: row.order.status as ShipmentStop['status'],
       customerName: row.customerName,
       customerPhone: row.customerPhone,
       customerPhone2: row.customerPhone2,
@@ -167,9 +215,30 @@ export async function getDailyShipment(
       balanceKurus: row.order.totalKurus - paidKurus,
       currency: row.order.currency,
       exchangeRate: row.order.exchangeRate,
+      invoice: {
+        title: row.order.invoiceTitle,
+        taxOffice: row.order.invoiceTaxOffice,
+        taxNumber: row.order.invoiceTaxNumber,
+        address: row.order.invoiceAddress,
+        no: row.order.invoiceNo,
+        date: row.order.invoiceDate,
+      },
     };
   });
+}
 
+/** Tahsil edilecek toplam, TL karsiligi: duraklar farkli para birimlerinden olabilir. */
+function collectionTotal(stops: ShipmentStop[]): number {
+  return stops.reduce(
+    (sum, stop) =>
+      stop.status === 'delivered'
+        ? sum
+        : sum + Math.max(0, toTryKurus(stop.balanceKurus, stop.exchangeRate)),
+    0,
+  );
+}
+
+function summarize(date: string, stops: ShipmentStop[]): DailyShipment {
   const picking = new Map<string, ShipmentItem>();
   for (const stop of stops) {
     for (const item of stop.items) {
@@ -191,11 +260,46 @@ export async function getDailyShipment(
     stops,
     pickingList,
     totalPieces: pickingList.reduce((sum, item) => sum + item.quantity, 0),
-    // Duraklar farkli para birimlerinden olabilir; gunun toplami ancak TL
-    // karsiliklari toplanarak anlamli olur.
-    totalCollectionKurus: stops.reduce(
-      (sum, stop) => sum + Math.max(0, toTryKurus(stop.balanceKurus, stop.exchangeRate)),
-      0,
-    ),
+    totalCollectionKurus: collectionTotal(stops),
+  };
+}
+
+export interface WeeklyShipment {
+  /** Pazartesi. */
+  weekStart: string;
+  /** Pazar. */
+  weekEnd: string;
+  /** Pazartesiden pazara yedi gun; sevkiyati olmayan gun bos listeyle. */
+  days: { date: string; stops: ShipmentStop[] }[];
+  totalStops: number;
+  /** Henuz teslim edilmemis duraklardan tahsil edilecek, TL karsiligi. */
+  totalCollectionKurus: number;
+}
+
+/**
+ * Haftalik sevkiyat ozeti: verilen tarihin haftasi, pazartesiden pazara.
+ * Sofor kagitlari gibi durak durak; teslim edilmis duraklar da haftanin
+ * kaydi olarak listede.
+ */
+export async function getWeeklyShipment(
+  db: DbOrTx,
+  scope: Scope,
+  anyDateInWeek: string,
+): Promise<WeeklyShipment> {
+  const weekStart = startOfWeek(anyDateInWeek);
+  const weekEnd = addDays(weekStart, 6);
+  const stops = await getShipmentStops(db, scope, weekStart, weekEnd, { includeDelivered: true });
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(weekStart, index);
+    return { date, stops: stops.filter((stop) => stop.plannedDeliveryDate === date) };
+  });
+
+  return {
+    weekStart,
+    weekEnd,
+    days,
+    totalStops: stops.length,
+    totalCollectionKurus: collectionTotal(stops),
   };
 }
