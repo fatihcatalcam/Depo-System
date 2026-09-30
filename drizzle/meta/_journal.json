@@ -113,6 +113,13 @@
       "when": 1790798701924,
       "tag": "0015_teslimat-ilce",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790798761924,
+      "tag": "0016_dokap-dolap",
+      "breakpoints": true
     }
   ]
 }
