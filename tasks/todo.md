@@ -295,5 +295,10 @@ gore. **Kullanici "pushla" demeden push yok.**
 
 - [x] `npm run db:migrate`
 - [x] Yerelde tarayici testi
-- [ ] YZ mal kabul icin `OPENAI_API_KEY` (Vercel + .env.local) — kullanici ekler
+- [x] YZ mal kabul icin `OPENAI_API_KEY` (Vercel + .env.local) — kullanici ekledi
+- [x] Gercek irsaliyeyle model karsilastirmasi (Bambi, 41 satir, `scripts/compare-receipt-models.ts`):
+      talimat duzeltmesinden sonra gpt-6-luna 41/41 x3, gpt-5.4-mini 38-40/41; ikisinde de yanlis kart 0.
+      Luna ~20 sn / ~0,13 TL, mini ~7 sn / ~0,70 TL. Varsayilan Luna.
+      Uzun e-irsaliye numarasini iki model de zaman zaman yanlis okuyor (EI -> E1, eksik/fazla sifir).
+- [ ] Arayuzden dosya yukleme denemesi: kullanici yapacak (belge public/ klasorune konamadi)
 - [ ] Kullanici inceleyip "pushla" deyince push
