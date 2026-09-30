@@ -9,7 +9,9 @@ export const dynamic = 'force-dynamic';
  */
 export default function PrintLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-[210mm] bg-white p-6 text-neutral-900 print:p-0">
+    // Baskida genislik sayfanin kendisine birakiliyor: yatay basilan sayfalar
+    // (siparis ozeti) 210 mm'ye sikismasin.
+    <div className="mx-auto max-w-[210mm] bg-white p-6 text-neutral-900 print:max-w-none print:p-0">
       <PrintTrigger />
       {children}
     </div>

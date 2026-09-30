@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
  * Satirin icindeki gercek baglantilar (siparis numarasi) kendi isini yapar:
  * Ctrl ile yeni sekmede acmak orada hala calisiyor.
  */
-export function OrderRow({ href, children }: { href: string; children: ReactNode }) {
+export function RowLink({ href, children }: { href: string; children: ReactNode }) {
   const router = useRouter();
 
   return (

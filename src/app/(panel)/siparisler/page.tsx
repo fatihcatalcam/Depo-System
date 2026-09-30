@@ -12,7 +12,7 @@ import {
 import { currentUser } from '@/lib/auth/current';
 import { formatKurus, toTryKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
-import { OrderRow } from './order-row';
+import { RowLink } from '@/components/row-link';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
   dateStyle: 'short',
@@ -82,6 +82,12 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
         </div>
         <div className="flex gap-2">
           <Link
+            href="/siparisler/ozet"
+            className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
+          >
+            Ozet
+          </Link>
+          <Link
             href="/siparisler/bekleyen"
             className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
           >
@@ -137,7 +143,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
             </thead>
             <tbody>
               {orders.map((order) => (
-                <OrderRow key={order.id} href={`/siparisler/${order.id}`}>
+                <RowLink key={order.id} href={`/siparisler/${order.id}`}>
                   <td className="p-3">
                     <Link
                       href={`/siparisler/${order.id}`}
@@ -190,7 +196,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                   >
                     {formatKurus(order.balanceKurus, { currency: order.currency })}
                   </td>
-                </OrderRow>
+                </RowLink>
               ))}
             </tbody>
           </table>

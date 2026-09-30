@@ -678,6 +678,8 @@ export interface OrderSummary extends Order {
 
 export interface OrderFilters {
   status?: OrderStatus;
+  /** Birden fazla durum: "teslim bekleyenler" gibi gruplar icin. */
+  statuses?: OrderStatus[];
   customerId?: string;
   plannedDeliveryDate?: string;
   /** Yalnizca yonetici icin anlamli: tek subeye daraltir. */
@@ -720,6 +722,7 @@ export async function listOrders(
 ): Promise<OrderSummary[]> {
   const conditions = [scopeFilter(scope, orders.branchId)];
   if (filters.status) conditions.push(eq(orders.status, filters.status));
+  if (filters.statuses) conditions.push(inArray(orders.status, filters.statuses));
   if (filters.customerId) conditions.push(eq(orders.customerId, filters.customerId));
   if (filters.plannedDeliveryDate) {
     conditions.push(eq(orders.plannedDeliveryDate, filters.plannedDeliveryDate));
