@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { SearchBox } from '@/components/search-box';
 import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
 import {
@@ -10,6 +12,7 @@ import {
 import { currentUser } from '@/lib/auth/current';
 import { formatKurus, toTryKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
+import { OrderRow } from './order-row';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
   dateStyle: 'short',
@@ -42,16 +45,26 @@ const FILTERS: { value: string; label: string }[] = [
 ];
 
 interface PageProps {
-  searchParams: Promise<{ durum?: string }>;
+  searchParams: Promise<{ durum?: string; q?: string }>;
+}
+
+/** Durum sekmesi degisince arama kaybolmasin. */
+function filterHref(status: string, query: string | undefined) {
+  const params = new URLSearchParams();
+  if (status) params.set('durum', status);
+  if (query) params.set('q', query);
+  const search = params.toString();
+  return search ? `/siparisler?${search}` : '/siparisler';
 }
 
 export default async function SiparislerPage({ searchParams }: PageProps) {
-  const [{ durum }, user] = await Promise.all([searchParams, currentUser()]);
+  const [{ durum, q }, user] = await Promise.all([searchParams, currentUser()]);
   const status = FILTERS.some((f) => f.value === durum && f.value)
     ? (durum as OrderStatus)
     : undefined;
+  const query = q?.trim() || undefined;
 
-  const orders = await listOrders(db, user.scope, { status });
+  const orders = await listOrders(db, user.scope, { status, query });
   const openBalance = orders
     .filter((order) => order.status !== 'cancelled')
     // Farkli para birimlerindeki bakiyeler ancak TL karsiligiyla toplanir.
@@ -80,11 +93,15 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
         </div>
       </div>
 
+      <Suspense fallback={<div className="h-11" />}>
+        <SearchBox placeholder="Musteri adi, telefon, siparis no veya adres ara" />
+      </Suspense>
+
       <nav className="flex flex-wrap gap-2">
         {FILTERS.map((filter) => (
           <Link
             key={filter.value || 'all'}
-            href={filter.value ? `/siparisler?durum=${filter.value}` : '/siparisler'}
+            href={filterHref(filter.value, query)}
             className={cn(
               'rounded-full border px-3 py-1.5 text-xs',
               (durum ?? '') === filter.value
@@ -98,7 +115,9 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
       </nav>
 
       {orders.length === 0 ? (
-        <p className="text-sm text-neutral-500">Kayit bulunamadi.</p>
+        <p className="text-sm text-neutral-500">
+          {query ? `"${query}" icin siparis bulunamadi.` : 'Kayit bulunamadi.'}
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
           <table className="w-full min-w-[940px] text-sm">
@@ -118,7 +137,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
             </thead>
             <tbody>
               {orders.map((order) => (
-                <tr key={order.id} className="border-b border-neutral-100 last:border-0">
+                <OrderRow key={order.id} href={`/siparisler/${order.id}`}>
                   <td className="p-3">
                     <Link
                       href={`/siparisler/${order.id}`}
@@ -131,7 +150,16 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                   {user.isCentral ? (
                     <td className="whitespace-nowrap p-3 text-neutral-600">{order.branchName}</td>
                   ) : null}
-                  <td className="p-3">{order.customerName}</td>
+                  <td className="p-3">
+                    <div>{order.customerName}</div>
+                    {/* Siparise ozel telefon once: musteri baska bir numaradan
+                        teslim almak istemis olabilir. */}
+                    {order.deliveryPhone || order.customerPhone ? (
+                      <div className="text-xs tabular-nums text-neutral-500">
+                        {order.deliveryPhone || order.customerPhone}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="whitespace-nowrap p-3 text-neutral-600">
                     {order.salespersonName ?? '—'}
                   </td>
@@ -162,7 +190,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
                   >
                     {formatKurus(order.balanceKurus, { currency: order.currency })}
                   </td>
-                </tr>
+                </OrderRow>
               ))}
             </tbody>
           </table>

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import {
   branches,
   customers,
@@ -12,6 +12,7 @@ import {
   stockBalances,
   stockItems,
 } from '@/db/schema';
+import { containsDigits, containsFolded } from '@/db/text-search';
 import type { DbOrTx, Tx } from '@/db/types';
 import { createCustomer } from '@/domain/parties/parties';
 import { ownBranch, scopeFilter, type Scope } from '@/domain/scope';
@@ -623,6 +624,9 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
 
 export interface OrderSummary extends Order {
   customerName: string;
+  /** Musteri kartindaki telefonlar; siparise ozel telefon yoksa bunlar gosterilir. */
+  customerPhone: string | null;
+  customerPhone2: string | null;
   salespersonName: string | null;
   /** Yonetici listesinde sutun olarak gosterilir; sube kendi adini gormez. */
   branchName: string;
@@ -637,7 +641,34 @@ export interface OrderFilters {
   plannedDeliveryDate?: string;
   /** Yalnizca yonetici icin anlamli: tek subeye daraltir. */
   branchId?: string;
+  /**
+   * Serbest arama: musteri adi, siparis no, adres ve telefonlar. Telefonlar
+   * yalnizca rakamlarla karsilastiriliyor, bosluklu ya da bosluksuz yazilmis
+   * olmasi fark etmiyor.
+   */
+  query?: string;
   limit?: number;
+}
+
+/** Aramadaki rakamlar bu kadardan azsa telefon aranmiyor: "12" her numarada gecer. */
+const MIN_PHONE_DIGITS = 3;
+
+function orderSearchCondition(query: string) {
+  const text = [
+    containsFolded(customers.name, query),
+    containsFolded(orders.orderNo, query),
+    containsFolded(orders.deliveryAddress, query),
+  ];
+
+  const digits = query.replace(/\D/g, '');
+  const phones =
+    digits.length >= MIN_PHONE_DIGITS
+      ? [customers.phone, customers.phone2, orders.deliveryPhone, orders.deliveryPhone2].map(
+          (column) => containsDigits(column, digits),
+        )
+      : [];
+
+  return or(...text, ...phones);
 }
 
 export async function listOrders(
@@ -654,11 +685,15 @@ export async function listOrders(
   // Yonetici tek subeyi suzmek isteyebilir; kapsam zaten genis oldugu icin bu
   // ek bir yetki acmaz, yalnizca daraltir.
   if (filters.branchId) conditions.push(eq(orders.branchId, filters.branchId));
+  const query = filters.query?.trim();
+  if (query) conditions.push(orderSearchCondition(query));
 
   const rows = await db
     .select({
       order: orders,
       customerName: customers.name,
+      customerPhone: customers.phone,
+      customerPhone2: customers.phone2,
       branchName: branches.name,
       salespersonName: salespeople.name,
       paid: sql<number>`coalesce((
@@ -679,6 +714,8 @@ export async function listOrders(
     return {
       ...row.order,
       customerName: row.customerName,
+      customerPhone: row.customerPhone,
+      customerPhone2: row.customerPhone2,
       branchName: row.branchName,
       salespersonName: row.salespersonName,
       paidKurus,

@@ -49,7 +49,9 @@ export function DesktopNav() {
   const items = [...PRIMARY, ...SECONDARY];
 
   return (
-    <nav className="hidden w-56 shrink-0 border-r border-neutral-200 bg-white p-3 md:block print:hidden">
+    // Sayfayla birlikte kaymiyor: uzun bir listenin sonunda baska bir sayfaya
+    // gecmek icin once en uste cikmak gerekmesin.
+    <nav className="sticky top-0 hidden h-screen w-56 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white p-3 md:block print:hidden">
       <div className="px-2 pb-4 pt-2 text-sm font-semibold text-neutral-900">Depo Sistemi</div>
       <ul className="space-y-1">
         {items.map(({ href, label, icon: Icon }) => (
