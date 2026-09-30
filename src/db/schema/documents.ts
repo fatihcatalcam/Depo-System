@@ -105,6 +105,14 @@ export const orders = pgTable(
     // Anlik kopya: musteri adresini sonradan degistirse bile siparis nereye
     // gittiyse orada kalir.
     deliveryAddress: text('delivery_address').notNull(),
+    /**
+     * Il, ilce, ulke adresten ayri: sevkiyat ilceye gore planlaniyor ve
+     * sofor once ilceye bakiyor. Serbest metin adresin icinde aramak yerine
+     * burada duruyor. Teslimatlarin neredeyse tamami Istanbul ici.
+     */
+    deliveryCity: text('delivery_city').notNull().default('İstanbul'),
+    deliveryDistrict: text('delivery_district'),
+    deliveryCountry: text('delivery_country').notNull().default('Türkiye'),
     deliveryPhone: text('delivery_phone'),
     /** Ikinci telefon: ev/is ya da esin numarasi. Sofor birine ulasamazsa digerini arar. */
     deliveryPhone2: text('delivery_phone2'),

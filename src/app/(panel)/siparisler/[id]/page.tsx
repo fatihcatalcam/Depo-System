@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PlaceLine } from '@/components/place-line';
 import { notFound } from 'next/navigation';
 import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
@@ -80,7 +81,14 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
         <dl className="grid gap-2 sm:grid-cols-2">
           <div>
             <dt className="text-xs uppercase text-neutral-500">Teslimat adresi</dt>
-            <dd>{order.deliveryAddress}</dd>
+            <dd>
+              <PlaceLine
+                district={order.deliveryDistrict}
+                city={order.deliveryCity}
+                country={order.deliveryCountry}
+              />
+              {order.deliveryAddress}
+            </dd>
           </div>
           <div>
             <dt className="text-xs uppercase text-neutral-500">Telefon</dt>
@@ -137,6 +145,9 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
             orderId={order.id}
             plannedDeliveryDate={order.plannedDeliveryDate}
             deliveryAddress={order.deliveryAddress}
+            deliveryCity={order.deliveryCity}
+            deliveryDistrict={order.deliveryDistrict}
+            deliveryCountry={order.deliveryCountry}
             deliveryPhone={order.deliveryPhone}
             deliveryPhone2={order.deliveryPhone2}
             deliveryNotes={order.deliveryNotes}

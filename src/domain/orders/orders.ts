@@ -23,6 +23,7 @@ import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
 import { RATE_SCALE, TRY_RATE, type Currency } from '@/lib/money';
 import { resolveInstallments, type PaymentMethod } from '@/lib/payment-methods';
+import { DEFAULT_CITY, DEFAULT_COUNTRY } from '@/lib/places';
 
 export type Order = typeof orders.$inferSelect;
 export type OrderStatus = Order['status'];
@@ -101,6 +102,8 @@ export interface NewCustomerInput {
   name: string;
   phone?: string | null;
   address?: string | null;
+  city?: string | null;
+  district?: string | null;
 }
 
 export interface CreateOrderInput extends InvoiceInput {
@@ -128,6 +131,11 @@ export interface CreateOrderInput extends InvoiceInput {
   salespersonId?: string | null;
   plannedDeliveryDate?: string | null;
   deliveryAddress: string;
+  /** Bos birakilirsa Istanbul. */
+  deliveryCity?: string | null;
+  deliveryDistrict?: string | null;
+  /** Bos birakilirsa Turkiye. */
+  deliveryCountry?: string | null;
   deliveryPhone?: string | null;
   /** Ikinci telefon: sofor birine ulasamazsa digerini arar. */
   deliveryPhone2?: string | null;
@@ -182,6 +190,9 @@ export async function createOrder(
         salespersonId: input.salespersonId || null,
         plannedDeliveryDate: input.plannedDeliveryDate ?? null,
         deliveryAddress: address,
+        deliveryCity: input.deliveryCity?.trim() || DEFAULT_CITY,
+        deliveryDistrict: input.deliveryDistrict?.trim() || null,
+        deliveryCountry: input.deliveryCountry?.trim() || DEFAULT_COUNTRY,
         deliveryPhone: input.deliveryPhone?.trim() || null,
         deliveryPhone2: input.deliveryPhone2?.trim() || null,
         deliveryNotes: input.deliveryNotes?.trim() || null,
@@ -275,6 +286,9 @@ export interface UpdateOrderInput extends InvoiceInput {
   salespersonId?: string | null;
   plannedDeliveryDate?: string | null;
   deliveryAddress?: string;
+  deliveryCity?: string | null;
+  deliveryDistrict?: string | null;
+  deliveryCountry?: string | null;
   deliveryPhone?: string | null;
   deliveryPhone2?: string | null;
   deliveryNotes?: string | null;
@@ -351,6 +365,19 @@ export async function updateOrder(
             ? input.plannedDeliveryDate
             : existing.plannedDeliveryDate,
         deliveryAddress: address,
+        // Il ve ulke bos birakilamaz: silinirse varsayilana doner.
+        deliveryCity:
+          input.deliveryCity !== undefined
+            ? input.deliveryCity?.trim() || DEFAULT_CITY
+            : existing.deliveryCity,
+        deliveryDistrict:
+          input.deliveryDistrict !== undefined
+            ? input.deliveryDistrict?.trim() || null
+            : existing.deliveryDistrict,
+        deliveryCountry:
+          input.deliveryCountry !== undefined
+            ? input.deliveryCountry?.trim() || DEFAULT_COUNTRY
+            : existing.deliveryCountry,
         deliveryPhone:
           input.deliveryPhone !== undefined
             ? input.deliveryPhone?.trim() || null
@@ -672,6 +699,7 @@ function orderSearchCondition(query: string) {
     containsFolded(customers.name, query),
     containsFolded(orders.orderNo, query),
     containsFolded(orders.deliveryAddress, query),
+    containsFolded(orders.deliveryDistrict, query),
   ];
 
   const digits = query.replace(/\D/g, '');
@@ -816,6 +844,8 @@ async function resolveCustomer(tx: Tx, scope: Scope, input: CreateOrderInput): P
     name,
     phone: input.newCustomer?.phone ?? null,
     address: input.newCustomer?.address ?? null,
+    city: input.newCustomer?.city ?? null,
+    district: input.newCustomer?.district ?? null,
   });
   return created.id;
 }

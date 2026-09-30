@@ -115,6 +115,9 @@ const orderSchema = z.object({
   exchangeRate: z.string().optional(),
   plannedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   deliveryAddress: z.string().min(1, 'Teslimat adresi girin.'),
+  deliveryCity: z.string().optional(),
+  deliveryDistrict: z.string().optional(),
+  deliveryCountry: z.string().optional(),
   deliveryPhone: z.string().optional(),
   deliveryPhone2: z.string().optional(),
   deliveryNotes: z.string().optional(),
@@ -153,6 +156,8 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
             // bir dahakine adres ve telefon hazir gelir.
             phone: parsed.data.deliveryPhone,
             address: parsed.data.deliveryAddress,
+            city: parsed.data.deliveryCity,
+            district: parsed.data.deliveryDistrict,
           }
         : undefined,
       orderDate: parsed.data.orderDate,
@@ -160,6 +165,9 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
       salespersonId: parsed.data.salespersonId,
       plannedDeliveryDate: parsed.data.plannedDeliveryDate ?? null,
       deliveryAddress: parsed.data.deliveryAddress,
+      deliveryCity: parsed.data.deliveryCity,
+      deliveryDistrict: parsed.data.deliveryDistrict,
+      deliveryCountry: parsed.data.deliveryCountry,
       deliveryPhone: parsed.data.deliveryPhone,
       deliveryPhone2: parsed.data.deliveryPhone2,
       deliveryNotes: parsed.data.deliveryNotes,
@@ -218,6 +226,9 @@ const orderPatchSchema = z.object({
     .nullable()
     .optional(),
   deliveryAddress: z.string().min(1, 'Teslimat adresi girin.').optional(),
+  deliveryCity: z.string().optional(),
+  deliveryDistrict: z.string().optional(),
+  deliveryCountry: z.string().optional(),
   deliveryPhone: z.string().optional(),
   deliveryPhone2: z.string().optional(),
   deliveryNotes: z.string().optional(),
@@ -240,6 +251,9 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
         parsed.data.salespersonId !== undefined ? parsed.data.salespersonId || null : undefined,
       plannedDeliveryDate: parsed.data.plannedDeliveryDate,
       deliveryAddress: parsed.data.deliveryAddress,
+      deliveryCity: parsed.data.deliveryCity,
+      deliveryDistrict: parsed.data.deliveryDistrict,
+      deliveryCountry: parsed.data.deliveryCountry,
       deliveryPhone: parsed.data.deliveryPhone,
       deliveryPhone2: parsed.data.deliveryPhone2,
       deliveryNotes: parsed.data.deliveryNotes,
@@ -389,5 +403,7 @@ export async function searchCustomersAction(query: string) {
     name: customer.name,
     phone: customer.phone,
     address: customer.address,
+    city: customer.city,
+    district: customer.district,
   }));
 }

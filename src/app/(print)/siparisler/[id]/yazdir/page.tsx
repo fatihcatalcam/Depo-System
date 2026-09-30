@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { PlaceLine } from '@/components/place-line';
 import { PrintHeader } from '@/components/print-header';
 import { db } from '@/db/client';
 import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
@@ -45,6 +46,12 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
         </div>
         <div>
           <div className="text-xs font-semibold uppercase text-neutral-600">Teslimat adresi</div>
+          <PlaceLine
+            district={order.deliveryDistrict}
+            city={order.deliveryCity}
+            country={order.deliveryCountry}
+            print
+          />
           <div>{order.deliveryAddress}</div>
           {order.deliveryPhone || order.deliveryPhone2 ? (
             <div className="text-xs text-neutral-600">

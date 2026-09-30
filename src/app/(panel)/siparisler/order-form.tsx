@@ -17,6 +17,7 @@ import {
   type Currency,
 } from '@/lib/money';
 import type { PaymentMethod } from '@/lib/payment-methods';
+import { DEFAULT_CITY, DEFAULT_COUNTRY, ISTANBUL_DISTRICTS } from '@/lib/places';
 import { createOrderAction, searchCustomersAction } from './actions';
 import { DepositRows, emptyDepositRow, type DepositRow } from './deposit-rows';
 
@@ -37,6 +38,8 @@ interface CustomerHit {
   name: string;
   phone: string | null;
   address: string | null;
+  city: string | null;
+  district: string | null;
 }
 
 /**
@@ -96,6 +99,9 @@ export interface OrderFormValues {
   orderDate: string;
   plannedDeliveryDate: string;
   address: string;
+  city: string;
+  district: string;
+  country: string;
   phone: string;
   phone2: string;
   deliveryNotes: string;
@@ -156,6 +162,9 @@ export interface OrderSubmitInput {
   exchangeRate?: string;
   plannedDeliveryDate: string | null;
   deliveryAddress: string;
+  deliveryCity: string;
+  deliveryDistrict: string;
+  deliveryCountry: string;
   deliveryPhone?: string;
   deliveryPhone2?: string;
   deliveryNotes?: string;
@@ -200,6 +209,9 @@ export function OrderForm({
     initial?.plannedDeliveryDate ?? '',
   );
   const [address, setAddress] = useState(initial?.address ?? '');
+  const [city, setCity] = useState(initial?.city ?? DEFAULT_CITY);
+  const [district, setDistrict] = useState(initial?.district ?? '');
+  const [country, setCountry] = useState(initial?.country ?? DEFAULT_COUNTRY);
   const [phone, setPhone] = useState(initial?.phone ?? '');
   const [phone2, setPhone2] = useState(initial?.phone2 ?? '');
   const [deliveryNotes, setDeliveryNotes] = useState(initial?.deliveryNotes ?? '');
@@ -246,6 +258,9 @@ export function OrderForm({
     // Adres musteriden on-doldurulur ama burada degistirilebilir:
     // ayni musteri baska bir adrese teslimat isteyebilir.
     if (hit.address && !address) setAddress(hit.address);
+    if (hit.district && !district) setDistrict(hit.district);
+    // Il varsayilanda duruyorsa musterininkiyle degistir; elle yazilmissa dokunma.
+    if (hit.city && city === DEFAULT_CITY) setCity(hit.city);
     if (hit.phone && !phone) setPhone(hit.phone);
   }
 
@@ -344,6 +359,9 @@ export function OrderForm({
             exchangeRate: currency === 'TRY' ? undefined : exchangeRate,
             plannedDeliveryDate: plannedDeliveryDate || null,
             deliveryAddress: address,
+            deliveryCity: city,
+            deliveryDistrict: district,
+            deliveryCountry: country,
             deliveryPhone: phone || undefined,
             deliveryPhone2: phone2 || undefined,
             deliveryNotes: deliveryNotes || undefined,
@@ -528,6 +546,44 @@ export function OrderForm({
             className="h-11"
             required
           />
+        </div>
+        {/* Ilce ayri alanda: sevkiyat ilceye gore planlaniyor, sofor once ilceye
+            bakiyor. Istanbul'da hazir liste cikiyor ama serbest yazim da olur. */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="delivery-district">Ilce</Label>
+            <Input
+              id="delivery-district"
+              value={district}
+              onChange={(event) => setDistrict(event.target.value)}
+              list={city === DEFAULT_CITY ? 'istanbul-districts' : undefined}
+              placeholder={city === DEFAULT_CITY ? 'Ornek: Başakşehir' : ''}
+              className="h-11"
+            />
+            <datalist id="istanbul-districts">
+              {ISTANBUL_DISTRICTS.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="delivery-city">Il</Label>
+            <Input
+              id="delivery-city"
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              className="h-11"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="delivery-country">Ulke</Label>
+            <Input
+              id="delivery-country"
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
+              className="h-11"
+            />
+          </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">

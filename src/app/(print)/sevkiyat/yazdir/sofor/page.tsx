@@ -1,3 +1,4 @@
+import { PlaceLine } from '@/components/place-line';
 import { PrintHeader } from '@/components/print-header';
 import { db } from '@/db/client';
 import { getDailyShipment } from '@/domain/shipments';
@@ -48,6 +49,13 @@ export default async function SoforKagidiPage({ searchParams }: PageProps) {
 
               <div className="grid gap-1 py-2 text-sm sm:grid-cols-[1fr_auto]">
                 <div>
+                  {/* Ilce once ve buyuk: sofor rotayi ilceye gore kuruyor. */}
+                  <PlaceLine
+                    district={stop.deliveryDistrict}
+                    city={stop.deliveryCity}
+                    country={stop.deliveryCountry}
+                    print
+                  />
                   <div>{stop.deliveryAddress}</div>
 
                   {/* Telefon sofor icin bu kagittaki en islevsel bilgi: arac

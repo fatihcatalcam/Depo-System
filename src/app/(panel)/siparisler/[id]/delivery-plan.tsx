@@ -6,12 +6,16 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DEFAULT_CITY, DEFAULT_COUNTRY, ISTANBUL_DISTRICTS } from '@/lib/places';
 import { updateOrderAction } from '../actions';
 
 interface Props {
   orderId: string;
   plannedDeliveryDate: string | null;
   deliveryAddress: string;
+  deliveryCity: string;
+  deliveryDistrict: string | null;
+  deliveryCountry: string;
   deliveryPhone: string | null;
   deliveryPhone2: string | null;
   deliveryNotes: string | null;
@@ -25,6 +29,9 @@ export function DeliveryPlan({
   orderId,
   plannedDeliveryDate,
   deliveryAddress,
+  deliveryCity,
+  deliveryDistrict,
+  deliveryCountry,
   deliveryPhone,
   deliveryPhone2,
   deliveryNotes,
@@ -32,6 +39,9 @@ export function DeliveryPlan({
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(plannedDeliveryDate ?? '');
   const [address, setAddress] = useState(deliveryAddress);
+  const [city, setCity] = useState(deliveryCity || DEFAULT_CITY);
+  const [district, setDistrict] = useState(deliveryDistrict ?? '');
+  const [country, setCountry] = useState(deliveryCountry || DEFAULT_COUNTRY);
   const [phone, setPhone] = useState(deliveryPhone ?? '');
   const [phone2, setPhone2] = useState(deliveryPhone2 ?? '');
   const [notes, setNotes] = useState(deliveryNotes ?? '');
@@ -56,6 +66,9 @@ export function DeliveryPlan({
             plannedDeliveryDate: date || null,
             deliveryPhone2: phone2,
             deliveryAddress: address,
+            deliveryCity: city,
+            deliveryDistrict: district,
+            deliveryCountry: country,
             deliveryPhone: phone || undefined,
             deliveryNotes: notes || undefined,
           });
@@ -110,6 +123,42 @@ export function DeliveryPlan({
           className="h-11"
           required
         />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="plan-district">Ilce</Label>
+          <Input
+            id="plan-district"
+            value={district}
+            onChange={(event) => setDistrict(event.target.value)}
+            list={city === DEFAULT_CITY ? 'plan-istanbul-districts' : undefined}
+            className="h-11"
+          />
+          <datalist id="plan-istanbul-districts">
+            {ISTANBUL_DISTRICTS.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="plan-city">Il</Label>
+          <Input
+            id="plan-city"
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
+            className="h-11"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="plan-country">Ulke</Label>
+          <Input
+            id="plan-country"
+            value={country}
+            onChange={(event) => setCountry(event.target.value)}
+            className="h-11"
+          />
+        </div>
       </div>
 
       <div className="space-y-1.5">

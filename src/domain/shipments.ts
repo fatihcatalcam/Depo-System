@@ -28,6 +28,9 @@ export interface ShipmentStop {
   customerPhone: string | null;
   customerPhone2: string | null;
   deliveryAddress: string;
+  deliveryCity: string;
+  deliveryDistrict: string | null;
+  deliveryCountry: string;
   deliveryPhone: string | null;
   deliveryPhone2: string | null;
   deliveryNotes: string | null;
@@ -152,6 +155,9 @@ export async function getDailyShipment(
       customerPhone: row.customerPhone,
       customerPhone2: row.customerPhone2,
       deliveryAddress: row.order.deliveryAddress,
+      deliveryCity: row.order.deliveryCity,
+      deliveryDistrict: row.order.deliveryDistrict,
+      deliveryCountry: row.order.deliveryCountry,
       deliveryPhone: row.order.deliveryPhone,
       deliveryPhone2: row.order.deliveryPhone2,
       deliveryNotes: row.order.deliveryNotes,

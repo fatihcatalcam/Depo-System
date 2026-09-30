@@ -6,6 +6,7 @@ import { formatLongDate, todayInIstanbul } from '@/lib/dates';
 import { currentUser } from '@/lib/auth/current';
 import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
+import { PlaceLine } from '@/components/place-line';
 import { DatePicker } from './date-picker';
 import { DeliverStopButton } from './deliver-stop-button';
 
@@ -112,6 +113,11 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
                     pieces={stop.items.reduce((sum, item) => sum + item.quantity, 0)}
                   />
                 </div>
+                <PlaceLine
+                  district={stop.deliveryDistrict}
+                  city={stop.deliveryCity}
+                  country={stop.deliveryCountry}
+                />
                 <p className="text-sm text-neutral-600">{stop.deliveryAddress}</p>
                 <p className="text-sm font-semibold tabular-nums text-neutral-800">
                   {[
