@@ -12,6 +12,12 @@ Her duzeltmeden sonra buraya bir kural. Oturum basinda okunur.
   heredoc'u bozuyor. Betigi Write ile scratchpad'e yaz, `python <yol>` ile calistir.
 - Bu projede `prettier` yok; `npx prettier` calistirma (tek tirnaklari cift
   tirnaga ceviriyor, projenin bicimi degil).
+- **`git stash` kullanma; ozellikle `stash push ...; stash pop` zinciri hic.**
+  Izlenmeyen bir dosyayi stash'lemek sessizce basarisiz oldu, ardindan gelen
+  `pop` depoda onceden duran BASKA bir stash'i ("kilit parolasi ayrimi
+  (beklemede)") yarim uyguladi, 10 dosyada cakisma cikti (2026-10-03). Bu
+  depoda kullanicinin bekleyen bir stash'i var. Bir degisikligi gecici geri
+  almak gerekiyorsa dosyanin yedegini scratchpad'e kopyala, sonra geri kopyala.
 
 ## Veritabani
 

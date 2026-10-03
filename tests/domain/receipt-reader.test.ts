@@ -3,6 +3,7 @@ import { searchStockItems } from '@/domain/catalog/stock-items';
 import {
   DEFAULT_MODEL,
   readReceiptDocument,
+  readReceiptSpreadsheet,
   type ReceiptDocument,
 } from '@/domain/receipt-reader';
 import { makeBedSet } from '../helpers/order-fixtures';
@@ -206,5 +207,73 @@ describe('irsaliye okuma', () => {
 
     expect(result).toEqual({ ok: false, error: expect.stringContaining('ulasilamadi') });
     spy.mockRestore();
+  });
+});
+
+describe('Excel eslestirme', () => {
+  const SHEET = {
+    date: '2026-09-30',
+    lines: [
+      { text: 'COT. YATAK 160x200', quantity: 3 },
+      { text: 'COT. YATAK 160x200', quantity: 3 },
+      { text: 'ORTAK DOLAP GVD 1 KAPAKLI', quantity: 1 },
+      { text: 'COT. BAZA 160x200', quantity: 2 },
+    ],
+  };
+
+  /**
+   * Adetler dosyadan geliyor, modelden degil: model yalnizca adlari
+   * eslestiriyor. Ayni ad bir kez soruluyor; her satirin adedi ayri kaliyor.
+   */
+  it('adlari bir kez sorar, adetleri dosyadan alir', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-anahtar');
+    const fetchImpl = openAiReply({
+      matches: [
+        { line: 1, catalog_no: numberOf('COTTON YATAK') },
+        { line: 2, catalog_no: null },
+        { line: 3, catalog_no: numberOf('COTTON BAZA') },
+      ],
+    });
+
+    const result = await readReceiptSpreadsheet(ctx.db, SHEET, { fetchImpl });
+
+    const body = JSON.parse((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    const sent: string = body.input[0].content[0].text;
+    expect(sent.match(/COT\. YATAK 160x200/g)).toHaveLength(1);
+    expect(sent).toContain('2 | ORTAK DOLAP GVD 1 KAPAKLI');
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const yatak = catalog.find((item) => item.name === 'COTTON YATAK');
+    expect(result.date).toBe('2026-09-30');
+    expect(result.lines.map((line) => [line.stockItemId, line.quantity])).toEqual([
+      [yatak?.id, 3],
+      [yatak?.id, 3],
+      [null, 1],
+      [catalog.find((item) => item.name === 'COTTON BAZA')?.id, 2],
+    ]);
+    // Fiyat bilerek okunmuyor: mal kabulde onemli olan ad, adet ve tarih.
+    expect(result.lines.every((line) => line.unitPrice === null)).toBe(true);
+  });
+
+  /** Modelin atladigi ya da uydurdugu satir numarasi eslesmemis sayilir. */
+  it('cevapta olmayan ad eslesmemis kalir', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-anahtar');
+    const fetchImpl = openAiReply({ matches: [{ line: 99, catalog_no: 1 }] });
+
+    const result = await readReceiptSpreadsheet(ctx.db, SHEET, { fetchImpl });
+
+    expect(result.ok && result.lines.every((line) => line.stockItemId === null)).toBe(true);
+    expect(result.ok && result.lines).toHaveLength(4);
+  });
+
+  it('bos dosyada istek atilmaz', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-anahtar');
+    const fetchImpl = vi.fn();
+
+    const result = await readReceiptSpreadsheet(ctx.db, { date: null, lines: [] }, { fetchImpl });
+
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('urun satiri bulunamadi') });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

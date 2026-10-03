@@ -134,6 +134,7 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
         }));
       setUnmatched((rows) => [...rows, ...missing]);
 
+      if (result.notice) toast.warning(result.notice);
       if (result.lines.length === 0) {
         toast.error('Belgede urun satiri bulunamadi.');
       } else {
@@ -248,7 +249,7 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
           <input
             ref={fileInput}
             type="file"
-            accept="image/jpeg,image/png,image/webp,application/pdf"
+            accept="image/jpeg,image/png,image/webp,application/pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -266,7 +267,7 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
           </Button>
           <p className="text-xs text-neutral-500">
             {aiEnabled
-              ? 'Irsaliyenin fotografini ya da PDF\'ini secin; satirlar forma dolar. Stoga girmez — kontrol edip kaydedince girer.'
+              ? 'Irsaliyenin Excel\'ini, fotografini ya da PDF\'ini secin; satirlar forma dolar. Stoga girmez — kontrol edip kaydedince girer.'
               : 'Yapay zeka ayarli degil: Vercel\'de OPENAI_API_KEY tanimlanmali.'}
           </p>
         </div>

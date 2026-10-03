@@ -8,10 +8,13 @@ import { createGoodsReceipt } from '@/domain/goods-receipt';
 import { createSupplier } from '@/domain/parties/parties';
 import {
   readReceiptDocument,
+  readReceiptSpreadsheet,
   RECEIPT_MIME_TYPES,
   type ReadResult,
   type ReceiptMimeType,
 } from '@/domain/receipt-reader';
+import { parseReceiptSpreadsheet, SpreadsheetError } from '@/domain/receipt-spreadsheet';
+import { readFirstSheet, XlsxError } from '@/lib/xlsx-reader';
 import { currentScope } from '@/lib/auth/current';
 import { DomainError } from '@/lib/errors';
 import { parseTlInput } from '@/lib/money';
@@ -113,11 +116,18 @@ export async function readReceiptDocumentAction(formData: FormData): Promise<Rea
 
   const file = formData.get('document');
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Belge secilmedi.' };
-  if (!RECEIPT_MIME_TYPES.includes(file.type as ReceiptMimeType)) {
-    return { ok: false, error: 'Fotograf (JPG, PNG) ya da PDF yukleyin.' };
-  }
   if (file.size > MAX_DOCUMENT_BYTES) {
     return { ok: false, error: 'Belge cok buyuk. PDF yerine belgenin fotografini cekin.' };
+  }
+
+  const name = file.name.toLowerCase();
+  // Bazi tarayicilar .xlsx icin tur bildirmiyor; uzantiya da bakiliyor.
+  if (file.type === XLSX_MIME || name.endsWith('.xlsx')) return readSpreadsheet(file);
+  if (name.endsWith('.xls')) {
+    return { ok: false, error: 'Eski .xls bicimi okunmuyor. Excel\'de "Farkli kaydet > .xlsx" ile kaydedin.' };
+  }
+  if (!RECEIPT_MIME_TYPES.includes(file.type as ReceiptMimeType)) {
+    return { ok: false, error: 'Fotograf (JPG, PNG), PDF ya da Excel (.xlsx) yukleyin.' };
   }
 
   try {
@@ -129,5 +139,25 @@ export async function readReceiptDocumentAction(formData: FormData): Promise<Rea
   } catch (error) {
     console.error(error);
     return { ok: false, error: 'Belge okunamadi.' };
+  }
+}
+
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** Irsaliye programinin Excel ciktisi: ad, adet ve tarih dosyadan; eslestirme modelden. */
+async function readSpreadsheet(file: File): Promise<ReadResult> {
+  try {
+    const sheet = parseReceiptSpreadsheet(readFirstSheet(new Uint8Array(await file.arrayBuffer())));
+    const result = await readReceiptSpreadsheet(db, sheet);
+    if (result.ok && sheet.skipped > 0) {
+      result.notice = `${sheet.skipped} satirin adedi okunamadi (bos ya da kesirli), atlandi.`;
+    }
+    return result;
+  } catch (error) {
+    if (error instanceof XlsxError || error instanceof SpreadsheetError) {
+      return { ok: false, error: error.message };
+    }
+    console.error(error);
+    return { ok: false, error: 'Excel dosyasi okunamadi.' };
   }
 }
