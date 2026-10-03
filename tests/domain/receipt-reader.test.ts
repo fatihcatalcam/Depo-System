@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { searchStockItems } from '@/domain/catalog/stock-items';
+import { createCategory } from '@/domain/catalog/categories';
+import { createStockItem, searchStockItems } from '@/domain/catalog/stock-items';
 import {
   DEFAULT_MODEL,
   readReceiptDocument,
@@ -18,6 +19,9 @@ const DOCUMENT: ReceiptDocument = { name: 'irsaliye.jpg', mimeType: 'image/jpeg'
 beforeAll(async () => {
   ctx = await createTestDb();
   await makeBedSet(ctx.db, ctx.warehouseId, { model: 'COTTON', size: '160x200', stock: 0 });
+  // Gercek katalogdaki gibi: komodinin adinda tur yok, yalnizca kategoride.
+  const komodin = await createCategory(ctx.db, { name: 'Komodin' });
+  await createStockItem(ctx.db, { name: 'VANILLA TRAVİNA', categoryId: komodin.id });
   catalog = await searchStockItems(ctx.db, { limit: 5000 });
 });
 
@@ -136,7 +140,9 @@ describe('irsaliye okuma', () => {
     expect(body.model).toBe('test-model');
     expect(body.store).toBe(false);
     expect(body.text.format).toMatchObject({ type: 'json_schema', strict: true });
-    expect(body.instructions).toContain(`${numberOf('COTTON YATAK')} | COTTON YATAK | 160x200`);
+    expect(body.instructions).toContain(`${numberOf('COTTON YATAK')} | COTTON YATAK | 160x200 | `);
+    // Kategori de gidiyor: komodin gibi kartlarin turu adinda degil kategoride.
+    expect(body.instructions).toContain(`${numberOf('VANILLA TRAVİNA')} | VANILLA TRAVİNA |  | Komodin`);
     expect(body.input[0].content[0]).toEqual({
       type: 'input_image',
       image_url: 'data:image/jpeg;base64,AAAA',

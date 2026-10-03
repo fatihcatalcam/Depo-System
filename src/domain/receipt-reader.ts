@@ -1,5 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
+import { listCategoryTree, type CategoryNode } from '@/domain/catalog/categories';
 import { searchStockItems, type StockItem } from '@/domain/catalog/stock-items';
 import type { SpreadsheetLine } from '@/domain/receipt-spreadsheet';
 import type { DbOrTx } from '@/db/types';
@@ -99,6 +100,7 @@ interface Options {
 const MATCH_RULES = [
   'Her satiri asagidaki katalogdan TEK bir kalemle eslestir ve o kalemin numarasini catalog_no olarak ver.',
   'Uc sey birlikte uymali: model adi, tur (YATAK / BAZA / BASLIK / DOLAP / KAPAK / KOMODIN...) ve olcu.',
+  '- Tur kartin adinda yazmiyorsa kategorisine bak: "VANILLA TRAVİNA" kategorisi Komodin ise bir komodindir.',
   '- Olcu yazimlari aynidir: "090x190" = "90x190" = "90*190" = "90/190". Basliklarda olcu "160 CM" gibidir.',
   '- Olcuyu rakam rakam dikkatle oku: 190 ile 200 farkli kalemlerdir; yanlis olcu yanlis karta stok demektir.',
   '- Belgede katalogda olmayan ek kelimeler olabilir: seri adlari (NATURA, HVZ, LOOP, 2020, PRIME), renk ve',
@@ -106,6 +108,10 @@ const MATCH_RULES = [
   '  uyuyorsa eslestir.',
   '- Kisaltmalar: "COT. MAST." = COTTON MASTER; "GVD" = GOVDE; "TEKLI" = TEK; "CIFTLI" = CIFT;',
   '  "AYNALI" = AYNA; "2 KAPAKLI" = 2 KAPI. Turkce harfler yazilmamis olabilir (TRAVINA = TRAVİNA).',
+  // Dukkanin teyidi: tedarikci "dolap govde ici cekmece" diyor, katalogda
+  // "cekmece modulu" olarak duruyor; ayni urun.
+  '- "DOLAP GVD ICI CEKMECE" = ayni modelin "CEKMECE MODULU": ornegin "TRAVINA DOLAP GVD ICI CEKMECE"',
+  '  -> TRAVİNA ÇEKMECE MODÜLÜ.',
   '- Kapaklarda malzeme de uymali: AHSAP, AYNA, REFLEKTE farkli kalemlerdir; katalogda olmayan malzeme',
   '  (ornegin ALUMINYUM) eslesmez.',
   'Model adi, tur ve olcuden (ya da malzemeden) biri bile uymuyorsa ya da emin degilsen catalog_no null',
@@ -113,9 +119,41 @@ const MATCH_RULES = [
   '"ORTAK DOLAP") hicbir modele eslesmez.',
 ];
 
-function catalogText(items: StockItem[]): string {
+interface Catalog {
+  items: StockItem[];
+  text: string;
+}
+
+/**
+ * Modele giden katalog: numara, ad, olcu ve kategori. Kategori sart: bazi
+ * kartlarin adinda turu yazmiyor (komodin "VANILLA TRAVİNA" diye kayitli),
+ * tur yalnizca kategoride. Kategori gitmeyince model "tur uymuyor" diye bir
+ * eslestiriyor bir eslestirmiyordu.
+ */
+async function loadCatalog(db: DbOrTx): Promise<Catalog> {
+  const [items, tree] = await Promise.all([
+    searchStockItems(db, { limit: STOCK_LIMIT }),
+    listCategoryTree(db),
+  ]);
+  const names = new Map<string, string>();
+  const collect = (nodes: CategoryNode[]) => {
+    for (const node of nodes) {
+      names.set(node.id, node.name);
+      collect(node.children);
+    }
+  };
+  collect(tree);
+
   // Numaralar 1'den; UUID'ler modele gitmiyor, hem uzun hem kopyalarken bozulabilir.
-  return items.map((item, index) => `${index + 1} | ${item.name} | ${item.sizeLabel ?? ''}`).join('\n');
+  const text = items
+    .map(
+      (item, index) =>
+        `${index + 1} | ${item.name} | ${item.sizeLabel ?? ''} | ${
+          item.categoryId ? (names.get(item.categoryId) ?? '') : ''
+        }`,
+    )
+    .join('\n');
+  return { items, text };
 }
 
 function labelOf(item: StockItem): string {
@@ -238,7 +276,7 @@ function documentInstructions(catalog: string): string {
     'Katalogda karsiligi olmayan URUN satirlarini da ver (catalog_no null): kullanici gormeli.',
     'Yalnizca urun olmayan satirlari atla (tasima, nakliye, KDV, ara toplam). Tarih YYYY-MM-DD biciminde olsun.',
     '',
-    'KATALOG (numara | ad | olcu):',
+    'KATALOG (numara | ad | olcu | kategori):',
     catalog,
   ].join('\n');
 }
@@ -252,7 +290,7 @@ export async function readReceiptDocument(
     return { ok: false, error: 'Yapay zeka ayarli degil (OPENAI_API_KEY yok).' };
   }
 
-  const items = await searchStockItems(db, { limit: STOCK_LIMIT });
+  const { items, text: catalog } = await loadCatalog(db);
   const content =
     document.mimeType === 'application/pdf'
       ? {
@@ -268,7 +306,7 @@ export async function readReceiptDocument(
 
   const reply = await callModel(
     {
-      instructions: documentInstructions(catalogText(items)),
+      instructions: documentInstructions(catalog),
       content: [content, { type: 'input_text', text: 'Bu belgedeki urun satirlarini cikar.' }],
       schemaName: 'irsaliye',
       schema: DOCUMENT_SCHEMA,
@@ -345,7 +383,7 @@ function namesInstructions(catalog: string): string {
     '',
     ...MATCH_RULES,
     '',
-    'KATALOG (numara | ad | olcu):',
+    'KATALOG (numara | ad | olcu | kategori):',
     catalog,
   ].join('\n');
 }
@@ -368,11 +406,11 @@ export async function readReceiptSpreadsheet(
   }
 
   const names = [...new Set(sheet.lines.map((line) => line.text))];
-  const items = await searchStockItems(db, { limit: STOCK_LIMIT });
+  const { items, text: catalog } = await loadCatalog(db);
 
   const reply = await callModel(
     {
-      instructions: namesInstructions(catalogText(items)),
+      instructions: namesInstructions(catalog),
       content: [
         {
           type: 'input_text',
