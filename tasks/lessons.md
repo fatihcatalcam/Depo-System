@@ -29,6 +29,9 @@ Her duzeltmeden sonra buraya bir kural. Oturum basinda okunur.
   `enum_range()` degil `pg_enum` katalogu.
 - Canli veride her goc once `BEGIN ... ROLLBACK` ile denenir; ciktisi
   kullaniciya gosterilir.
+- ROLLBACK sira sayaclarini (bigserial, `stock_movements_seq_seq`) geri almaz.
+  Kuru denemeden sonra anlik goruntuyle karsilastir; yalnizca sayac farkliysa
+  ve arada gercek kayit yoksa `setval` ile geri al (2026-10-03).
 
 ## Arayuz
 

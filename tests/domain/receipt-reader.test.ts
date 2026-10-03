@@ -72,8 +72,8 @@ describe('irsaliye okuma', () => {
       date: '2026-09-29',
       supplier_name: 'Yatas',
       lines: [
-        { text: '160*200 Cotton Yatak', catalog_no: numberOf('COTTON YATAK'), quantity: 2, unit_price: 4500.5 },
-        { text: '160*200 Cotton Baza', catalog_no: numberOf('COTTON BAZA'), quantity: 1, unit_price: null },
+        { text: '160*200 Cotton Yatak', catalog_no: numberOf('COTTON YATAK'), quantity: 2, unit_price: 4500.5, new_item: null },
+        { text: '160*200 Cotton Baza', catalog_no: numberOf('COTTON BAZA'), quantity: 1, unit_price: null, new_item: null },
       ],
     });
 
@@ -101,8 +101,8 @@ describe('irsaliye okuma', () => {
       date: null,
       supplier_name: null,
       lines: [
-        { text: 'Bilinmeyen urun', catalog_no: 99_999, quantity: 1, unit_price: null },
-        { text: 'Emin olunamayan', catalog_no: null, quantity: 3, unit_price: null },
+        { text: 'Bilinmeyen urun', catalog_no: 99_999, quantity: 1, unit_price: null, new_item: null },
+        { text: 'Emin olunamayan', catalog_no: null, quantity: 3, unit_price: null, new_item: null },
       ],
     });
 
@@ -118,7 +118,7 @@ describe('irsaliye okuma', () => {
       waybill_no: '  ',
       date: '29.09.2026',
       supplier_name: null,
-      lines: [{ text: 'Nakliye', catalog_no: null, quantity: 0, unit_price: 500 }],
+      lines: [{ text: 'Nakliye', catalog_no: null, quantity: 0, unit_price: 500, new_item: null }],
     });
 
     const result = await readReceiptDocument(ctx.db, DOCUMENT, { fetchImpl });
@@ -235,9 +235,9 @@ describe('Excel eslestirme', () => {
     vi.stubEnv('OPENAI_API_KEY', 'test-anahtar');
     const fetchImpl = openAiReply({
       matches: [
-        { line: 1, catalog_no: numberOf('COTTON YATAK') },
-        { line: 2, catalog_no: null },
-        { line: 3, catalog_no: numberOf('COTTON BAZA') },
+        { line: 1, catalog_no: numberOf('COTTON YATAK'), new_item: null },
+        { line: 2, catalog_no: null, new_item: null },
+        { line: 3, catalog_no: numberOf('COTTON BAZA'), new_item: null },
       ],
     });
 
@@ -265,7 +265,7 @@ describe('Excel eslestirme', () => {
   /** Modelin atladigi ya da uydurdugu satir numarasi eslesmemis sayilir. */
   it('cevapta olmayan ad eslesmemis kalir', async () => {
     vi.stubEnv('OPENAI_API_KEY', 'test-anahtar');
-    const fetchImpl = openAiReply({ matches: [{ line: 99, catalog_no: 1 }] });
+    const fetchImpl = openAiReply({ matches: [{ line: 99, catalog_no: 1, new_item: null }] });
 
     const result = await readReceiptSpreadsheet(ctx.db, SHEET, { fetchImpl });
 
@@ -281,5 +281,72 @@ describe('Excel eslestirme', () => {
 
     expect(result).toEqual({ ok: false, error: expect.stringContaining('urun satiri bulunamadi') });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe('katalogda olmayan urun icin kart onerisi', () => {
+  const SHEET = {
+    date: '2026-09-30',
+    lines: [
+      { text: 'FRESHCELL PRIME WELLDORA KOMODIN', quantity: 2 },
+      { text: 'NOVERA YATAK 090x200 R:BK-183', quantity: 1 },
+      { text: 'COTTON YATAKK 160x200', quantity: 1 },
+    ],
+  };
+
+  it('oneriyi kategoriye baglar, kod ekini ve bastaki sifiri temizler', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-anahtar');
+    const fetchImpl = openAiReply({
+      matches: [
+        {
+          line: 1,
+          catalog_no: null,
+          new_item: { name: 'freshcell welldora', size_label: null, category: 'komodin' },
+        },
+        {
+          line: 2,
+          catalog_no: null,
+          new_item: { name: 'NOVERA YATAK R:BK-183', size_label: '090x200', category: 'Yatak Grubu' },
+        },
+        // Model "yeni" diyor ama bu kart katalogda var: yeni kart onerilmez.
+        {
+          line: 3,
+          catalog_no: null,
+          new_item: { name: 'COTTON YATAK', size_label: '160x200', category: null },
+        },
+      ],
+    });
+
+    const result = await readReceiptSpreadsheet(ctx.db, SHEET, { fetchImpl });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const komodinId = (await searchStockItems(ctx.db, { query: 'VANILLA TRAVİNA' }))[0].categoryId;
+    expect(result.lines[0]).toMatchObject({
+      stockItemId: null,
+      suggestion: { name: 'FRESHCELL WELLDORA', sizeLabel: null, categoryId: komodinId },
+    });
+    // Listede olmayan kategori: bos kalir, kullanici formda secer.
+    expect(result.lines[1]).toMatchObject({
+      stockItemId: null,
+      suggestion: { name: 'NOVERA YATAK', sizeLabel: '90x200', categoryId: null },
+    });
+    // Mukerrer kart kalici olurdu: var olan kart kullanilir.
+    expect(result.lines[2]).toMatchObject({
+      stockItemId: catalog.find((item) => item.name === 'COTTON YATAK')?.id,
+      suggestion: null,
+    });
+  });
+
+  it('istemde kategori listesi ve yazim hatasi kurali var', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-anahtar');
+    const fetchImpl = openAiReply({ matches: [] });
+
+    await readReceiptSpreadsheet(ctx.db, SHEET, { fetchImpl });
+
+    const body = JSON.parse((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body.instructions).toMatch(/Kategori yalnizca su listeden biri olsun: .*Komodin/);
+    expect(body.instructions).toContain('yazim hatalari olabilir');
+    expect(body.text.format.schema.properties.matches.items.required).toContain('new_item');
   });
 });

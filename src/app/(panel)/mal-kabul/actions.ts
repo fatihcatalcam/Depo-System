@@ -47,12 +47,29 @@ const receiptSchema = z.object({
         unitCost: z.string().optional(),
       }),
     )
-    .min(1, 'En az bir satir ekleyin.'),
+    .default([]),
+  /**
+   * Katalogda olmayan, kullanicinin "stoklara eklensin" dedigi urunler. Kartlar
+   * mal kabulle ayni transaction'da aciliyor.
+   */
+  newItems: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1, 'Yeni kartin adini yazin.'),
+        sizeLabel: z.string().optional(),
+        categoryId: z.uuid().nullable().optional(),
+        quantity: z.coerce.number().int().min(1),
+      }),
+    )
+    .default([]),
 });
 
 export async function createGoodsReceiptAction(input: unknown): Promise<ActionResult> {
   const parsed = receiptSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  if (parsed.data.lines.length === 0 && parsed.data.newItems.length === 0) {
+    return { ok: false, error: 'En az bir satir ekleyin.' };
+  }
 
   try {
     const receipt = await createGoodsReceipt(db, await currentScope(), {
@@ -64,6 +81,12 @@ export async function createGoodsReceiptAction(input: unknown): Promise<ActionRe
         stockItemId: line.stockItemId,
         quantity: line.quantity,
         unitCostKurus: line.unitCost ? parseTlInput(line.unitCost) : null,
+      })),
+      newItems: parsed.data.newItems.map((item) => ({
+        name: item.name,
+        sizeLabel: item.sizeLabel || null,
+        categoryId: item.categoryId ?? null,
+        quantity: item.quantity,
       })),
     });
 

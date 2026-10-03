@@ -4,6 +4,7 @@ import { listCategoryTree, type CategoryNode } from '@/domain/catalog/categories
 import { searchStockItems, type StockItem } from '@/domain/catalog/stock-items';
 import type { SpreadsheetLine } from '@/domain/receipt-spreadsheet';
 import type { DbOrTx } from '@/db/types';
+import { foldText, stockCardKey } from '@/lib/text';
 
 /**
  * Irsaliyeyi yapay zekayla okuyup mal kabul formunu doldurur. Iki yol var:
@@ -59,6 +60,18 @@ export interface ReceiptDocument {
   base64: string;
 }
 
+/**
+ * Katalogda olmayan urun icin yeni kart onerisi. Kendiliginden acilmaz:
+ * formda "stoklara eklensin mi" diye soruluyor, kullanici onaylarsa mal
+ * kabulle birlikte aciliyor.
+ */
+export interface NewItemSuggestion {
+  name: string;
+  sizeLabel: string | null;
+  /** Mevcut kategorilerden biri; model listede olmayan bir sey dediyse bos. */
+  categoryId: string | null;
+}
+
 export interface ReadLine {
   /** Belgede yazan hali, kullanici eslesmeyeni tanisin diye. */
   text: string;
@@ -69,6 +82,8 @@ export interface ReadLine {
   quantity: number;
   /** Birim fiyat, TL; belgede yoksa bos. */
   unitPrice: number | null;
+  /** Yalnizca eslesmeyen satirda: katalogda yoksa acilabilecek kart. */
+  suggestion: NewItemSuggestion | null;
 }
 
 export type ReadResult =
@@ -108,6 +123,9 @@ const MATCH_RULES = [
   '  uyuyorsa eslestir.',
   '- Kisaltmalar: "COT. MAST." = COTTON MASTER; "GVD" = GOVDE; "TEKLI" = TEK; "CIFTLI" = CIFT;',
   '  "AYNALI" = AYNA; "2 KAPAKLI" = 2 KAPI. Turkce harfler yazilmamis olabilir (TRAVINA = TRAVİNA).',
+  '- Model adinda ufak yazim hatalari olabilir (eksik, fazla ya da yer degistirmis harf: "MAGNSAND",',
+  '  "CAPADOCIA", "BLAKSAND"). Tur ve olcu tam uyuyor ve katalogda o ada benzeyen TEK model varsa eslestir.',
+  '  Olcude ve turde yazim hatasi kabul etme.',
   // Dukkanin teyidi: tedarikci "dolap govde ici cekmece" diyor, katalogda
   // "cekmece modulu" olarak duruyor; ayni urun.
   '- "DOLAP GVD ICI CEKMECE" = ayni modelin "CEKMECE MODULU": ornegin "TRAVINA DOLAP GVD ICI CEKMECE"',
@@ -119,9 +137,95 @@ const MATCH_RULES = [
   '"ORTAK DOLAP") hicbir modele eslesmez.',
 ];
 
+/**
+ * Katalogda olmayan urun icin yeni kart onerisi. Adlar katalogun
+ * alistigi bicimde olmali; yoksa ayni turden kartlar listede dagilir.
+ */
+function newItemRules(categories: string[]): string[] {
+  return [
+    'Katalogda karsiligi GERCEKTEN olmayan urun icin new_item ile yeni stok karti oner; eslesen satirda',
+    'new_item null olsun. Once yazim hatasi ihtimalini dusun: katalogda benzeyen bir kart varsa eslestir,',
+    'yeni kart onerme.',
+    '- Adi katalogdaki ayni turden kartlarin bicimine uydur: buyuk harf; model adini katalogda nasil',
+    '  yaziliyorsa oyle yaz (TRAVİNA, CAPPADOCİA); kisaltmalari ac (COT. MAST. -> COTTON MASTER).',
+    '  Ornek bicimler: "MODEL YATAK", "MODEL BAZA", "MODEL BASLIK", "MODEL DOLAP 2 KAPI GVD",',
+    '  "MODEL KAPAK TEK AHŞAP", komodinler "MODEL SERI" ("VANILLA TRAVİNA").',
+    '- Renk ve kod eklerini (R:..., A:..., RENK:...) ada yazma.',
+    '- Olcu ayri alanda: yatak ve bazada "90x190" (bastaki sifir yok), baslikta "90 CM"; olcusuz urunde null.',
+    `- Kategori yalnizca su listeden biri olsun: ${categories.join(', ')}. Emin degilsen null.`,
+  ];
+}
+
+const NEW_ITEM_SCHEMA = {
+  description: 'Katalogda yoksa acilabilecek yeni kart; eslesen ya da emin olunmayan satirda null.',
+  anyOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['name', 'size_label', 'category'],
+      properties: {
+        name: { type: 'string' },
+        size_label: { type: ['string', 'null'] },
+        category: { type: ['string', 'null'] },
+      },
+    },
+    { type: 'null' },
+  ],
+} as const;
+
+const newItemOutput = z
+  .object({ name: z.string(), size_label: z.string().nullable(), category: z.string().nullable() })
+  .nullable();
+
+/** Modelin onerisi -> karar: ya katalogda zaten olan kart ya da acilacak kart onerisi. */
+function resolveNewItem(
+  catalog: Catalog,
+  proposal: z.infer<typeof newItemOutput>,
+): { item: StockItem } | { suggestion: NewItemSuggestion } | null {
+  if (!proposal) return null;
+  // Renk/kod eki kacmissa temizle; olculerde bastaki sifiri at ("090x190").
+  const name = proposal.name.replace(/\s+(?:R|A|RENK):\S+/gi, '').replace(/\s+/g, ' ').trim();
+  if (name === '') return null;
+  const sizeLabel = proposal.size_label?.trim().replace(/\b0+(\d)/g, '$1') || null;
+
+  // Model "yeni" dese de ayni ad ve olcude kart varsa o kullanilir: mukerrer
+  // kart kalici olurdu (kartlar silinmiyor).
+  const existing = catalog.byKey.get(stockCardKey(name, sizeLabel));
+  if (existing) return { item: existing };
+
+  const wanted = proposal.category ? foldText(proposal.category).trim() : '';
+  const category = catalog.categories.find((entry) => foldText(entry.name).trim() === wanted);
+  return {
+    suggestion: { name: name.toLocaleUpperCase('tr-TR'), sizeLabel, categoryId: category?.id ?? null },
+  };
+}
+
+interface Decision {
+  item: StockItem | null;
+  suggestion: NewItemSuggestion | null;
+}
+
+/** Bir satir icin son karar: katalog numarasi oncelikli, yoksa yeni kart onerisi. */
+function decide(
+  catalog: Catalog,
+  catalogNo: number | null,
+  proposal: z.infer<typeof newItemOutput>,
+): Decision {
+  const item = itemAt(catalog.items, catalogNo);
+  if (item) return { item, suggestion: null };
+  const resolved = resolveNewItem(catalog, proposal);
+  if (!resolved) return { item: null, suggestion: null };
+  return 'item' in resolved
+    ? { item: resolved.item, suggestion: null }
+    : { item: null, suggestion: resolved.suggestion };
+}
+
 interface Catalog {
   items: StockItem[];
   text: string;
+  categories: { id: string; name: string }[];
+  /** stockCardKey -> kart: onerilen "yeni" kart zaten var mi. */
+  byKey: Map<string, StockItem>;
 }
 
 /**
@@ -153,7 +257,12 @@ async function loadCatalog(db: DbOrTx): Promise<Catalog> {
         }`,
     )
     .join('\n');
-  return { items, text };
+  return {
+    items,
+    text,
+    categories: [...names.entries()].map(([id, name]) => ({ id, name })),
+    byKey: new Map(items.map((item) => [stockCardKey(item.name, item.sizeLabel), item])),
+  };
 }
 
 function labelOf(item: StockItem): string {
@@ -230,7 +339,7 @@ const DOCUMENT_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['text', 'catalog_no', 'quantity', 'unit_price'],
+        required: ['text', 'catalog_no', 'quantity', 'unit_price', 'new_item'],
         properties: {
           text: { type: 'string', description: 'Satirin belgede yazdigi gibi hali.' },
           catalog_no: {
@@ -242,6 +351,7 @@ const DOCUMENT_SCHEMA = {
             type: ['number', 'null'],
             description: 'Birim fiyat, TL; belgede yoksa null.',
           },
+          new_item: NEW_ITEM_SCHEMA,
         },
       },
     },
@@ -259,11 +369,12 @@ const documentOutput = z.object({
       catalog_no: z.number().int().nullable(),
       quantity: z.number().int(),
       unit_price: z.number().nullable(),
+      new_item: newItemOutput,
     }),
   ),
 });
 
-function documentInstructions(catalog: string): string {
+function documentInstructions(catalog: Catalog): string {
   return [
     'Bir mobilya magazasinin deposuna gelen malin irsaliyesini ya da faturasini okuyorsun.',
     'Belgedeki her urun satiri icin: belgede yazdigi gibi metni, adedi ve varsa birim fiyati (TL) cikar.',
@@ -276,8 +387,10 @@ function documentInstructions(catalog: string): string {
     'Katalogda karsiligi olmayan URUN satirlarini da ver (catalog_no null): kullanici gormeli.',
     'Yalnizca urun olmayan satirlari atla (tasima, nakliye, KDV, ara toplam). Tarih YYYY-MM-DD biciminde olsun.',
     '',
+    ...newItemRules(catalog.categories.map((category) => category.name)),
+    '',
     'KATALOG (numara | ad | olcu | kategori):',
-    catalog,
+    catalog.text,
   ].join('\n');
 }
 
@@ -290,7 +403,7 @@ export async function readReceiptDocument(
     return { ok: false, error: 'Yapay zeka ayarli degil (OPENAI_API_KEY yok).' };
   }
 
-  const { items, text: catalog } = await loadCatalog(db);
+  const catalog = await loadCatalog(db);
   const content =
     document.mimeType === 'application/pdf'
       ? {
@@ -327,13 +440,14 @@ export async function readReceiptDocument(
   for (const line of parsed.lines) {
     // Sifir ya da eksi adetli satir mal kabulde anlamsiz; okunmus sayilmaz.
     if (line.quantity <= 0) continue;
-    const item = itemAt(items, line.catalog_no);
+    const { item, suggestion } = decide(catalog, line.catalog_no, line.new_item);
     lines.push({
       text: line.text.trim(),
       stockItemId: item?.id ?? null,
       label: item ? labelOf(item) : null,
       quantity: line.quantity,
       unitPrice: line.unit_price !== null && line.unit_price > 0 ? line.unit_price : null,
+      suggestion,
     });
   }
 
@@ -358,13 +472,14 @@ const NAMES_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['line', 'catalog_no'],
+        required: ['line', 'catalog_no', 'new_item'],
         properties: {
           line: { type: 'integer', description: 'Urun listesindeki satir numarasi.' },
           catalog_no: {
             type: ['integer', 'null'],
             description: 'Katalog listesindeki numara; emin degilsen null.',
           },
+          new_item: NEW_ITEM_SCHEMA,
         },
       },
     },
@@ -372,10 +487,16 @@ const NAMES_SCHEMA = {
 } as const;
 
 const namesOutput = z.object({
-  matches: z.array(z.object({ line: z.number().int(), catalog_no: z.number().int().nullable() })),
+  matches: z.array(
+    z.object({
+      line: z.number().int(),
+      catalog_no: z.number().int().nullable(),
+      new_item: newItemOutput,
+    }),
+  ),
 });
 
-function namesInstructions(catalog: string): string {
+function namesInstructions(catalog: Catalog): string {
   return [
     'Bir mobilya magazasinin deposuna gelen mallarin adlarini, magazanin stok katalogundaki kalemlerle',
     'eslestiriyorsun. Adlar tedarikcinin irsaliye programindan geliyor; yazim katalogdan farkli olabilir.',
@@ -383,8 +504,10 @@ function namesInstructions(catalog: string): string {
     '',
     ...MATCH_RULES,
     '',
+    ...newItemRules(catalog.categories.map((category) => category.name)),
+    '',
     'KATALOG (numara | ad | olcu | kategori):',
-    catalog,
+    catalog.text,
   ].join('\n');
 }
 
@@ -406,7 +529,7 @@ export async function readReceiptSpreadsheet(
   }
 
   const names = [...new Set(sheet.lines.map((line) => line.text))];
-  const { items, text: catalog } = await loadCatalog(db);
+  const catalog = await loadCatalog(db);
 
   const reply = await callModel(
     {
@@ -432,11 +555,13 @@ export async function readReceiptSpreadsheet(
     return { ok: false, error: 'Yapay zekanin cevabi anlasilamadi. Tekrar deneyin.' };
   }
 
-  // Ad -> kart. Modelin atladigi ya da uydurdugu satir numarasi eslesmemis sayilir.
-  const matched = new Map<string, StockItem | null>();
+  // Ad -> karar. Modelin atladigi ya da uydurdugu satir numarasi eslesmemis sayilir.
+  const decided = new Map<string, Decision>();
   for (const match of parsed.matches) {
     const name = names[match.line - 1];
-    if (name !== undefined && !matched.has(name)) matched.set(name, itemAt(items, match.catalog_no));
+    if (name !== undefined && !decided.has(name)) {
+      decided.set(name, decide(catalog, match.catalog_no, match.new_item));
+    }
   }
 
   return {
@@ -445,13 +570,14 @@ export async function readReceiptSpreadsheet(
     date: sheet.date,
     supplierName: null,
     lines: sheet.lines.map((line) => {
-      const item = matched.get(line.text) ?? null;
+      const { item, suggestion } = decided.get(line.text) ?? { item: null, suggestion: null };
       return {
         text: line.text,
         stockItemId: item?.id ?? null,
         label: item ? labelOf(item) : null,
         quantity: line.quantity,
         unitPrice: null,
+        suggestion,
       };
     }),
   };

@@ -1,10 +1,12 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { branches, goodsReceiptLines, goodsReceipts, stockItems, suppliers } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
+import { createStockItem } from '@/domain/catalog/stock-items';
 import { ownBranch, type Scope } from '@/domain/scope';
 import { applyMovements } from '@/domain/stock/movements';
 import { nextDocumentNumber } from '@/lib/counters';
 import { DomainError, NotFoundError } from '@/lib/errors';
+import { stockCardKey } from '@/lib/text';
 
 /**
  * Mal kabul **depoya** baglidir, subeye degil.
@@ -25,6 +27,18 @@ export interface ReceiptLineInput {
   unitCostKurus?: number | null;
 }
 
+/**
+ * Katalogda olmayan, mal kabulle birlikte acilacak stok karti. Kullanici
+ * formda "stoklara eklensin mi" sorusuna evet demis olmali; kart burada,
+ * mal kabulle ayni transaction'da aciliyor.
+ */
+export interface NewReceiptItemInput {
+  name: string;
+  sizeLabel?: string | null;
+  categoryId?: string | null;
+  quantity: number;
+}
+
 export interface CreateGoodsReceiptInput {
   supplierId?: string | null;
   waybillNo?: string | null;
@@ -32,6 +46,7 @@ export interface CreateGoodsReceiptInput {
   receivedAt: string;
   notes?: string | null;
   lines: ReceiptLineInput[];
+  newItems?: NewReceiptItemInput[];
 }
 
 export interface GoodsReceiptLineDetail {
@@ -59,10 +74,14 @@ export async function createGoodsReceipt(
   scope: Scope,
   input: CreateGoodsReceiptInput,
 ): Promise<GoodsReceipt> {
-  const lines = mergeLines(input.lines);
   const branch = ownBranch(scope);
 
   return runInTransaction(db, async (tx) => {
+    // Yeni kartlar once: satirlar onlarin kimligine ihtiyac duyuyor. Kayit
+    // yarida kalirsa kartlar da acilmamis olur.
+    const created = await openNewItems(tx, input.newItems ?? []);
+    const lines = mergeLines([...input.lines, ...created]);
+
     const receiptNo = await nextDocumentNumber(tx, 'goodsReceipt', {
       branchCode: branch.code,
       year: Number(input.receivedAt.slice(0, 4)),
@@ -220,6 +239,51 @@ function mergeLines(lines: ReceiptLineInput[]): ReceiptLineInput[] {
     unitCostKurus:
       value.costQuantity > 0 ? Math.round(value.costTotal / value.costQuantity) : null,
   }));
+}
+
+/**
+ * Yeni kartlari acar ve mal kabul satirina cevirir.
+ *
+ * - Ayni ad ve olcu iki kez gelirse tek kart acilir, adetler toplanir.
+ * - Ayni ad ve olcude bir kart zaten varsa yenisi acilmaz, o kullanilir.
+ *   Stok kartlari silinmedigi icin bir mukerrer kart kalici bir hata olurdu.
+ */
+async function openNewItems(tx: Tx, items: NewReceiptItemInput[]): Promise<ReceiptLineInput[]> {
+  if (items.length === 0) return [];
+
+  const grouped = new Map<string, NewReceiptItemInput>();
+  for (const item of items) {
+    const name = item.name.trim();
+    if (name === '') throw new DomainError('Yeni kartin adi bos olamaz.', 'INVALID_INPUT');
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+      throw new DomainError('Adet sifirdan buyuk tam sayi olmali.', 'INVALID_QUANTITY');
+    }
+    const key = stockCardKey(name, item.sizeLabel);
+    const existing = grouped.get(key);
+    if (existing) existing.quantity += item.quantity;
+    else grouped.set(key, { ...item, name, sizeLabel: item.sizeLabel?.trim() || null });
+  }
+
+  const catalog = await tx
+    .select({ id: stockItems.id, name: stockItems.name, sizeLabel: stockItems.sizeLabel })
+    .from(stockItems);
+  const byKey = new Map(catalog.map((card) => [stockCardKey(card.name, card.sizeLabel), card.id]));
+
+  const lines: ReceiptLineInput[] = [];
+  for (const [key, item] of grouped) {
+    let stockItemId = byKey.get(key);
+    if (!stockItemId) {
+      const card = await createStockItem(tx, {
+        name: item.name,
+        sizeLabel: item.sizeLabel,
+        categoryId: item.categoryId ?? null,
+      });
+      stockItemId = card.id;
+      byKey.set(key, stockItemId);
+    }
+    lines.push({ stockItemId, quantity: item.quantity });
+  }
+  return lines;
 }
 
 async function runInTransaction<T>(db: DbOrTx, fn: (tx: Tx) => Promise<T>): Promise<T> {

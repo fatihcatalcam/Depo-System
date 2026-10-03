@@ -1,10 +1,12 @@
+import { flattenCategories } from '@/components/category-select';
 import { db } from '@/db/client';
+import { listCategoryTree } from '@/domain/catalog/categories';
 import { listSuppliers } from '@/domain/parties/parties';
 import { isReceiptReaderConfigured } from '@/domain/receipt-reader';
 import { ReceiptForm } from './receipt-form';
 
 export default async function YeniMalKabulPage() {
-  const suppliers = await listSuppliers(db);
+  const [suppliers, categoryTree] = await Promise.all([listSuppliers(db), listCategoryTree(db)]);
 
   return (
     <div className="space-y-4">
@@ -14,7 +16,11 @@ export default async function YeniMalKabulPage() {
           Gelen parcalari ekleyin. Kaydettiginizde hepsi tek seferde stoga girer.
         </p>
       </div>
-      <ReceiptForm suppliers={suppliers} aiEnabled={isReceiptReaderConfigured()} />
+      <ReceiptForm
+        suppliers={suppliers}
+        categories={flattenCategories(categoryTree)}
+        aiEnabled={isReceiptReaderConfigured()}
+      />
     </div>
   );
 }

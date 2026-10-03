@@ -27,3 +27,14 @@ export function foldText(value: string): string {
 export function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
 }
+
+/**
+ * Stok kartinin kimligi icin ad + olcu, katlanmis: "TRAVİNA KAPAK ÇİFT" ile
+ * "TRAVINA KAPAK CIFT" ayni kart sayilir. Yeni kart acmadan once ayni kartin
+ * zaten olup olmadigina bununla bakiliyor; kartlar silinmedigi icin bir
+ * mukerrer kart kalici bir hata olurdu.
+ */
+export function stockCardKey(name: string, sizeLabel: string | null | undefined): string {
+  const norm = (value: string) => foldText(value).replace(/\s+/g, ' ').trim();
+  return `${norm(name)}|${norm(sizeLabel ?? '')}`;
+}

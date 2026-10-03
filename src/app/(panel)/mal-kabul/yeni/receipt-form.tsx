@@ -11,12 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Supplier } from '@/domain/parties/parties';
 import { shrinkImage } from '@/lib/shrink-image';
-import { foldText } from '@/lib/text';
+import { foldText, stockCardKey } from '@/lib/text';
 import {
   createGoodsReceiptAction,
   findStockItemsAction,
   readReceiptDocumentAction,
 } from '../actions';
+import { MissingItems, type MissingRow } from './missing-items';
 
 interface LineRow {
   stockItemId: string;
@@ -37,12 +38,13 @@ function labelFor(item: SearchResult) {
   return `${item.name}${item.sizeLabel ? ` · ${item.sizeLabel}` : ''} (${item.sku})`;
 }
 
-/** Yapay zekanin okuyup katalogla eslestiremedigi satir; kullanici elle secer. */
-interface UnmatchedRow {
-  key: string;
-  text: string;
-  quantity: number;
-  unitCost: string;
+/**
+ * Kullanicinin "stoklara eklensin" dedigi, katalogda olmayan urun. Kart
+ * mal kabul kaydedilince aciliyor.
+ */
+interface NewLineRow extends MissingRow {
+  /** Ayni ad ve olcu iki satirda gelirse tek kart: karsilastirma anahtari. */
+  cardKey: string;
 }
 
 const priceFormatter = new Intl.NumberFormat('tr-TR', {
@@ -57,11 +59,13 @@ function toPriceInput(value: number | null): string {
 
 interface Props {
   suppliers: Supplier[];
+  /** Yeni kart icin kategori secimi. */
+  categories: { id: string; label: string }[];
   /** OPENAI_API_KEY tanimli mi; degilse "belgeden oku" kapali. */
   aiEnabled: boolean;
 }
 
-export function ReceiptForm({ suppliers, aiEnabled }: Props) {
+export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
   const [supplierId, setSupplierId] = useState('');
   const [waybillNo, setWaybillNo] = useState('');
   const [receivedAt, setReceivedAt] = useState(() => new Date().toISOString().slice(0, 10));
@@ -72,7 +76,8 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
   const [scanning, setScanning] = useState(false);
   const [pending, startTransition] = useTransition();
   const [reading, setReading] = useState(false);
-  const [unmatched, setUnmatched] = useState<UnmatchedRow[]>([]);
+  const [unmatched, setUnmatched] = useState<MissingRow[]>([]);
+  const [newLines, setNewLines] = useState<NewLineRow[]>([]);
   // Eslesmeyen bir satir icin arama yapiliyorsa, secilen parca o satirin
   // adedini ve fiyatini alsin.
   const [resolving, setResolving] = useState<string | null>(null);
@@ -131,6 +136,9 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
           text: line.text,
           quantity: line.quantity,
           unitCost: toPriceInput(line.unitPrice),
+          name: line.suggestion?.name ?? '',
+          sizeLabel: line.suggestion?.sizeLabel ?? '',
+          categoryId: line.suggestion?.categoryId ?? '',
         }));
       setUnmatched((rows) => [...rows, ...missing]);
 
@@ -151,6 +159,31 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
       setReading(false);
       if (fileInput.current) fileInput.current.value = '';
     }
+  }
+
+  /** "Stoklara ekle": satirlar yeni kart listesine gecer; ayni ad+olcu tek kart. */
+  function addNewItems(rows: MissingRow[]) {
+    const keys = new Set(rows.map((row) => row.key));
+    setUnmatched((current) => current.filter((row) => !keys.has(row.key)));
+    if (resolving && keys.has(resolving)) setResolving(null);
+    setNewLines((current) => {
+      const next = [...current];
+      for (const row of rows) {
+        const cardKey = stockCardKey(row.name, row.sizeLabel);
+        const same = next.findIndex((line) => line.cardKey === cardKey);
+        if (same >= 0) next[same] = { ...next[same], quantity: next[same].quantity + row.quantity };
+        else next.push({ ...row, name: row.name.trim(), sizeLabel: row.sizeLabel.trim(), cardKey });
+      }
+      return next;
+    });
+  }
+
+  /** Yeni karttan vazgecilirse soru listesine geri doner. */
+  function undoNewItem(key: string) {
+    const line = newLines.find((row) => row.key === key);
+    if (!line) return;
+    setNewLines((current) => current.filter((row) => row.key !== key));
+    setUnmatched((current) => [...current, line]);
   }
 
   function addItem(item: SearchResult) {
@@ -209,7 +242,10 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
     else toast.error(`Barkod eslesmedi: ${text}`);
   }
 
-  const totalQuantity = lines.reduce((sum, row) => sum + row.quantity, 0);
+  const totalQuantity =
+    lines.reduce((sum, row) => sum + row.quantity, 0) +
+    newLines.reduce((sum, row) => sum + row.quantity, 0);
+  const lineCount = lines.length + newLines.length;
 
   return (
     <>
@@ -231,6 +267,12 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
                 stockItemId: row.stockItemId,
                 quantity: row.quantity,
                 unitCost: row.unitCost || undefined,
+              })),
+              newItems: newLines.map((row) => ({
+                name: row.name,
+                sizeLabel: row.sizeLabel || undefined,
+                categoryId: row.categoryId || null,
+                quantity: row.quantity,
               })),
             });
             if (!result.ok) {
@@ -355,48 +397,56 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
             </ul>
           ) : null}
 
-          {unmatched.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-              <p className="text-sm font-semibold text-amber-900">
-                Eslesmeyen satirlar — parcayi siz secin
-              </p>
-              <ul className="space-y-1.5">
-                {unmatched.map((row) => (
-                  <li key={row.key} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="min-w-0 flex-1 text-amber-950">
-                      {row.text} · <strong>{row.quantity} adet</strong>
+          <MissingItems
+            rows={unmatched}
+            categories={categories}
+            resolving={resolving}
+            onChange={setUnmatched}
+            onAdd={addNewItems}
+            onSearch={(row) => {
+              setResolving(row.key);
+              void searchFor(row.text);
+            }}
+          />
+
+          {newLines.length > 0 ? (
+            <ul className="space-y-2">
+              {newLines.map((row) => (
+                <li
+                  key={row.key}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-green-300 bg-green-50 p-3"
+                >
+                  <span className="rounded bg-green-700 px-1.5 py-0.5 text-[11px] font-bold text-white">
+                    YENI KART
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm">
+                    {row.name}
+                    {row.sizeLabel ? ` · ${row.sizeLabel}` : ''}
+                    <span className="block text-xs text-neutral-500">
+                      {categories.find((category) => category.id === row.categoryId)?.label ??
+                        'kategorisiz'}
                     </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9"
-                      onClick={() => {
-                        setResolving(row.key);
-                        void searchFor(row.text);
-                      }}
-                    >
-                      {resolving === row.key ? 'Asagidan secin' : 'Ara'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-9 text-red-600"
-                      onClick={() => {
-                        setUnmatched((rows) => rows.filter((other) => other.key !== row.key));
-                        if (resolving === row.key) setResolving(null);
-                      }}
-                    >
-                      Kaldir
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                  </span>
+                  <QuantityInput
+                    value={row.quantity}
+                    aria-label={`${row.name} adedi`}
+                    onValueChange={(quantity) =>
+                      setNewLines((current) =>
+                        current.map((line) => (line.key === row.key ? { ...line, quantity } : line)),
+                      )
+                    }
+                  />
+                  <Button type="button" variant="ghost" onClick={() => undoNewItem(row.key)}>
+                    Vazgec
+                  </Button>
+                </li>
+              ))}
+            </ul>
           ) : null}
 
-          {lines.length === 0 ? (
+          {lineCount === 0 ? (
             <p className="text-sm text-neutral-500">Henuz parca eklenmedi.</p>
-          ) : (
+          ) : lines.length === 0 ? null : (
             <ul className="space-y-2">
               {lines.map((row, index) => (
                 <li
@@ -439,14 +489,21 @@ export function ReceiptForm({ suppliers, aiEnabled }: Props) {
             </ul>
           )}
 
-          {lines.length > 0 ? (
+          {lineCount > 0 ? (
             <p className="text-sm text-neutral-600">
-              {lines.length} kalem · toplam {totalQuantity} adet
+              {lineCount} kalem · toplam {totalQuantity} adet
+              {newLines.length > 0 ? ` · ${newLines.length} yeni kart acilacak` : ''}
+            </p>
+          ) : null}
+          {/* Karar verilmemis satir sessizce kaybolmasin. */}
+          {unmatched.length > 0 && lineCount > 0 ? (
+            <p className="text-xs text-amber-800">
+              Katalogda olmayan {unmatched.length} satir icin karar vermediniz; bunlar kayda girmez.
             </p>
           ) : null}
         </div>
 
-        <Button type="submit" disabled={pending || lines.length === 0} className="h-11 w-full sm:w-auto">
+        <Button type="submit" disabled={pending || lineCount === 0} className="h-11 w-full sm:w-auto">
           {pending ? 'Kaydediliyor...' : 'Mal kabulu kaydet ve stoga isle'}
         </Button>
       </form>
