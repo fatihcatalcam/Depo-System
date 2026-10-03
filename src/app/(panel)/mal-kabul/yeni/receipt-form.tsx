@@ -18,6 +18,7 @@ import {
   readReceiptDocumentAction,
 } from '../actions';
 import { MissingItems, type MissingRow } from './missing-items';
+import { mergeMissingRows } from './missing-rows';
 
 interface LineRow {
   stockItemId: string;
@@ -129,18 +130,21 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
         return next;
       });
 
-      const missing = result.lines
-        .filter((line) => !line.stockItemId)
-        .map((line) => ({
-          key: crypto.randomUUID(),
-          text: line.text,
-          quantity: line.quantity,
-          unitCost: toPriceInput(line.unitPrice),
-          name: line.suggestion?.name ?? '',
-          sizeLabel: line.suggestion?.sizeLabel ?? '',
-          categoryId: line.suggestion?.categoryId ?? '',
-        }));
-      setUnmatched((rows) => [...rows, ...missing]);
+      const missing = mergeMissingRows(
+        [],
+        result.lines
+          .filter((line) => !line.stockItemId)
+          .map((line) => ({
+            key: crypto.randomUUID(),
+            text: line.text,
+            quantity: line.quantity,
+            unitCost: toPriceInput(line.unitPrice),
+            name: line.suggestion?.name ?? '',
+            sizeLabel: line.suggestion?.sizeLabel ?? '',
+            categoryId: line.suggestion?.categoryId ?? '',
+          })),
+      );
+      setUnmatched((rows) => mergeMissingRows(rows, missing));
 
       if (result.notice) toast.warning(result.notice);
       if (result.lines.length === 0) {
@@ -148,7 +152,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
       } else {
         toast.success(
           `${matched.length} satir forma eklendi` +
-            (missing.length > 0 ? `, ${missing.length} satir eslesmedi` : '') +
+            (missing.length > 0 ? `, ${missing.length} urun katalogda yok` : '') +
             '. Kontrol edip kaydedin.',
         );
       }
@@ -183,7 +187,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
     const line = newLines.find((row) => row.key === key);
     if (!line) return;
     setNewLines((current) => current.filter((row) => row.key !== key));
-    setUnmatched((current) => [...current, line]);
+    setUnmatched((current) => mergeMissingRows(current, [line]));
   }
 
   function addItem(item: SearchResult) {

@@ -40,6 +40,10 @@ Her duzeltmeden sonra buraya bir kural. Oturum basinda okunur.
   atiyor, kapora hic hata vermeden kaybolurdu.
 - Istemci bileseni, sunucu kodu iceren bir moduldan **deger** import etmesin
   (etiketler, sabitler). `src/lib/` altinda sunucusuz modul kullan.
+- Belgeden okunan satirlarin gittigi **her** yerde (eslesen liste, soru kutusu,
+  yeni kart listesi) ayni urunun tekrar eden satirlarini birlestir. Eslesenleri
+  birlestirip soru kutusunu unutmustum; kullanici ayni urunu iki ayri soru
+  olarak gordu. Deneme verisinde tekrar eden eslesmeyen satir da olsun.
 
 ## Tarayici paneli
 
