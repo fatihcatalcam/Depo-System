@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { db } from '@/db/client';
 import { changeOwnPassword, setUnlockPassword } from '@/domain/auth';
 import { renameBranch, setBranchPassword } from '@/domain/branches';
+import { addPaletteCode, createPalette, removePaletteCode } from '@/domain/catalog/colors';
 import { importCustomers, importStockCounts,
   importStockItems, type ImportResult } from '@/domain/excel';
 import { updateCompanyInfo } from '@/domain/settings';
@@ -236,6 +237,61 @@ export async function importExcelAction(
       message: `${result.imported} kayit aktarildi${result.skipped > 0 ? `, ${result.skipped} satir atlandi (bos veya zaten mevcut)` : ''}.`,
       result,
     };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/**
+ * Kumas kartelalari — yalnizca merkez. Kod kaldirmak o renkte acilmis
+ * kartlari silmez; yalnizca yeni secimlerde cikmaz.
+ */
+const paletteCodeSchema = z.object({
+  paletteId: z.uuid(),
+  code: z.string().trim().min(1, 'Renk kodunu yazin.').max(40),
+});
+
+function refreshPalettes() {
+  revalidatePath('/ayarlar');
+  revalidatePath('/stok');
+}
+
+export async function addPaletteCodeAction(input: unknown): Promise<ActionResult> {
+  const parsed = paletteCodeSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  try {
+    await assertCentral();
+    const palette = await addPaletteCode(db, parsed.data.paletteId, parsed.data.code);
+    refreshPalettes();
+    return { ok: true, message: `${palette.name}: kod eklendi.` };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+export async function removePaletteCodeAction(input: unknown): Promise<ActionResult> {
+  const parsed = paletteCodeSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  try {
+    await assertCentral();
+    await removePaletteCode(db, parsed.data.paletteId, parsed.data.code);
+    refreshPalettes();
+    return { ok: true, message: `${parsed.data.code} kartelada kaldirildi.` };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+const paletteNameSchema = z.string().trim().min(1, 'Kartela adini yazin.').max(80);
+
+export async function createPaletteAction(name: unknown): Promise<ActionResult> {
+  const parsed = paletteNameSchema.safeParse(name);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  try {
+    await assertCentral();
+    await createPalette(db, parsed.data);
+    refreshPalettes();
+    return { ok: true, message: 'Kartela olusturuldu.' };
   } catch (error) {
     return toResult(error);
   }

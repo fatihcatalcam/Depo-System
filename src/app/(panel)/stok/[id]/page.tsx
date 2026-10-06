@@ -5,6 +5,7 @@ import { StockItemForm } from '@/components/stock-item-form';
 import { db } from '@/db/client';
 import { stockItems } from '@/db/schema';
 import { listCategoryTree } from '@/domain/catalog/categories';
+import { listPalettes } from '@/domain/catalog/colors';
 import { getAvailability, getReservationBreakdown } from '@/domain/stock/availability';
 import { MOVEMENT_LABELS, listStockHistory } from '@/domain/stock/history';
 import { currentScope } from '@/lib/auth/current';
@@ -25,11 +26,19 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
   if (!item) notFound();
 
   const scope = await currentScope();
-  const [availability, reservations, history, categories] = await Promise.all([
+  const [availability, reservations, history, categories, palettes, parent] = await Promise.all([
     getAvailability(db, scope.stockBranchId, id),
     getReservationBreakdown(db, scope, id),
     listStockHistory(db, scope.stockBranchId, id),
     listCategoryTree(db),
+    listPalettes(db),
+    item.parentStockItemId
+      ? db
+          .select({ id: stockItems.id })
+          .from(stockItems)
+          .where(eq(stockItems.id, item.parentStockItemId))
+          .then((rows) => rows[0] ?? null)
+      : null,
   ]);
 
   return (
@@ -39,8 +48,17 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
         <p className="text-sm text-neutral-500">
           {item.sku}
           {item.sizeLabel ? ` · ${item.sizeLabel}` : ''}
+          {item.variantLabel ? ` · ${item.variantLabel}` : ''}
           {item.barcode ? ` · Barkod: ${item.barcode}` : ''}
         </p>
+        {parent ? (
+          <p className="text-sm text-neutral-500">
+            Renk karti ·{' '}
+            <Link href={`/stok/${parent.id}`} className="underline">
+              standart karta git
+            </Link>
+          </p>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -137,6 +155,12 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
         <div className="pt-4">
           <StockItemForm
             categories={categories}
+            // Renk kartinin kartelasi olmaz; secim yalnizca ana kartta.
+            palettes={
+              item.parentStockItemId
+                ? undefined
+                : palettes.map((palette) => ({ id: palette.id, name: palette.name }))
+            }
             submitLabel="Degisiklikleri kaydet"
             initial={{
               name: item.name,
@@ -148,6 +172,7 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
                 ? kurusToTl(item.purchasePriceKurus).toFixed(2).replace('.', ',')
                 : '',
               notes: item.notes ?? '',
+              colorPaletteId: item.colorPaletteId ?? '',
             }}
             onSubmit={updateStockItemAction.bind(null, item.id)}
             redirectBase="/stok"

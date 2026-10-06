@@ -1,9 +1,11 @@
 import { db } from '@/db/client';
 import { listBranches } from '@/domain/branches';
+import { countPaletteItems, listPalettes } from '@/domain/catalog/colors';
 import { ensureSettings, getSettings } from '@/domain/settings';
 import { currentUser } from '@/lib/auth/current';
 import {
   BranchPanel,
+  ColorPalettesPanel,
   CompanyPanel,
   ImportPanel,
   MaintenancePanel,
@@ -19,10 +21,12 @@ const EXPORTS = [
 
 export default async function AyarlarPage() {
   await ensureSettings(db, process.env.INITIAL_APP_PASSWORD ?? 'depo2026');
-  const [settings, user, branches] = await Promise.all([
+  const [settings, user, branches, palettes, paletteItems] = await Promise.all([
     getSettings(db),
     currentUser(),
     listBranches(db),
+    listPalettes(db),
+    countPaletteItems(db),
   ]);
 
   return (
@@ -49,6 +53,17 @@ export default async function AyarlarPage() {
       <PasswordPanel />
 
       {user.isCentral ? <UnlockPasswordPanel /> : null}
+
+      {user.isCentral ? (
+        <ColorPalettesPanel
+          palettes={palettes.map((palette) => ({
+            id: palette.id,
+            name: palette.name,
+            codes: palette.codes,
+            itemCount: paletteItems.get(palette.id) ?? 0,
+          }))}
+        />
+      ) : null}
 
       <section className="rounded-lg border border-neutral-200 bg-white p-4">
         <h2 className="text-sm font-semibold">Excel&apos;e disa aktarma</h2>

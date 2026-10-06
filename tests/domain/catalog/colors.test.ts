@@ -5,6 +5,7 @@ import {
   addPaletteCode,
   adjustColorStock,
   colorCodesForItems,
+  countPaletteItems,
   createPalette,
   ensureColorCard,
   listPalettes,
@@ -184,5 +185,27 @@ describe('renk stogu', () => {
       .from(stockItems)
       .where(eq(stockItems.parentStockItemId, base.id));
     expect(children).toHaveLength(0);
+  });
+});
+
+describe('kartela yonetimi', () => {
+  it('ayni adda ikinci kartela acilmaz', async () => {
+    await expect(createPalette(ctx.db, 'deneme KARTELASI')).rejects.toThrow('zaten var');
+  });
+
+  it('kartelayi kullanan kalem sayisi; renk kartlari sayilmaz', async () => {
+    const palette = await createPalette(ctx.db, 'Sayim kartelasi');
+    await addPaletteCode(ctx.db, palette.id, 'BK-1');
+    const first = await createStockItem(ctx.db, { name: 'SAYIM BAZA', colorPaletteId: palette.id });
+    await createStockItem(ctx.db, { name: 'SAYIM BASLIK', colorPaletteId: palette.id });
+    await ensureColorCard(ctx.db, first.id, 'BK-1');
+
+    expect((await countPaletteItems(ctx.db)).get(palette.id)).toBe(2);
+  });
+
+  it('kartelasi kaldirilan kalem renksiz olur', async () => {
+    const base = await coloredBase('KALDIR BAZA');
+    const updated = await updateStockItem(ctx.db, base.id, { colorPaletteId: null });
+    expect(updated.colorPaletteId).toBeNull();
   });
 });

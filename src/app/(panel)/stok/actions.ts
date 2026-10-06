@@ -54,6 +54,7 @@ const stockItemSchema = z.object({
   minStockLevel: z.coerce.number().int().min(0).optional(),
   purchasePrice: z.string().optional(),
   notes: z.string().optional(),
+  colorPaletteId: z.uuid().nullable().optional(),
 });
 
 export async function createStockItemAction(input: unknown): Promise<ActionResult> {

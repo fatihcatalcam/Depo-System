@@ -6,12 +6,16 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { X } from 'lucide-react';
 import {
+  addPaletteCodeAction,
   changePasswordAction,
+  createPaletteAction,
   importExcelAction,
   recalculateStockAction,
   renameBranchAction,
   setBranchPasswordAction,
+  removePaletteCodeAction,
   setUnlockPasswordAction,
   updateCompanyAction,
 } from './actions';
@@ -467,6 +471,123 @@ export function MaintenancePanel() {
       >
         {pending ? 'Hesaplaniyor...' : 'Stok bakiyelerini yeniden hesapla'}
       </Button>
+    </Section>
+  );
+}
+
+export interface PaletteView {
+  id: string;
+  name: string;
+  codes: string[];
+  /** Bu kartelayi kullanan kalem sayisi (Latex Master bazasi gibi). */
+  itemCount: number;
+}
+
+/**
+ * Kumas kartelalari. Hangi kalemin hangi kartelayi kullandigi stok kartinda
+ * secilir; burada kodlar eklenir, kaldirilir.
+ */
+export function ColorPalettesPanel({ palettes }: { palettes: PaletteView[] }) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [newName, setNewName] = useState('');
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function run(action: () => Promise<{ ok: boolean; error?: string; message?: string }>, done?: () => void) {
+    startTransition(async () => {
+      const result = await action();
+      if (result.ok) {
+        toast.success(result.message ?? 'Kaydedildi.');
+        done?.();
+        router.refresh();
+      } else {
+        toast.error(result.error ?? 'Islem basarisiz.');
+      }
+    });
+  }
+
+  return (
+    <Section
+      title="Renk kodlari"
+      description="Baza ve basliklarin kumas kartelalari. Bir kalemin kartelasi stok kartindan secilir. Kod kaldirmak o renkteki stogu silmez; yalnizca yeni secimlerde cikmaz."
+    >
+      <div className="space-y-4">
+        {palettes.map((palette) => (
+          <div key={palette.id} className="space-y-2 rounded-md border border-neutral-200 p-3">
+            <p className="text-sm font-medium">
+              {palette.name}{' '}
+              <span className="text-xs font-normal text-neutral-500">
+                {palette.codes.length} renk · {palette.itemCount} kalem
+              </span>
+            </p>
+            <ul className="flex flex-wrap gap-1.5">
+              {palette.codes.map((code) => (
+                <li
+                  key={code}
+                  className="flex items-center gap-1 rounded border border-neutral-300 bg-neutral-50 py-0.5 pl-2 pr-1 text-sm tabular-nums"
+                >
+                  {code}
+                  <button
+                    type="button"
+                    disabled={pending}
+                    aria-label={`${code} kodunu kaldir`}
+                    onClick={() => {
+                      if (!window.confirm(`${code} kartelada kaldirilsin mi? Stoktaki adetler durur.`)) return;
+                      run(() => removePaletteCodeAction({ paletteId: palette.id, code }));
+                    }}
+                    className="rounded p-0.5 text-neutral-500 hover:bg-neutral-200 hover:text-red-600"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const code = drafts[palette.id] ?? '';
+                run(
+                  () => addPaletteCodeAction({ paletteId: palette.id, code }),
+                  () => setDrafts((current) => ({ ...current, [palette.id]: '' })),
+                );
+              }}
+            >
+              <Input
+                value={drafts[palette.id] ?? ''}
+                onChange={(event) =>
+                  setDrafts((current) => ({ ...current, [palette.id]: event.target.value }))
+                }
+                placeholder="Yeni kod, ornek: BK-183"
+                aria-label={`${palette.name} icin yeni renk kodu`}
+                className="h-10 max-w-48"
+              />
+              <Button type="submit" variant="outline" className="h-10" disabled={pending}>
+                Ekle
+              </Button>
+            </form>
+          </div>
+        ))}
+
+        <form
+          className="flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            run(() => createPaletteAction(newName), () => setNewName(''));
+          }}
+        >
+          <Input
+            value={newName}
+            onChange={(event) => setNewName(event.target.value)}
+            placeholder="Yeni kartela adi"
+            aria-label="Yeni kartela adi"
+            className="h-10 max-w-64"
+          />
+          <Button type="submit" variant="outline" className="h-10" disabled={pending}>
+            Kartela ekle
+          </Button>
+        </form>
+      </div>
     </Section>
   );
 }

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { colorPalettes, stockItems } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
 import { applyMovements, type MovementResult } from '@/domain/stock/movements';
@@ -106,6 +106,16 @@ export async function colorCodesForItems(
 
 export async function listPalettes(db: DbOrTx): Promise<ColorPalette[]> {
   return db.select().from(colorPalettes).orderBy(asc(colorPalettes.name));
+}
+
+/** Kartela id -> onu kullanan ana kart sayisi. */
+export async function countPaletteItems(db: DbOrTx): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ paletteId: stockItems.colorPaletteId, count: sql<number>`count(*)::int` })
+    .from(stockItems)
+    .where(isNotNull(stockItems.colorPaletteId))
+    .groupBy(stockItems.colorPaletteId);
+  return new Map(rows.map((row) => [row.paletteId as string, Number(row.count)]));
 }
 
 export async function createPalette(db: DbOrTx, name: string): Promise<ColorPalette> {

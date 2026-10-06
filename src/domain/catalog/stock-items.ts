@@ -19,6 +19,8 @@ export interface CreateStockItemInput {
   notes?: string | null;
   /** Renk karti acilirken ana kart; yalnizca `ensureColorCard` verir. */
   parentStockItemId?: string | null;
+  /** Kumas kartelasi; renk karti icin verilmez. */
+  colorPaletteId?: string | null;
 }
 
 export async function createStockItem(
@@ -49,6 +51,7 @@ export async function createStockItem(
       purchasePriceKurus: input.purchasePriceKurus ?? null,
       notes: input.notes ?? null,
       parentStockItemId: input.parentStockItemId ?? null,
+      colorPaletteId: input.colorPaletteId ?? null,
     })
     .returning();
 

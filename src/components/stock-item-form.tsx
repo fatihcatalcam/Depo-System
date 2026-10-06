@@ -18,6 +18,7 @@ export interface StockItemFormValues {
   minStockLevel: string;
   purchasePrice: string;
   notes: string;
+  colorPaletteId: string;
 }
 
 const EMPTY: StockItemFormValues = {
@@ -29,10 +30,16 @@ const EMPTY: StockItemFormValues = {
   minStockLevel: '0',
   purchasePrice: '',
   notes: '',
+  colorPaletteId: '',
 };
 
 interface Props {
   categories: CategoryNode[];
+  /**
+   * Kumas kartelalari. Verilirse "Renk kartelasi" secimi cikar; renk kartinda
+   * verilmez (renk kartinin kartelasi olmaz).
+   */
+  palettes?: { id: string; name: string }[];
   initial?: Partial<StockItemFormValues>;
   submitLabel: string;
   onSubmit: (values: {
@@ -44,6 +51,7 @@ interface Props {
     minStockLevel: number;
     purchasePrice?: string;
     notes?: string;
+    colorPaletteId?: string | null;
   }) => Promise<{ ok: boolean; error?: string; id?: string }>;
   /**
    * Kayittan sonra gidilecek yolun koku, orn. "/stok". Fonksiyon degil duz
@@ -55,6 +63,7 @@ interface Props {
 
 export function StockItemForm({
   categories,
+  palettes,
   initial,
   submitLabel,
   onSubmit,
@@ -83,6 +92,8 @@ export function StockItemForm({
             minStockLevel: Number(values.minStockLevel || 0),
             purchasePrice: values.purchasePrice || undefined,
             notes: values.notes || undefined,
+            // Secim yoksa gonderilmez: renk kartinin kartelasina dokunulmasin.
+            ...(palettes ? { colorPaletteId: values.colorPaletteId || null } : {}),
           });
 
           if (!result.ok) {
@@ -179,6 +190,28 @@ export function StockItemForm({
           ))}
         </select>
       </div>
+
+      {palettes && palettes.length > 0 ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="colorPaletteId">Renk kartelasi</Label>
+          <select
+            id="colorPaletteId"
+            value={values.colorPaletteId}
+            onChange={(event) => set('colorPaletteId', event.target.value)}
+            className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm"
+          >
+            <option value="">Yok (renksiz)</option>
+            {palettes.map((palette) => (
+              <option key={palette.id} value={palette.id}>
+                {palette.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-neutral-500">
+            Secilirse stok listesinde bu kalemin renkleri acilir, sipariste renk secilir.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-1.5">
         <Label htmlFor="barcode">Barkod</Label>
