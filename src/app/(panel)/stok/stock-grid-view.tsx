@@ -1,13 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
+  colorsInStock,
   PART_KINDS,
   PART_LABELS,
   partsOf,
   stockTone,
+  totalOnHand,
+  totalReserved,
   type GridItem,
   type GridPart,
   type GridSet,
@@ -51,11 +55,11 @@ export function StockGridView({ grid, locked }: Props) {
     ? grid.models
         .map((model) => ({
           ...model,
-          sets: model.sets.filter((set) => partsOf(set).some((part) => part.item.onHand !== 0)),
+          sets: model.sets.filter((set) => partsOf(set).some((part) => totalOnHand(part.item) !== 0)),
         }))
         .filter((model) => model.sets.length > 0)
     : grid.models;
-  const others = onlyInStock ? grid.others.filter((item) => item.onHand !== 0) : grid.others;
+  const others = onlyInStock ? grid.others.filter((item) => totalOnHand(item) !== 0) : grid.others;
 
   function toggle(key: string) {
     setOpenRow((current) => (current === key ? null : key));
@@ -225,7 +229,9 @@ function QuantityCell({ part }: { part: GridPart | null }) {
     // Bu takimin bu parcasi katalogda yok; sifirla karismasin diye cizgi.
     return <span className="text-center text-lg text-neutral-300">—</span>;
   }
-  const { onHand, reserved } = part.item;
+  const onHand = totalOnHand(part.item);
+  const reserved = totalReserved(part.item);
+  const colored = colorsInStock(part.item);
 
   return (
     <span
@@ -239,6 +245,9 @@ function QuantityCell({ part }: { part: GridPart | null }) {
           ayrilmis olan ayrica burada gorunuyor. */}
       {reserved > 0 ? (
         <span className="mt-1 text-[11px] font-semibold leading-none">{reserved} rez.</span>
+      ) : colored > 0 ? (
+        // Sayi standart + renklerin toplami; kac rengi oldugu satiri acinca gorunur.
+        <span className="mt-1 text-[11px] font-semibold leading-none">{colored} renk</span>
       ) : null}
     </span>
   );
@@ -259,16 +268,88 @@ function Editor({ parts, locked }: { parts: GridPart[]; locked: boolean }) {
                 <span className="block text-xs text-neutral-500">{item.sizeLabel}</span>
               ) : null}
             </Link>
-            <QuickAdjust
-              stockItemId={item.id}
-              stockItemName={item.name}
-              onHand={item.onHand}
-              locked={locked}
-            />
+            <div className="flex shrink-0 flex-col items-end">
+              {/* Renkli kalemde ustteki +/- renksiz olani degistirir. */}
+              {item.colors && item.colors.length > 0 ? (
+                <span className="text-[11px] font-medium text-neutral-500">Standart</span>
+              ) : null}
+              <QuickAdjust
+                target={{ stockItemId: item.id }}
+                stockItemName={item.name}
+                onHand={item.onHand}
+                locked={locked}
+              />
+            </div>
           </div>
+          {item.colors && item.colors.length > 0 ? (
+            <ColorList item={item} locked={locked} />
+          ) : null}
           <QuickNote stockItemId={item.id} stockItemName={item.name} note={item.notes} locked={locked} />
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Renk renk adet: kartelanin her kodu kendi adediyle ve +/- ile. Stogu olan renk varsa acik gelir,
+ * yoksa kapali: 13 satirlik bos liste her acilista ekrani doldurmasin.
+ */
+function ColorList({ item, locked }: { item: GridItem; locked: boolean }) {
+  const colors = item.colors ?? [];
+  const inStock = colorsInStock(item);
+  const [open, setOpen] = useState(inStock > 0);
+  const colorTotal = colors.reduce((sum, color) => sum + (color.item?.onHand ?? 0), 0);
+
+  return (
+    <div className="rounded-md border border-neutral-200">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+      >
+        <span>
+          Renkler{' '}
+          <span className="text-xs font-normal text-neutral-500">
+            ({colors.length} renk{colorTotal !== 0 ? ` · ${colorTotal} adet` : ''})
+          </span>
+        </span>
+        <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open ? (
+        <ul className="divide-y divide-neutral-100 border-t border-neutral-200">
+          {colors.map((color) => {
+            const onHand = color.item?.onHand ?? 0;
+            const reserved = color.item?.reserved ?? 0;
+            return (
+              <li key={color.code} className="flex items-center justify-between gap-2 px-2 py-1">
+                <span className="flex items-center gap-2 text-sm">
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5 font-semibold tabular-nums',
+                      onHand !== 0 ? TONE[stockTone(onHand)] : 'text-neutral-700',
+                    )}
+                  >
+                    {color.code}
+                  </span>
+                  {reserved > 0 ? (
+                    <span className="text-[11px] font-semibold text-neutral-500">
+                      {reserved} rez.
+                    </span>
+                  ) : null}
+                </span>
+                <QuickAdjust
+                  target={{ baseStockItemId: item.id, code: color.code }}
+                  stockItemName={`${item.name}${item.sizeLabel ? ` ${item.sizeLabel}` : ''} ${color.code}`}
+                  onHand={onHand}
+                  locked={locked}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </div>
   );
 }

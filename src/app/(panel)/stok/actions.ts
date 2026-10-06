@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db/client';
+import { adjustColorStock } from '@/domain/catalog/colors';
 import { createStockItem, updateStockItem } from '@/domain/catalog/stock-items';
 import { adjustStockCount } from '@/domain/stock/counting';
 import { applyMovements } from '@/domain/stock/movements';
@@ -135,6 +136,41 @@ export async function quickAdjustStockAction(
     revalidatePath(`/stok/${stockItemId}`);
     revalidatePath('/');
     return { ok: true, onHand: result.balanceAfter };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/**
+ * Bir rengin stogunu listeden degistirir. Renk karti henuz yoksa ilk +
+ * basildiginda acilir; istemci kart kimligini bilmeyebilir, ana kart ve renk
+ * kodu yetiyor.
+ */
+export async function quickAdjustColorAction(
+  baseStockItemId: string,
+  code: string,
+  delta: number,
+): Promise<QuickAdjustResult> {
+  const locked = await assertStockUnlocked();
+  if (locked) return locked;
+
+  if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 1000) {
+    return { ok: false, error: 'Gecersiz miktar.' };
+  }
+
+  try {
+    const scope = await currentScope();
+    const result = await adjustColorStock(db, scope.stockBranchId, {
+      baseStockItemId,
+      code,
+      delta,
+      notes: 'Stok listesinden hizli duzeltme',
+    });
+    revalidatePath('/stok');
+    revalidatePath(`/stok/${baseStockItemId}`);
+    revalidatePath(`/stok/${result.stockItemId}`);
+    revalidatePath('/');
+    return { ok: true, id: result.stockItemId, onHand: result.balanceAfter };
   } catch (error) {
     return toResult(error);
   }

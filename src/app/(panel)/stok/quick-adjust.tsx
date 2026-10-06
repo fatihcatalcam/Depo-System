@@ -4,10 +4,17 @@ import { Minus, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { quickAdjustStockAction } from './actions';
+import { quickAdjustColorAction, quickAdjustStockAction } from './actions';
+
+/**
+ * Hangi stok degisir: bir kart, ya da ana kartin bir rengi. Rengin karti
+ * henuz acilmamis olabilir (ilk + ile acilir); o yuzden renk, ana kart ve
+ * kodla gosteriliyor.
+ */
+export type AdjustTarget = { stockItemId: string } | { baseStockItemId: string; code: string };
 
 interface Props {
-  stockItemId: string;
+  target: AdjustTarget;
   stockItemName: string;
   onHand: number;
   /** Stok kilidi acikken dugmeler calismaz. Sunucu da ayrica kontrol eder. */
@@ -29,7 +36,7 @@ const FLUSH_DELAY_MS = 500;
  * Yazma basarisiz olursa (ornegin stok eksiye duserse) sadece o dokunuslar
  * geri alinir.
  */
-export function QuickAdjust({ stockItemId, stockItemName, onHand, locked }: Props) {
+export function QuickAdjust({ target, stockItemName, onHand, locked }: Props) {
   // Sunucunun dogruladigi son bakiye. `onHand` prop'u router.refresh()
   // tamamlanana kadar eski kalir; onay gelir gelmez buraya yaziyoruz ki sayi
   // once dusup sonra geri zipllamasin.
@@ -66,7 +73,10 @@ export function QuickAdjust({ stockItemId, stockItemName, onHand, locked }: Prop
     inFlightRef.current = true;
 
     try {
-      const result = await quickAdjustStockAction(stockItemId, amount);
+      const result =
+        'code' in target
+          ? await quickAdjustColorAction(target.baseStockItemId, target.code, amount)
+          : await quickAdjustStockAction(target.stockItemId, amount);
 
       if (result.ok && result.onHand !== undefined) {
         // Iki guncelleme ayni render'da birlesir, boylece gorunen sayi

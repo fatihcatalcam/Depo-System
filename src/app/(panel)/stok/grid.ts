@@ -33,6 +33,23 @@ export interface GridItem {
   /** SKU ve barkod: arama ve barkod okutma bunlarla da bulsun. */
   sku: string;
   barcode: string | null;
+  /** Renk kartinda renk kodu ("BK-149"). */
+  variantLabel?: string | null;
+  /** Renk kartinda ana kart; renk karti satir olmaz, ana kartin altina girer. */
+  parentId?: string | null;
+  /** Kartelasi olan ana kartta kartelanin kodlari, kartela sirasinda. */
+  colorCodes?: string[];
+  /** Kuruluste doldurulur: ana kartin renkleri (bkz. `buildStockGrid`). */
+  colors?: GridColor[];
+}
+
+/**
+ * Ana kartin bir rengi. Kartelanin her kodu listelenir; o renkte henuz kart
+ * acilmadiysa `item` bos ve adet 0. Kart ilk + basilinca aciliyor.
+ */
+export interface GridColor {
+  code: string;
+  item: GridItem | null;
 }
 
 export interface GridProduct {
@@ -124,18 +141,69 @@ function sizeNumbers(size: string): [number, number] {
   return single ? [Number(single[0]), 0] : [Number.MAX_SAFE_INTEGER, 0];
 }
 
+/**
+ * Parcanin toplam adedi: standart (renksiz) + butun renkleri. Hucredeki sayi
+ * ve takim sayisi bundan; baza hangi renkte olursa olsun takima girer.
+ */
+export function totalOnHand(item: GridItem): number {
+  return item.onHand + (item.colors ?? []).reduce((sum, color) => sum + (color.item?.onHand ?? 0), 0);
+}
+
+export function totalReserved(item: GridItem): number {
+  return (
+    item.reserved + (item.colors ?? []).reduce((sum, color) => sum + (color.item?.reserved ?? 0), 0)
+  );
+}
+
+/** Stogu olan renk sayisi: hucrede "2 renk" diye yazilir. */
+export function colorsInStock(item: GridItem): number {
+  return (item.colors ?? []).filter((color) => (color.item?.onHand ?? 0) !== 0).length;
+}
+
 /** Uc parcanin da olmasi ve her birinden en az bir takimlik bulunmasi gerekiyor. */
 export function setCountOf(parts: Record<PartKind, GridPart | null>): number | null {
   let count = Number.POSITIVE_INFINITY;
   for (const kind of PART_KINDS) {
     const part = parts[kind];
     if (!part) return null;
-    count = Math.min(count, Math.floor(part.item.onHand / part.perSet));
+    count = Math.min(count, Math.floor(totalOnHand(part.item) / part.perSet));
   }
   return count >= 1 ? count : null;
 }
 
-export function buildStockGrid(items: GridItem[], products: GridProduct[]): StockGrid {
+/**
+ * Renk kartlarini ana kartlarin altina baglar. Kartelanin her kodu sirayla
+ * gelir; kartelada artik olmayan ama karti acilmis bir renk (kod sonradan
+ * kaldirilmis) sonda yine gorunur, adedi kaybolmasin.
+ */
+function attachColors(items: GridItem[]): GridItem[] {
+  const children = new Map<string, GridItem[]>();
+  for (const item of items) {
+    if (!item.parentId) continue;
+    const list = children.get(item.parentId) ?? [];
+    list.push(item);
+    children.set(item.parentId, list);
+  }
+
+  return items
+    .filter((item) => !item.parentId)
+    .map((item) => {
+      const cards = children.get(item.id) ?? [];
+      const codes = item.colorCodes ?? [];
+      if (codes.length === 0 && cards.length === 0) return item;
+      const byCode = new Map(cards.map((card) => [card.variantLabel ?? '', card]));
+      const extra = cards
+        .map((card) => card.variantLabel ?? '')
+        .filter((code) => !codes.includes(code));
+      return {
+        ...item,
+        colors: [...codes, ...extra].map((code) => ({ code, item: byCode.get(code) ?? null })),
+      };
+    });
+}
+
+export function buildStockGrid(allItems: GridItem[], products: GridProduct[]): StockGrid {
+  const items = attachColors(allItems);
   const byId = new Map(items.map((item) => [item.id, item]));
   const used = new Set<string>();
   const models = new Map<string, GridSet[]>();
@@ -204,7 +272,12 @@ export interface GridFilter {
 }
 
 function itemHaystack(item: GridItem): string {
-  return [item.name, item.sizeLabel, item.sku, item.barcode].filter(Boolean).join(' ');
+  // Karti acilmis renklerin kodu ve barkodu da: "BK-149" yazinca o renkten
+  // olan takim, renk kartinin barkodu okutulunca onun satiri gelsin.
+  const colors = (item.colors ?? []).flatMap((color) =>
+    color.item ? [color.code, color.item.sku, color.item.barcode] : [],
+  );
+  return [item.name, item.sizeLabel, item.sku, item.barcode, ...colors].filter(Boolean).join(' ');
 }
 
 /**

@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStockGrid,
   compareSizes,
+  colorsInStock,
   filterStockGrid,
   modelOf,
   partKindOf,
   stockTone,
+  totalOnHand,
   type GridItem,
   type GridProduct,
 } from '@/app/(panel)/stok/grid';
@@ -213,5 +215,58 @@ describe('stok aramasi', () => {
 
   it('bos arama hepsi', () => {
     expect(found('')).toHaveLength(3);
+  });
+});
+
+describe('renkler', () => {
+  /** Latex Master bazasi: standart 1, BK-149'dan 2; BK-51 karti yok. */
+  function coloredSet() {
+    const set = bedSet('LATEX MASTER', '160x200', [3, 1, 0], '170 CM');
+    const [, baza, baslik] = set.items;
+    baza.colorCodes = ['BK-51', 'BK-149'];
+    baslik.colorCodes = ['BK-51', 'BK-149'];
+    const bazaRed = { ...item('LATEX MASTER BAZA', '160x200', 2, 'Baza'), parentId: baza.id, variantLabel: 'BK-149' };
+    const baslikRed = { ...item('LATEX MASTER BASLIK', '170 CM', 1, 'Baslik'), parentId: baslik.id, variantLabel: 'BK-51', reserved: 1 };
+    return { set, baza, baslik, bazaRed, baslikRed };
+  }
+
+  it('renk kartlari ana kartin altina girer, diger urunlere dusmez', () => {
+    const { set, bazaRed, baslikRed } = coloredSet();
+    const grid = buildStockGrid([...set.items, bazaRed, baslikRed], [set.product]);
+
+    expect(grid.others).toEqual([]);
+    const baza = grid.models[0].sets[0].parts.baza?.item;
+    expect(baza?.colors?.map((color) => [color.code, color.item?.id ?? null])).toEqual([
+      ['BK-51', null],
+      ['BK-149', bazaRed.id],
+    ]);
+  });
+
+  /** Baza hangi renkte olursa olsun takima girer. */
+  it('hucre ve takim sayisi standart + renklerin toplami', () => {
+    const { set, bazaRed, baslikRed } = coloredSet();
+    const grid = buildStockGrid([...set.items, bazaRed, baslikRed], [set.product]);
+    const row = grid.models[0].sets[0];
+
+    expect(totalOnHand(row.parts.baza!.item)).toBe(3);
+    expect(totalOnHand(row.parts.baslik!.item)).toBe(1);
+    expect(colorsInStock(row.parts.baza!.item)).toBe(1);
+    expect(row.setCount).toBe(1);
+  });
+
+  it('renk koduyla arama o takimi bulur', () => {
+    const { set, bazaRed, baslikRed } = coloredSet();
+    const grid = buildStockGrid([...set.items, bazaRed, baslikRed], [set.product]);
+    expect(filterStockGrid(grid, { query: 'bk-149' }).models).toHaveLength(1);
+    expect(filterStockGrid(grid, { query: 'bk-999' }).models).toHaveLength(0);
+  });
+
+  /** Kod kartelada kaldirilsa da acilmis kartin adedi kaybolmaz. */
+  it('kartelada olmayan ama karti olan renk sonda gorunur', () => {
+    const { set, bazaRed } = coloredSet();
+    set.items[1].colorCodes = ['BK-51'];
+    const grid = buildStockGrid([...set.items, bazaRed], [set.product]);
+    const codes = grid.models[0].sets[0].parts.baza?.item.colors?.map((color) => color.code);
+    expect(codes).toEqual(['BK-51', 'BK-149']);
   });
 });

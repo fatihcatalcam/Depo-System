@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { colorPalettes, stockItems } from '@/db/schema';
-import type { DbOrTx } from '@/db/types';
+import type { DbOrTx, Tx } from '@/db/types';
+import { applyMovements, type MovementResult } from '@/domain/stock/movements';
 import { DomainError, NotFoundError } from '@/lib/errors';
 import { normalizeColorCode, sortColorCodes } from '@/lib/color-codes';
 import { createStockItem, type StockItem } from './stock-items';
@@ -62,6 +63,30 @@ export async function ensureColorCard(
     unit: base.unit,
     purchasePriceKurus: base.purchasePriceKurus,
     parentStockItemId: base.id,
+  });
+}
+
+/**
+ * Bir rengin stogunu elle degistirir (stok listesindeki +/-). O renkte kart
+ * yoksa once acilir; kart ve hareket ayni islemde, biri olmadan digeri
+ * kalmaz.
+ */
+export async function adjustColorStock(
+  db: DbOrTx,
+  warehouseId: string,
+  input: { baseStockItemId: string; code: string; delta: number; notes?: string },
+): Promise<MovementResult> {
+  return runInTransaction(db, async (tx) => {
+    const card = await ensureColorCard(tx, input.baseStockItemId, input.code);
+    const [result] = await applyMovements(tx, warehouseId, [
+      {
+        stockItemId: card.id,
+        quantityChange: input.delta,
+        movementType: 'manual',
+        notes: input.notes,
+      },
+    ]);
+    return result;
   });
 }
 
@@ -129,6 +154,13 @@ async function paletteCodes(db: DbOrTx, paletteId: string): Promise<string[]> {
     .where(eq(colorPalettes.id, paletteId));
   if (!row) throw new NotFoundError('Kartela');
   return row.codes;
+}
+
+/** Zaten bir transaction icindeysek onu kullanir, degilsek yeni acar. */
+async function runInTransaction<T>(db: DbOrTx, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  const maybeTx = db as Partial<Tx>;
+  if (typeof maybeTx.rollback === 'function') return fn(db as Tx);
+  return (db as { transaction: <R>(cb: (tx: Tx) => Promise<R>) => Promise<R> }).transaction(fn);
 }
 
 async function saveCodes(db: DbOrTx, paletteId: string, codes: string[]): Promise<ColorPalette> {

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { stockItems } from '@/db/schema';
 import {
   addPaletteCode,
+  adjustColorStock,
   colorCodesForItems,
   createPalette,
   ensureColorCard,
@@ -11,6 +12,7 @@ import {
 } from '@/domain/catalog/colors';
 import { createStockItem, searchStockItems, updateStockItem } from '@/domain/catalog/stock-items';
 import { normalizeColorCode, sortColorCodes } from '@/lib/color-codes';
+import { onHandOf } from '../../helpers/factories';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
 
 let ctx: TestDb;
@@ -149,5 +151,38 @@ describe('renk karti', () => {
     expect(await searchStockItems(ctx.db, { query: 'ARAMA BAZA' })).toHaveLength(2);
     const onlyBase = await searchStockItems(ctx.db, { query: 'ARAMA BAZA', baseOnly: true });
     expect(onlyBase.map((item) => item.id)).toEqual([base.id]);
+  });
+});
+
+describe('renk stogu', () => {
+  it('ilk + renk kartini acar ve stoga isler', async () => {
+    const base = await coloredBase('STOK BAZA');
+    const result = await adjustColorStock(ctx.db, ctx.warehouseId, {
+      baseStockItemId: base.id,
+      code: 'BK-149',
+      delta: 2,
+    });
+
+    const [card] = await ctx.db
+      .select()
+      .from(stockItems)
+      .where(eq(stockItems.parentStockItemId, base.id));
+    expect(result).toEqual({ stockItemId: card.id, balanceAfter: 2 });
+    expect(await onHandOf(ctx.db, ctx.branchId, card.id)).toBe(2);
+    expect(await onHandOf(ctx.db, ctx.branchId, base.id)).toBe(0);
+  });
+
+  /** Eksiye dusen hareket reddedilirse kart da acilmamis olmali. */
+  it('hareket reddedilirse kart da acilmaz', async () => {
+    const base = await coloredBase('STOK BAZA 2');
+    await expect(
+      adjustColorStock(ctx.db, ctx.warehouseId, { baseStockItemId: base.id, code: 'BK-51', delta: -1 }),
+    ).rejects.toThrow();
+
+    const children = await ctx.db
+      .select()
+      .from(stockItems)
+      .where(eq(stockItems.parentStockItemId, base.id));
+    expect(children).toHaveLength(0);
   });
 });

@@ -7,6 +7,7 @@ import { currentScope } from '@/lib/auth/current';
 import { isStockLocked } from '@/lib/auth/locks';
 import { cn } from '@/lib/utils';
 import { listCategoryTree } from '@/domain/catalog/categories';
+import { listPalettes } from '@/domain/catalog/colors';
 import { listProductComponentRows } from '@/domain/catalog/products';
 import { listStockItemsWithAvailability } from '@/domain/catalog/stock-items';
 import { buildStockGrid, filterStockGrid, type GridItem, type GridProduct } from './grid';
@@ -27,11 +28,13 @@ export default async function StokPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const scope = await currentScope();
   const locked = await isStockLocked(scope);
-  const [categories, stock, componentRows] = await Promise.all([
+  const [categories, stock, componentRows, palettes] = await Promise.all([
     listCategoryTree(db),
     listStockItemsWithAvailability(db, scope.stockBranchId, { limit: LIST_LIMIT }),
     listProductComponentRows(db),
+    listPalettes(db),
   ]);
+  const paletteCodes = new Map(palettes.map((palette) => [palette.id, palette.codes]));
 
   const categoryNames = new Map<string, string>();
   const collect = (nodes: typeof categories) => {
@@ -55,6 +58,9 @@ export default async function StokPage({ searchParams }: PageProps) {
     notes: item.notes,
     sku: item.sku,
     barcode: item.barcode,
+    variantLabel: item.variantLabel,
+    parentId: item.parentStockItemId,
+    colorCodes: item.colorPaletteId ? (paletteCodes.get(item.colorPaletteId) ?? []) : [],
   }));
 
   const products = new Map<string, GridProduct>();
