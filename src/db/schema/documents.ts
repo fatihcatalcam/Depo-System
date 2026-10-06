@@ -7,6 +7,7 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -215,6 +216,27 @@ export const orderLines = pgTable(
           OR (${t.itemType}::text = 'custom' AND ${t.productId} IS NULL AND ${t.stockItemId} IS NULL)`,
     ),
   ],
+);
+
+/**
+ * Sipariste secilen kumas rengi: satirin hangi parcasi hangi renkte.
+ *
+ * Taslak sipariste bilesen satiri yok (onayda donduruluyor), secim burada
+ * bekliyor. Onayda `freezeComponents` bu parcanin yerine renk kartini yazar;
+ * rezerv ve teslimat oradan yurur. Secim yoksa ana kart (standart renk).
+ */
+export const orderLineColors = pgTable(
+  'order_line_colors',
+  {
+    orderLineId: uuid('order_line_id')
+      .notNull()
+      .references(() => orderLines.id, { onDelete: 'cascade' }),
+    baseStockItemId: uuid('base_stock_item_id')
+      .notNull()
+      .references(() => stockItems.id, { onDelete: 'restrict' }),
+    colorCode: text('color_code').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.orderLineId, t.baseStockItemId] })],
 );
 
 /**

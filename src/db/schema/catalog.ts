@@ -39,6 +39,18 @@ export const categories = pgTable(
   ],
 );
 
+/**
+ * Kumas kartelasi: bir modelin baza/basligi hangi renklerde yapilabiliyor.
+ * Latex Master ile Comfizone ayni kartelayi kullaniyor, Vanilla kendi
+ * "bambi" kartelasini. Kodlar "BK-149" bicimde, kartelada gorundugu gibi.
+ */
+export const colorPalettes = pgTable('color_palettes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  codes: text('codes').array().notNull().default(sql`'{}'::text[]`),
+  ...timestamps,
+});
+
 export const stockItems = pgTable(
   'stock_items',
   {
@@ -51,6 +63,23 @@ export const stockItems = pgTable(
     // Kumas/renk kodu: "BK-194 MAVI". Isimden ayri tutuluyor ki ayni modelin
     // farkli renkleri boyut kopyalamada birbirini bulabilsin.
     variantLabel: text('variant_label'),
+    /**
+     * Bu kalem renk renk yapiliyor: stok ekraninda kartelanin kodlari
+     * acilir, sipariste renk secilir. Yalnizca ana kartta dolu.
+     */
+    colorPaletteId: uuid('color_palette_id').references(() => colorPalettes.id, {
+      onDelete: 'restrict',
+    }),
+    /**
+     * Renk karti: ana kartin bir rengi ("LATEX MASTER BAZA 160x200 · BK-149").
+     * Her renk ayri kart ki rezerv, teslimat, sayim ve hareket gecmisi hic
+     * degismeden renk renk yurusun. Renk karti ihtiyac olunca aciliyor
+     * (`ensureColorCard`); kartlar silinmedigi icin bastan 300 kart acilmiyor.
+     */
+    parentStockItemId: uuid('parent_stock_item_id').references(
+      (): AnyPgColumn => stockItems.id,
+      { onDelete: 'restrict' },
+    ),
     categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'restrict' }),
     barcode: text('barcode').unique(),
     unit: text('unit').notNull().default('adet'),
@@ -63,7 +92,16 @@ export const stockItems = pgTable(
   (t) => [
     index('stock_items_name_idx').on(t.name),
     index('stock_items_category_idx').on(t.categoryId),
+    index('stock_items_parent_idx').on(t.parentStockItemId),
     check('stock_items_min_level_chk', sql`${t.minStockLevel} >= 0`),
+    // Ayni ana kartta ayni renkten iki kart olmasin. Ana kartlarda parent
+    // bos; Postgres NULL'lari ayri saydigi icin onlari etkilemez.
+    unique('stock_items_parent_variant_uq').on(t.parentStockItemId, t.variantLabel),
+    // Renk kartinin rengi yazili olmali; kendi kartelasi olmaz.
+    check(
+      'stock_items_color_card_chk',
+      sql`${t.parentStockItemId} IS NULL OR (${t.variantLabel} IS NOT NULL AND ${t.colorPaletteId} IS NULL)`,
+    ),
   ],
 );
 

@@ -120,6 +120,13 @@
       "when": 1790798761924,
       "tag": "0016_dokap-dolap",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791288074481,
+      "tag": "0017_renk-kartelasi",
+      "breakpoints": true
     }
   ]
 }

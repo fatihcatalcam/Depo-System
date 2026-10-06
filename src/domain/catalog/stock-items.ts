@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, ilike, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { stockItems } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { getOnHandQuantities, getReservedQuantities } from '@/domain/stock/availability';
@@ -17,6 +17,8 @@ export interface CreateStockItemInput {
   minStockLevel?: number;
   purchasePriceKurus?: number | null;
   notes?: string | null;
+  /** Renk karti acilirken ana kart; yalnizca `ensureColorCard` verir. */
+  parentStockItemId?: string | null;
 }
 
 export async function createStockItem(
@@ -46,6 +48,7 @@ export async function createStockItem(
       minStockLevel: input.minStockLevel ?? 0,
       purchasePriceKurus: input.purchasePriceKurus ?? null,
       notes: input.notes ?? null,
+      parentStockItemId: input.parentStockItemId ?? null,
     })
     .returning();
 
@@ -63,6 +66,8 @@ export interface UpdateStockItemInput {
   purchasePriceKurus?: number | null;
   notes?: string | null;
   isActive?: boolean;
+  /** Kumas kartelasi; bos = renksiz kalem. Renk kartinda verilemez. */
+  colorPaletteId?: string | null;
 }
 
 export async function updateStockItem(
@@ -79,6 +84,9 @@ export async function updateStockItem(
 
   const name = input.name?.trim() ?? existing.name;
   if (name === '') throw new DomainError('Stok karti adi bos olamaz.', 'INVALID_INPUT');
+  if (input.colorPaletteId && existing.parentStockItemId) {
+    throw new DomainError('Renk kartinin kendi kartelasi olmaz.', 'INVALID_INPUT');
+  }
 
   // Adet bilincli olarak burada yok: stok yalnizca applyMovements ile degisir
   // ve subeye ozeldir, kartin uzerinde durmaz.
@@ -102,6 +110,8 @@ export async function updateStockItem(
           : existing.purchasePriceKurus,
       notes: input.notes !== undefined ? input.notes : existing.notes,
       isActive: input.isActive ?? existing.isActive,
+      colorPaletteId:
+        input.colorPaletteId !== undefined ? input.colorPaletteId : existing.colorPaletteId,
       updatedAt: sql`now()`,
     })
     .where(eq(stockItems.id, id))
@@ -114,6 +124,12 @@ export interface StockItemFilters {
   query?: string;
   categoryId?: string | null;
   includeInactive?: boolean;
+  /**
+   * Renk kartlarini disarida birak. Parca secilen yerlerde (siparis, mal
+   * kabul, recete) renk ayrica seciliyor; ayni parca bir de her rengiyle
+   * listede cikmasin.
+   */
+  baseOnly?: boolean;
   limit?: number;
 }
 
@@ -125,6 +141,7 @@ export async function searchStockItems(
 
   if (!filters.includeInactive) conditions.push(eq(stockItems.isActive, true));
   if (filters.categoryId) conditions.push(eq(stockItems.categoryId, filters.categoryId));
+  if (filters.baseOnly) conditions.push(isNull(stockItems.parentStockItemId));
 
   const query = filters.query?.trim();
   if (query) {
