@@ -7,7 +7,7 @@ import { QuantityInput } from '@/components/quantity-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { OrderCatalog } from '@/domain/orders/catalog';
+import type { CatalogColorPart, OrderCatalog } from '@/domain/orders/catalog';
 import { searchCatalog } from '@/lib/catalog-search';
 import {
   CURRENCY_LABELS,
@@ -31,6 +31,8 @@ interface LineRow {
   unitPrice: string;
   /** Hediye satir: musteriden para alinmaz, mal yine cikar. */
   isGift: boolean;
+  /** Kumas rengi: parca id -> kod. Secilmeyen parca standart. */
+  colors?: Record<string, string>;
 }
 
 interface CustomerHit {
@@ -187,6 +189,7 @@ export interface OrderSubmitInput {
     quantity: number;
     unitPrice: string;
     isGift: boolean;
+    colors?: { baseStockItemId: string; code: string }[];
   }[];
 }
 
@@ -282,6 +285,28 @@ export function OrderForm({
         : [],
     [catalog.stockItems, itemQuery, itemsOpen],
   );
+
+  /** Satirin rengi secilebilen parcalari: takimda baza/baslik, tek parcada kendisi. */
+  function colorPartsOf(line: LineRow): CatalogColorPart[] {
+    if (line.itemType === 'product') {
+      return catalog.products.find((product) => product.id === line.productId)?.colorParts ?? [];
+    }
+    if (line.itemType === 'stock_item') {
+      const item = catalog.stockItems.find((entry) => entry.id === line.stockItemId);
+      return item && item.colorCodes.length > 0
+        ? [{ stockItemId: item.id, label: 'Renk', codes: item.colorCodes }]
+        : [];
+    }
+    return [];
+  }
+
+  function setLineColor(index: number, stockItemId: string, code: string) {
+    setLines((rows) =>
+      rows.map((row, i) =>
+        i === index ? { ...row, colors: { ...row.colors, [stockItemId]: code } } : row,
+      ),
+    );
+  }
 
   function addLine(row: Omit<LineRow, 'key'>) {
     setLines((current) => [...current, { ...row, key: crypto.randomUUID() }]);
@@ -397,6 +422,9 @@ export function OrderForm({
               quantity: line.quantity,
               unitPrice: line.unitPrice,
               isGift: line.isGift,
+              colors: Object.entries(line.colors ?? {})
+                .filter(([, code]) => code !== '')
+                .map(([baseStockItemId, code]) => ({ baseStockItemId, code })),
             })),
           };
 
@@ -813,6 +841,12 @@ export function OrderForm({
                 >
                   Kaldir
                 </Button>
+                <ColorSelects
+                  parts={colorPartsOf(line)}
+                  colors={line.colors ?? {}}
+                  lineLabel={line.label}
+                  onChange={(stockItemId, code) => setLineColor(index, stockItemId, code)}
+                />
               </li>
             ))}
           </ul>
@@ -1050,5 +1084,54 @@ export function OrderForm({
         Taslak siparis stogu etkilemez. Onayladiginizda malzemeler rezerve edilir.
       </p>
     </form>
+  );
+}
+
+/**
+ * Kumas rengi secimi: takimin bazasi ve basligi ayri ayri. Secilmezse
+ * standart (renksiz) parca gider. Renk zorunlu degil.
+ */
+function ColorSelects({
+  parts,
+  colors,
+  lineLabel,
+  onChange,
+}: {
+  parts: CatalogColorPart[];
+  colors: Record<string, string>;
+  lineLabel: string;
+  onChange: (stockItemId: string, code: string) => void;
+}) {
+  if (parts.length === 0) return null;
+  return (
+    <div className="flex basis-full flex-wrap gap-3 border-t border-neutral-100 pt-2">
+      {parts.map((part) => {
+        const selected = colors[part.stockItemId] ?? '';
+        // Kartelada kaldirilmis ama bu sipariste secilmis renk listede kalsin.
+        const codes =
+          selected && !part.codes.includes(selected) ? [...part.codes, selected] : part.codes;
+        return (
+          <label
+            key={part.stockItemId}
+            className="flex items-center gap-1.5 text-sm text-neutral-700"
+          >
+            {part.label === 'Renk' ? 'Renk' : `${part.label} rengi`}
+            <select
+              value={selected}
+              onChange={(event) => onChange(part.stockItemId, event.target.value)}
+              aria-label={`${lineLabel} ${part.label.toLocaleLowerCase('tr-TR')} rengi`}
+              className="h-9 rounded-md border border-neutral-300 bg-white px-2 text-sm"
+            >
+              <option value="">Standart</option>
+              {codes.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </label>
+        );
+      })}
+    </div>
   );
 }

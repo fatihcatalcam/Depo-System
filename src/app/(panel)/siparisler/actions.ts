@@ -56,6 +56,11 @@ const lineSchema = z.object({
   quantity: z.coerce.number().int().min(1),
   unitPrice: z.string(),
   isGift: z.boolean().optional(),
+  /** Kumas rengi: takimin bazasi/basligi ya da tek parcanin kendisi. */
+  colors: z
+    .array(z.object({ baseStockItemId: z.uuid(), code: z.string().trim().min(1).max(40) }))
+    .max(10)
+    .optional(),
 });
 
 /** Fatura alanlari hem olusturmada hem duzenlemede ayni. */
@@ -195,6 +200,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
         quantity: line.quantity,
         unitPriceKurus: parseTlInput(line.unitPrice || '0'),
         isGift: line.isGift ?? false,
+        colors: line.colors,
       })),
     });
     refresh();
@@ -276,6 +282,7 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
         quantity: line.quantity,
         unitPriceKurus: parseTlInput(line.unitPrice || '0'),
         isGift: line.isGift ?? false,
+        colors: line.colors,
       })),
     });
     refresh(id);

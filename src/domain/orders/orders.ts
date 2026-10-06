@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import {
   branches,
   customers,
+  orderLineColors,
   orderLineComponents,
   orderLines,
   orders,
@@ -14,6 +15,12 @@ import {
 } from '@/db/schema';
 import { containsDigits, containsFolded } from '@/db/text-search';
 import type { DbOrTx, Tx } from '@/db/types';
+import {
+  componentCard,
+  loadLineColors,
+  resolveLineColors,
+  type LineColorInput,
+} from '@/domain/orders/line-colors';
 import { createCustomer } from '@/domain/parties/parties';
 import { ownBranch, scopeFilter, type Scope } from '@/domain/scope';
 import { getReservedQuantities } from '@/domain/stock/availability';
@@ -68,6 +75,11 @@ export interface OrderLineInput {
    * `unitPriceKurus` icinde korunuyor.
    */
   isGift?: boolean;
+  /**
+   * Kumas rengi: takimin bazasi/basligi ya da tek parcanin kendisi. Secilmeyen
+   * parca standart (renksiz) karttan gider.
+   */
+  colors?: LineColorInput[];
 }
 
 /**
@@ -525,6 +537,8 @@ export interface OrderLineDetail {
   unitPriceKurus: number;
   lineTotalKurus: number;
   isGift: boolean;
+  /** Secilen renkler; duzenleme formu bunlarla dolar. */
+  colors: LineColorInput[];
   components: OrderComponentDetail[];
 }
 
@@ -605,9 +619,20 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
     ),
   );
 
-  const [paidKurus, depositKurus] = await Promise.all([
+  const [paidKurus, depositKurus, colorRows] = await Promise.all([
     getPaidTotal(db, id),
     getDepositTotal(db, id),
+    lines.length
+      ? db
+          .select()
+          .from(orderLineColors)
+          .where(
+            inArray(
+              orderLineColors.orderLineId,
+              lines.map((line) => line.id),
+            ),
+          )
+      : [],
   ]);
   const balanceKurus = row.order.totalKurus - paidKurus;
 
@@ -631,6 +656,9 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
       unitPriceKurus: line.unitPriceKurus,
       lineTotalKurus: line.lineTotalKurus,
       isGift: line.isGift,
+      colors: colorRows
+        .filter((color) => color.orderLineId === line.id)
+        .map((color) => ({ baseStockItemId: color.baseStockItemId, code: color.colorCode })),
       components: components
         .filter((entry) => entry.component.orderLineId === line.id)
         .map((entry) => {
@@ -879,8 +907,9 @@ async function resolveLines(tx: Tx, lines: OrderLineInput[]): Promise<ResolvedLi
   const stockRows = stockItemIds.length
     ? await tx.select().from(stockItems).where(inArray(stockItems.id, stockItemIds))
     : [];
+  const lineColors = await resolveLineColors(tx, lines);
 
-  return lines.map((line) => {
+  return lines.map((line, index) => {
     let description: string;
 
     if (line.itemType === 'custom') {
@@ -899,13 +928,16 @@ async function resolveLines(tx: Tx, lines: OrderLineInput[]): Promise<ResolvedLi
     // Hediye satirin toplami her zaman sifir; birim fiyat urunun degeri
     // olarak duruyor.
     const lineTotalKurus = line.isGift ? 0 : line.unitPriceKurus * line.quantity;
+    // Renk aciklamaya da yaziliyor: liste, ozet ve kagitlar satiri
+    // aciklamasindan okuyor; taslakta baska yerde gorunmezdi.
+    const { colors, suffix } = lineColors[index];
 
-    return { ...line, description, lineTotalKurus };
+    return { ...line, description: description + suffix, colors, lineTotalKurus };
   });
 }
 
 async function insertLines(tx: Tx, orderId: string, lines: ResolvedLine[]) {
-  await tx.insert(orderLines).values(
+  const inserted = await tx.insert(orderLines).values(
     lines.map((line, index) => ({
       orderId,
       lineNo: index + 1,
@@ -918,7 +950,16 @@ async function insertLines(tx: Tx, orderId: string, lines: ResolvedLine[]) {
       lineTotalKurus: line.lineTotalKurus,
       isGift: line.isGift ?? false,
     })),
+  ).returning({ id: orderLines.id, lineNo: orderLines.lineNo });
+
+  const colors = inserted.flatMap((row) =>
+    (lines[row.lineNo - 1].colors ?? []).map((color) => ({
+      orderLineId: row.id,
+      baseStockItemId: color.baseStockItemId,
+      colorCode: color.code,
+    })),
   );
+  if (colors.length > 0) await tx.insert(orderLineColors).values(colors);
 }
 
 /** Urun recetelerini siparis satirlarina kopyalar (dondurma). */
@@ -941,6 +982,10 @@ async function freezeComponents(tx: Tx, orderId: string) {
         .where(inArray(productComponents.productId, productLineIds))
     : [];
 
+  const colors = await loadLineColors(
+    tx,
+    lines.map((line) => line.id),
+  );
   const values: (typeof orderLineComponents.$inferInsert)[] = [];
 
   for (const line of lines) {
@@ -961,7 +1006,7 @@ async function freezeComponents(tx: Tx, orderId: string) {
       // Tek parca satisinda da bilesen yaziyoruz; teslimat mantigi tek yoldan isler.
       values.push({
         orderLineId: line.id,
-        stockItemId: line.stockItemId as string,
+        stockItemId: await componentCard(tx, colors, line.id, line.stockItemId as string),
         quantityPerUnit: 1,
         totalQuantity: line.quantity,
       });
@@ -979,7 +1024,9 @@ async function freezeComponents(tx: Tx, orderId: string) {
     for (const component of recipe) {
       values.push({
         orderLineId: line.id,
-        stockItemId: component.stockItemId,
+        // Rengi secilen parcanin yerine o rengin karti: rezerv ve teslimat
+        // renk renk yurusun. Kart yoksa burada aciliyor (onay ani).
+        stockItemId: await componentCard(tx, colors, line.id, component.stockItemId),
         quantityPerUnit: component.quantity,
         totalQuantity: component.quantity * line.quantity,
       });

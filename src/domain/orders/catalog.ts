@@ -1,7 +1,17 @@
+import { eq } from 'drizzle-orm';
+import { colorPalettes, productComponents, stockItems } from '@/db/schema';
 import { listProducts } from '@/domain/catalog/products';
 import { searchStockItems } from '@/domain/catalog/stock-items';
+import { colorPartLabel } from '@/domain/orders/line-colors';
 import type { DbOrTx } from '@/db/types';
 import { normalizeSearch } from '@/lib/catalog-search';
+
+/** Takimin renk secilebilen parcasi: "Baza" ve kartelasindaki kodlar. */
+export interface CatalogColorPart {
+  stockItemId: string;
+  label: string;
+  codes: string[];
+}
 
 export interface CatalogProduct {
   id: string;
@@ -9,6 +19,8 @@ export interface CatalogProduct {
   code: string;
   defaultPriceKurus: number | null;
   haystack: string;
+  /** Renkli parcalari; bossa satirda renk secimi cikmaz. */
+  colorParts: CatalogColorPart[];
 }
 
 export interface CatalogStockItem {
@@ -18,11 +30,20 @@ export interface CatalogStockItem {
   sizeLabel: string | null;
   variantLabel: string | null;
   haystack: string;
+  /** Kartelasi varsa kodlar; tek parca satirinda renk secimi cikar. */
+  colorCodes: string[];
 }
 
 export interface OrderCatalog {
   products: CatalogProduct[];
   stockItems: CatalogStockItem[];
+}
+
+const PART_ORDER = ['Baza', 'Başlık'];
+
+function partOrder(label: string): number {
+  const index = PART_ORDER.indexOf(label);
+  return index === -1 ? PART_ORDER.length : index;
 }
 
 /** Stok listesindeki sinirla ayni gerekce: hepsi gelmeli, 200'de kesilmemeli. */
@@ -36,10 +57,23 @@ const STOCK_LIMIT = 5000;
  * hazirlaniyor, her tusta yeniden degil.
  */
 export async function loadOrderCatalog(db: DbOrTx): Promise<OrderCatalog> {
-  const [productList, stockList] = await Promise.all([
+  const [productList, stockList, palettes, colorComponents] = await Promise.all([
     listProducts(db),
-    searchStockItems(db, { limit: STOCK_LIMIT }),
+    // Renk kartlari ayrica listelenmiyor: renk satirda seciliyor.
+    searchStockItems(db, { limit: STOCK_LIMIT, baseOnly: true }),
+    db.select({ id: colorPalettes.id, codes: colorPalettes.codes }).from(colorPalettes),
+    db
+      .select({
+        productId: productComponents.productId,
+        stockItemId: stockItems.id,
+        name: stockItems.name,
+        codes: colorPalettes.codes,
+      })
+      .from(productComponents)
+      .innerJoin(stockItems, eq(stockItems.id, productComponents.stockItemId))
+      .innerJoin(colorPalettes, eq(colorPalettes.id, stockItems.colorPaletteId)),
   ]);
+  const paletteCodes = new Map(palettes.map((palette) => [palette.id, palette.codes]));
 
   return {
     products: productList.map((product) => ({
@@ -48,6 +82,12 @@ export async function loadOrderCatalog(db: DbOrTx): Promise<OrderCatalog> {
       code: product.code,
       defaultPriceKurus: product.defaultPriceKurus,
       haystack: normalizeSearch(`${product.name} ${product.code}`),
+      colorParts: colorComponents
+        .filter((row) => row.productId === product.id && row.codes.length > 0)
+        .map((row) => ({ stockItemId: row.stockItemId, label: colorPartLabel(row.name), codes: row.codes }))
+        // Baza once, baslik sonra: formda hep ayni sirada. (Alfabe sirasi
+        // tersini verir: Turkcede "s" "z"den once.)
+        .sort((a, b) => partOrder(a.label) - partOrder(b.label)),
     })),
     stockItems: stockList.map((item) => ({
       id: item.id,
@@ -60,6 +100,7 @@ export async function loadOrderCatalog(db: DbOrTx): Promise<OrderCatalog> {
           .filter(Boolean)
           .join(' '),
       ),
+      colorCodes: item.colorPaletteId ? (paletteCodes.get(item.colorPaletteId) ?? []) : [],
     })),
   };
 }

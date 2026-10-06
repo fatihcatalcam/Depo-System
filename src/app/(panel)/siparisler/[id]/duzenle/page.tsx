@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/db/client';
 import { getRates } from '@/domain/exchange-rates';
-import { loadOrderCatalog } from '@/domain/orders/catalog';
-import { ORDER_STATUS_LABELS, getOrder } from '@/domain/orders/orders';
+import { loadOrderCatalog, type OrderCatalog } from '@/domain/orders/catalog';
+import { ORDER_STATUS_LABELS, getOrder, type OrderLineDetail } from '@/domain/orders/orders';
 import { listPayments } from '@/domain/orders/payments';
 import { listSalespeople } from '@/domain/parties/salespeople';
 import { currentScope } from '@/lib/auth/current';
@@ -11,6 +11,15 @@ import { NotFoundError } from '@/lib/errors';
 import { formatRate, kurusToTl, type Currency } from '@/lib/money';
 import type { RateOption } from '../../order-form';
 import { EditOrderForm } from './edit-order-form';
+
+/** Renk eki olmadan satirin adi: urun adi ya da parca adi + olcu. */
+function baseLabel(catalog: OrderCatalog, line: OrderLineDetail): string {
+  if (line.itemType === 'product') {
+    return catalog.products.find((product) => product.id === line.productId)?.name ?? line.description;
+  }
+  const item = catalog.stockItems.find((entry) => entry.id === line.stockItemId);
+  return item ? [item.name, item.sizeLabel].filter(Boolean).join(' · ') : line.description;
+}
 
 function toTlInput(kurus: number): string {
   if (kurus === 0) return '';
@@ -132,7 +141,10 @@ export default async function SiparisDuzenlePage({
             itemType: line.itemType,
             productId: line.productId,
             stockItemId: line.stockItemId,
-            label: line.description,
+            // Aciklamadaki renk eki secimle tekrar yazilir; formda renk ayri
+            // seciliyor, eki gostermek degistirince eskisini birakirdi.
+            label: line.colors.length > 0 ? baseLabel(catalog, line) : line.description,
+            colors: Object.fromEntries(line.colors.map((color) => [color.baseStockItemId, color.code])),
             quantity: line.quantity,
             unitPrice: toTlInput(line.unitPriceKurus),
             isGift: line.isGift,
