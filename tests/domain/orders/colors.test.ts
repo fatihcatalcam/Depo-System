@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { stockItems } from '@/db/schema';
 import { addPaletteCode, createPalette } from '@/domain/catalog/colors';
+import { createProduct } from '@/domain/catalog/products';
 import { updateStockItem } from '@/domain/catalog/stock-items';
 import { loadOrderCatalog } from '@/domain/orders/catalog';
 import { createDelivery } from '@/domain/orders/deliveries';
@@ -76,6 +77,39 @@ describe('sipariste renk', () => {
       ]),
     );
     expect(await colorCard(set.baza.id, 'BK-149')).toBeUndefined();
+  });
+
+  /** Canlida bir recetede baslik bazadan once tanimliydi; aciklama yine baza once. */
+  it('aciklamada once baza sonra baslik, recete sirasi ne olursa olsun', async () => {
+    const set = await coloredSet();
+    const product = await createProduct(ctx.db, {
+      name: `${set.product.name} ters`,
+      components: [
+        { stockItemId: set.baslik.id, quantity: 1 },
+        { stockItemId: set.yatak.id, quantity: 1 },
+        { stockItemId: set.baza.id, quantity: 1 },
+      ],
+    });
+    const customer = await makeOrderCustomer(ctx.db, ctx.scope);
+    const order = await createOrder(ctx.db, ctx.scope, {
+      customerId: customer.id,
+      orderDate: '2026-10-06',
+      deliveryAddress: 'Adres',
+      lines: [
+        {
+          itemType: 'product',
+          productId: product.id,
+          quantity: 1,
+          unitPriceKurus: 0,
+          colors: [
+            { baseStockItemId: set.baslik.id, code: 'BK-51' },
+            { baseStockItemId: set.baza.id, code: 'BK-149' },
+          ],
+        },
+      ],
+    });
+    const detail = await getOrder(ctx.db, ctx.scope, order.id);
+    expect(detail.lines[0].description).toBe(`${product.name} (Baza BK-149, Başlık BK-51)`);
   });
 
   /** Rezerv ve teslimat renk kartindan yurur; standart parcaya dokunulmaz. */

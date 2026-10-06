@@ -100,19 +100,28 @@ export async function resolveLineColors(
       colors.push({ baseStockItemId: base.id, code });
     }
 
-    // Recete sirasiyla: yatak, baza, baslik nasil tanimliysa.
-    colors.sort((a, b) => parts.indexOf(a.baseStockItemId) - parts.indexOf(b.baseStockItemId));
+    // Hep ayni sira: once baza, sonra baslik. Recete sirasina guvenilmez;
+    // urun tanimlanirken parcalar hangi sirayla eklendiyse oyle gelir.
+    const labelOf = (color: LineColorInput) =>
+      colorPartLabel(baseById.get(color.baseStockItemId)?.name ?? '');
+    colors.sort((a, b) => colorPartOrder(labelOf(a)) - colorPartOrder(labelOf(b)));
     const suffix =
       line.itemType === 'stock_item'
         ? ` · ${colors[0].code}`
-        : ` (${colors
-            .map(
-              (color) =>
-                `${colorPartLabel(baseById.get(color.baseStockItemId)?.name ?? '')} ${color.code}`,
-            )
-            .join(', ')})`;
+        : ` (${colors.map((color) => `${labelOf(color)} ${color.code}`).join(', ')})`;
     return { colors, suffix };
   });
+}
+
+const PART_ORDER = ['Baza', 'Başlık'];
+
+/**
+ * Renkli parcalarin gosterim sirasi: baza, baslik, digerleri. Alfabe sirasi
+ * tersini verirdi (Turkcede "s" "z"den once).
+ */
+export function colorPartOrder(label: string): number {
+  const index = PART_ORDER.indexOf(label);
+  return index === -1 ? PART_ORDER.length : index;
 }
 
 /** "LATEX MASTER BAZA" -> "Baza"; takim aciklamasinda model adi tekrar etmesin. */

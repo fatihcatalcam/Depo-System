@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { colorPalettes, productComponents, stockItems } from '@/db/schema';
 import { listProducts } from '@/domain/catalog/products';
 import { searchStockItems } from '@/domain/catalog/stock-items';
-import { colorPartLabel } from '@/domain/orders/line-colors';
+import { colorPartLabel, colorPartOrder } from '@/domain/orders/line-colors';
 import type { DbOrTx } from '@/db/types';
 import { normalizeSearch } from '@/lib/catalog-search';
 
@@ -37,13 +37,6 @@ export interface CatalogStockItem {
 export interface OrderCatalog {
   products: CatalogProduct[];
   stockItems: CatalogStockItem[];
-}
-
-const PART_ORDER = ['Baza', 'Başlık'];
-
-function partOrder(label: string): number {
-  const index = PART_ORDER.indexOf(label);
-  return index === -1 ? PART_ORDER.length : index;
 }
 
 /** Stok listesindeki sinirla ayni gerekce: hepsi gelmeli, 200'de kesilmemeli. */
@@ -85,9 +78,8 @@ export async function loadOrderCatalog(db: DbOrTx): Promise<OrderCatalog> {
       colorParts: colorComponents
         .filter((row) => row.productId === product.id && row.codes.length > 0)
         .map((row) => ({ stockItemId: row.stockItemId, label: colorPartLabel(row.name), codes: row.codes }))
-        // Baza once, baslik sonra: formda hep ayni sirada. (Alfabe sirasi
-        // tersini verir: Turkcede "s" "z"den once.)
-        .sort((a, b) => partOrder(a.label) - partOrder(b.label)),
+        // Baza once, baslik sonra: formda hep ayni sirada.
+        .sort((a, b) => colorPartOrder(a.label) - colorPartOrder(b.label)),
     })),
     stockItems: stockList.map((item) => ({
       id: item.id,
