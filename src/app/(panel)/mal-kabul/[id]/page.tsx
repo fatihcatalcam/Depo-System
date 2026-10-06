@@ -63,7 +63,9 @@ export default async function MalKabulDetayPage({
                   </Link>
                   <div className="text-xs text-neutral-400">{line.stockItemSku}</div>
                 </td>
-                <td className="p-3 text-neutral-600">{line.sizeLabel ?? '—'}</td>
+                <td className="p-3 text-neutral-600">
+                  {[line.sizeLabel, line.variantLabel].filter(Boolean).join(' · ') || '—'}
+                </td>
                 <td className="p-3 text-right tabular-nums">{line.quantity}</td>
                 <td className="p-3 text-right tabular-nums text-neutral-600">
                   {line.unitCostKurus ? formatKurus(line.unitCostKurus) : '—'}

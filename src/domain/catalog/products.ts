@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { productComponents, products, stockItems } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { sizesMatch } from '@/domain/catalog/sizes';
@@ -231,6 +231,8 @@ export async function suggestSizeCounterparts(
           sources.map((source) => source.name),
         ),
         eq(stockItems.isActive, true),
+        // Renk kartlari ana kartla ayni adda; recete renksiz parcadan kurulur.
+        isNull(stockItems.parentStockItemId),
       ),
     );
 

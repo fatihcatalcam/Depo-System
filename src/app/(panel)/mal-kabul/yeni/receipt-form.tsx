@@ -21,10 +21,16 @@ import { MissingItems, type MissingRow } from './missing-items';
 import { mergeMissingRows } from './missing-rows';
 
 interface LineRow {
+  /** Ayni parca iki renkte iki satir olabilir; anahtar parca kimligi olamaz. */
+  key: string;
   stockItemId: string;
   label: string;
   quantity: number;
   unitCost: string;
+  /** Kumas rengi; bos = standart. */
+  colorCode: string;
+  /** Parcanin kartela kodlari; bossa renk secimi cikmaz. */
+  colorCodes: string[];
 }
 
 interface SearchResult {
@@ -32,11 +38,19 @@ interface SearchResult {
   name: string;
   sku: string;
   sizeLabel: string | null;
+  variantLabel: string | null;
   barcode: string | null;
+  colorCodes: string[];
 }
 
 function labelFor(item: SearchResult) {
-  return `${item.name}${item.sizeLabel ? ` · ${item.sizeLabel}` : ''} (${item.sku})`;
+  const details = [item.sizeLabel, item.variantLabel].filter(Boolean).join(' · ');
+  return `${item.name}${details ? ` · ${details}` : ''} (${item.sku})`;
+}
+
+/** Ayni parcanin standart satiri: yeni okunan/okutulan adet buna eklenir. */
+function plainRowOf(rows: LineRow[], stockItemId: string): number {
+  return rows.findIndex((row) => row.stockItemId === stockItemId && row.colorCode === '');
 }
 
 /**
@@ -111,7 +125,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
       setLines((rows) => {
         const next = [...rows];
         for (const line of matched) {
-          const existing = next.findIndex((row) => row.stockItemId === line.stockItemId);
+          const existing = plainRowOf(next, line.stockItemId as string);
           if (existing >= 0) {
             next[existing] = {
               ...next[existing],
@@ -120,10 +134,13 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
             };
           } else {
             next.push({
+              key: crypto.randomUUID(),
               stockItemId: line.stockItemId as string,
               label: line.label ?? line.text,
               quantity: line.quantity,
               unitCost: toPriceInput(line.unitPrice),
+              colorCode: '',
+              colorCodes: line.colorCodes ?? [],
             });
           }
         }
@@ -201,7 +218,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
     const quantity = source?.quantity ?? 1;
     const unitCost = source?.unitCost ?? '';
     setLines((rows) => {
-      const existing = rows.findIndex((row) => row.stockItemId === item.id);
+      const existing = plainRowOf(rows, item.id);
       // Ayni parca ikinci kez okutulursa yeni satir acmak yerine adedi artir:
       // depoda barkod arka arkaya okutulur, bu en dogal davranis.
       if (existing >= 0) {
@@ -210,7 +227,18 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
           i === existing ? { ...row, quantity: row.quantity + quantity } : row,
         );
       }
-      return [...rows, { stockItemId: item.id, label: labelFor(item), quantity, unitCost }];
+      return [
+        ...rows,
+        {
+          key: crypto.randomUUID(),
+          stockItemId: item.id,
+          label: labelFor(item),
+          quantity,
+          unitCost,
+          colorCode: '',
+          colorCodes: item.colorCodes,
+        },
+      ];
     });
   }
 
@@ -271,6 +299,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
                 stockItemId: row.stockItemId,
                 quantity: row.quantity,
                 unitCost: row.unitCost || undefined,
+                colorCode: row.colorCode || undefined,
               })),
               newItems: newLines.map((row) => ({
                 name: row.name,
@@ -454,10 +483,33 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
             <ul className="space-y-2">
               {lines.map((row, index) => (
                 <li
-                  key={row.stockItemId}
+                  key={row.key}
                   className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white p-3"
                 >
                   <span className="min-w-0 flex-1 text-sm">{row.label}</span>
+                  {/* Renkli parca hangi renkte geldiyse o rengin stoguna girer;
+                      kart yoksa kayitta acilir. */}
+                  {row.colorCodes.length > 0 ? (
+                    <select
+                      value={row.colorCode}
+                      onChange={(event) =>
+                        setLines((rows) =>
+                          rows.map((current, i) =>
+                            i === index ? { ...current, colorCode: event.target.value } : current,
+                          ),
+                        )
+                      }
+                      aria-label={`${row.label} rengi`}
+                      className="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm"
+                    >
+                      <option value="">Standart</option>
+                      {row.colorCodes.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                   <QuantityInput
                     value={row.quantity}
                     aria-label={`${row.label} adedi`}

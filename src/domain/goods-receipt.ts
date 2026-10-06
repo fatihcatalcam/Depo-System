@@ -1,6 +1,7 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { branches, goodsReceiptLines, goodsReceipts, stockItems, suppliers } from '@/db/schema';
 import type { DbOrTx, Tx } from '@/db/types';
+import { ensureColorCard } from '@/domain/catalog/colors';
 import { createStockItem } from '@/domain/catalog/stock-items';
 import { ownBranch, type Scope } from '@/domain/scope';
 import { applyMovements } from '@/domain/stock/movements';
@@ -25,6 +26,11 @@ export interface ReceiptLineInput {
   stockItemId: string;
   quantity: number;
   unitCostKurus?: number | null;
+  /**
+   * Kumas rengi: parca bu renkte geldi. Stok o rengin kartina girer; kart
+   * yoksa mal kabulle ayni islemde acilir.
+   */
+  colorCode?: string | null;
 }
 
 /**
@@ -55,6 +61,8 @@ export interface GoodsReceiptLineDetail {
   stockItemName: string;
   stockItemSku: string;
   sizeLabel: string | null;
+  /** Renk kartinda renk kodu. */
+  variantLabel: string | null;
   quantity: number;
   unitCostKurus: number | null;
 }
@@ -80,7 +88,8 @@ export async function createGoodsReceipt(
     // Yeni kartlar once: satirlar onlarin kimligine ihtiyac duyuyor. Kayit
     // yarida kalirsa kartlar da acilmamis olur.
     const created = await openNewItems(tx, input.newItems ?? []);
-    const lines = mergeLines([...input.lines, ...created]);
+    const colored = await resolveColors(tx, input.lines);
+    const lines = mergeLines([...colored, ...created]);
 
     const receiptNo = await nextDocumentNumber(tx, 'goodsReceipt', {
       branchCode: branch.code,
@@ -151,6 +160,7 @@ export async function getGoodsReceipt(
       stockItemName: stockItems.name,
       stockItemSku: stockItems.sku,
       sizeLabel: stockItems.sizeLabel,
+      variantLabel: stockItems.variantLabel,
     })
     .from(goodsReceiptLines)
     .innerJoin(stockItems, eq(stockItems.id, goodsReceiptLines.stockItemId))
@@ -264,9 +274,12 @@ async function openNewItems(tx: Tx, items: NewReceiptItemInput[]): Promise<Recei
     else grouped.set(key, { ...item, name, sizeLabel: item.sizeLabel?.trim() || null });
   }
 
+  // Renk kartlari ana kartla ayni ad ve olcude; "bu kart var mi" sorusu
+  // ana karta bakmali, yoksa yeni urun bir rengin kartina yazilirdi.
   const catalog = await tx
     .select({ id: stockItems.id, name: stockItems.name, sizeLabel: stockItems.sizeLabel })
-    .from(stockItems);
+    .from(stockItems)
+    .where(isNull(stockItems.parentStockItemId));
   const byKey = new Map(catalog.map((card) => [stockCardKey(card.name, card.sizeLabel), card.id]));
 
   const lines: ReceiptLineInput[] = [];
@@ -284,6 +297,21 @@ async function openNewItems(tx: Tx, items: NewReceiptItemInput[]): Promise<Recei
     lines.push({ stockItemId, quantity: item.quantity });
   }
   return lines;
+}
+
+/** Rengi belirtilen satir o rengin kartina yazilir (kart yoksa acilir). */
+async function resolveColors(tx: Tx, lines: ReceiptLineInput[]): Promise<ReceiptLineInput[]> {
+  const result: ReceiptLineInput[] = [];
+  for (const line of lines) {
+    const code = line.colorCode?.trim();
+    if (!code) {
+      result.push(line);
+      continue;
+    }
+    const card = await ensureColorCard(tx, line.stockItemId, code);
+    result.push({ ...line, stockItemId: card.id, colorCode: null });
+  }
+  return result;
 }
 
 async function runInTransaction<T>(db: DbOrTx, fn: (tx: Tx) => Promise<T>): Promise<T> {

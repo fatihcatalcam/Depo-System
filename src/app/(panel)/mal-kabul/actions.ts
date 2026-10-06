@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db/client';
+import { colorCodesForItems } from '@/domain/catalog/colors';
 import { searchStockItems } from '@/domain/catalog/stock-items';
 import { createGoodsReceipt } from '@/domain/goods-receipt';
 import { createSupplier } from '@/domain/parties/parties';
@@ -45,6 +46,8 @@ const receiptSchema = z.object({
         stockItemId: z.uuid(),
         quantity: z.coerce.number().int().min(1),
         unitCost: z.string().optional(),
+        /** Kumas rengi; bos = standart. */
+        colorCode: z.string().trim().max(40).optional(),
       }),
     )
     .default([]),
@@ -81,6 +84,7 @@ export async function createGoodsReceiptAction(input: unknown): Promise<ActionRe
         stockItemId: line.stockItemId,
         quantity: line.quantity,
         unitCostKurus: line.unitCost ? parseTlInput(line.unitCost) : null,
+        colorCode: line.colorCode || null,
       })),
       newItems: parsed.data.newItems.map((item) => ({
         name: item.name,
@@ -110,16 +114,51 @@ export async function createSupplierQuickAction(name: string): Promise<ActionRes
   }
 }
 
-/** Barkod veya isimle parca arar. Barkod okutuldugunda tam eslesme beklenir. */
+/**
+ * Barkod veya isimle parca arar. Barkod okutuldugunda tam eslesme beklenir.
+ *
+ * Adla aramada renk kartlari gelmez: parca secilir, renk satirda secilir.
+ * Renk kartinin kendi barkodu okutulursa o kart gelir.
+ */
 export async function findStockItemsAction(query: string) {
-  const items = await searchStockItems(db, { query, limit: 20 });
+  const wanted = query.trim().toLocaleUpperCase('tr-TR');
+  const items = (await searchStockItems(db, { query, limit: 40 }))
+    .filter(
+      (item) =>
+        !item.parentStockItemId ||
+        item.barcode?.toLocaleUpperCase('tr-TR') === wanted ||
+        item.sku.toLocaleUpperCase('tr-TR') === wanted,
+    )
+    .slice(0, 20);
+  const codes = await colorCodesForItems(
+    db,
+    items.map((item) => item.id),
+  );
   return items.map((item) => ({
     id: item.id,
     name: item.name,
     sku: item.sku,
     sizeLabel: item.sizeLabel,
+    variantLabel: item.variantLabel,
     barcode: item.barcode,
+    colorCodes: codes.get(item.id) ?? [],
   }));
+}
+
+/** Eslesen satirlara kartela kodlari: formda renk secilebilsin. */
+async function withColorCodes(result: ReadResult): Promise<ReadResult> {
+  if (!result.ok) return result;
+  const codes = await colorCodesForItems(
+    db,
+    result.lines.flatMap((line) => (line.stockItemId ? [line.stockItemId] : [])),
+  );
+  return {
+    ...result,
+    lines: result.lines.map((line) => ({
+      ...line,
+      colorCodes: line.stockItemId ? (codes.get(line.stockItemId) ?? []) : [],
+    })),
+  };
 }
 
 /**
@@ -145,7 +184,7 @@ export async function readReceiptDocumentAction(formData: FormData): Promise<Rea
 
   const name = file.name.toLowerCase();
   // Bazi tarayicilar .xlsx icin tur bildirmiyor; uzantiya da bakiliyor.
-  if (file.type === XLSX_MIME || name.endsWith('.xlsx')) return readSpreadsheet(file);
+  if (file.type === XLSX_MIME || name.endsWith('.xlsx')) return withColorCodes(await readSpreadsheet(file));
   if (name.endsWith('.xls')) {
     return { ok: false, error: 'Eski .xls bicimi okunmuyor. Excel\'de "Farkli kaydet > .xlsx" ile kaydedin.' };
   }
@@ -154,11 +193,13 @@ export async function readReceiptDocumentAction(formData: FormData): Promise<Rea
   }
 
   try {
-    return await readReceiptDocument(db, {
-      name: file.name,
-      mimeType: file.type as ReceiptMimeType,
-      base64: Buffer.from(await file.arrayBuffer()).toString('base64'),
-    });
+    return await withColorCodes(
+      await readReceiptDocument(db, {
+        name: file.name,
+        mimeType: file.type as ReceiptMimeType,
+        base64: Buffer.from(await file.arrayBuffer()).toString('base64'),
+      }),
+    );
   } catch (error) {
     console.error(error);
     return { ok: false, error: 'Belge okunamadi.' };

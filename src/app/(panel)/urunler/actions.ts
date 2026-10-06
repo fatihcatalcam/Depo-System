@@ -145,7 +145,8 @@ export async function previewDuplicateAction(
 }
 
 export async function searchStockItemsAction(query: string) {
-  const items = await searchStockItems(db, { query, limit: 20 });
+  // Recete renksiz parcadan kurulur; renk sipariste seciliyor.
+  const items = await searchStockItems(db, { query, limit: 20, baseOnly: true });
   return items.map((item) => ({
     id: item.id,
     name: item.name,

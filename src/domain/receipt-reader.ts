@@ -84,6 +84,8 @@ export interface ReadLine {
   unitPrice: number | null;
   /** Yalnizca eslesmeyen satirda: katalogda yoksa acilabilecek kart. */
   suggestion: NewItemSuggestion | null;
+  /** Eslesen kartin kartela kodlari; formda renk secimi icin. */
+  colorCodes?: string[];
 }
 
 export type ReadResult =
@@ -236,7 +238,9 @@ interface Catalog {
  */
 async function loadCatalog(db: DbOrTx): Promise<Catalog> {
   const [items, tree] = await Promise.all([
-    searchStockItems(db, { limit: STOCK_LIMIT }),
+    // Renk kartlari modele gitmiyor: belgede renk BK kodlariyla yazmiyor;
+    // eslesen satir standart karta gelir, renk formda secilir.
+    searchStockItems(db, { limit: STOCK_LIMIT, baseOnly: true }),
     listCategoryTree(db),
   ]);
   const names = new Map<string, string>();
