@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { cancelOrder, confirmOrder, createOrder } from '@/domain/orders/orders';
-import { deliverRemaining } from '@/domain/orders/deliveries';
+import { cancelOrder, confirmOrder, createOrder, getOrder } from '@/domain/orders/orders';
+import { createDelivery, deliverRemaining } from '@/domain/orders/deliveries';
 import { addPayment } from '@/domain/orders/payments';
-import { listOrderSummaries } from '@/domain/orders/summary';
+import { listOrderSummaries, remainingItemText, type LineComponent } from '@/domain/orders/summary';
 import { createCustomer } from '@/domain/parties/parties';
 import { makeBedSet } from '../../helpers/order-fixtures';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
@@ -102,5 +102,76 @@ describe('siparis ozeti', () => {
     expect(open.map((row) => row.customerName)).not.toContain('OZET TESLIM');
     expect(open.map((row) => row.customerName)).not.toContain('OZET IPTAL');
     expect(done.map((row) => row.customerName)).toEqual(['OZET TESLIM']);
+  });
+});
+
+describe('siparisin cinsi: yalnizca kalanlar', () => {
+  /** Yatak teslim edildi, baza ve baslik bekliyor; hediye yatak da gitti. */
+  it('teslim edilen satir duser, kismi satirda kalan parcalar yazilir', async () => {
+    const created = await order('OZET KISMI', '2026-09-07');
+    await confirmOrder(ctx.db, ctx.scope, created.id);
+    const detail = await getOrder(ctx.db, ctx.scope, created.id);
+    const [setLine, giftLine] = detail.lines;
+    const yatak = setLine.components.find((c) => c.stockItemName.endsWith('YATAK'))!;
+    await createDelivery(ctx.db, ctx.scope, {
+      orderId: created.id,
+      lines: [
+        { orderLineComponentId: yatak.id, quantity: 1 },
+        { orderLineComponentId: giftLine.components[0].id, quantity: 2 },
+      ],
+    });
+
+    const [row] = await listOrderSummaries(ctx.db, ctx.scope, { view: 'bekleyen', query: 'ozet kismi' });
+    expect(row.itemsText).toBe('OZET 160x200 Set (kalan: Baza, Başlık)');
+  });
+
+  it('teslim edilmis sipariste her sey yazilir', async () => {
+    const created = await order('OZET HEPSI', '2026-09-08');
+    await confirmOrder(ctx.db, ctx.scope, created.id);
+    await deliverRemaining(ctx.db, ctx.scope, created.id);
+
+    const [row] = await listOrderSummaries(ctx.db, ctx.scope, { view: 'teslim', query: 'ozet hepsi' });
+    expect(row.itemsText).toBe('OZET 160x200 Set + 2 Ad. OZET YATAK · 160x200 (hediye)');
+  });
+});
+
+describe('kalan metni', () => {
+  const line = { description: 'LATEX MASTER 160x200 Set', quantity: 2, isGift: false };
+  const part = (name: string, delivered: number, total = 2): LineComponent => ({
+    name,
+    quantityPerUnit: 1,
+    totalQuantity: total,
+    deliveredQuantity: delivered,
+  });
+
+  it('taslak (bilesen yok): oldugu gibi', () => {
+    expect(remainingItemText(line, [])).toBe('2 Ad. LATEX MASTER 160x200 Set');
+  });
+
+  it('hic teslim yok: oldugu gibi', () => {
+    const parts = [part('X YATAK', 0), part('X BAZA', 0), part('X BASLIK', 0)];
+    expect(remainingItemText(line, parts)).toBe('2 Ad. LATEX MASTER 160x200 Set');
+  });
+
+  it('hepsi teslim: duser', () => {
+    const parts = [part('X YATAK', 2), part('X BAZA', 2), part('X BASLIK', 2)];
+    expect(remainingItemText(line, parts)).toBeNull();
+  });
+
+  it('her parcadan bir takim gitti: kalan takim sayisi', () => {
+    const parts = [part('X YATAK', 1), part('X BAZA', 1), part('X BASLIK', 1)];
+    expect(remainingItemText(line, parts)).toBe('LATEX MASTER 160x200 Set');
+  });
+
+  it('farkli oranda: kalan parcalar adetleriyle', () => {
+    const parts = [part('X YATAK', 2), part('X BAZA', 0), part('X BASLIK', 1)];
+    expect(remainingItemText(line, parts)).toBe('LATEX MASTER 160x200 Set (kalan: 2 Baza, Başlık)');
+  });
+
+  it('tek parca satiri ve hediye', () => {
+    const gift = { description: 'OZET YATAK · 160x200', quantity: 3, isGift: true };
+    expect(remainingItemText(gift, [part('OZET YATAK', 1, 3)])).toBe(
+      '2 Ad. OZET YATAK · 160x200 (hediye)',
+    );
   });
 });

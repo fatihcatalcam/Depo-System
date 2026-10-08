@@ -124,9 +124,13 @@ export function colorPartOrder(label: string): number {
   return index === -1 ? PART_ORDER.length : index;
 }
 
-/** "LATEX MASTER BAZA" -> "Baza"; takim aciklamasinda model adi tekrar etmesin. */
+/**
+ * "LATEX MASTER BAZA" -> "Baza"; takim aciklamasinda model adi tekrar
+ * etmesin. Taninmayan parca adiyla kalir.
+ */
 export function colorPartLabel(name: string): string {
   const folded = foldText(name).trim();
+  if (folded.endsWith(' yatak')) return 'Yatak';
   if (folded.endsWith(' baza')) return 'Baza';
   if (folded.endsWith(' baslik')) return 'Başlık';
   return name;
