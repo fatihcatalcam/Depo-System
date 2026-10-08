@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db/client';
 import { colorCodesForItems } from '@/domain/catalog/colors';
-import { searchStockItems } from '@/domain/catalog/stock-items';
+import { findTwinCards, searchStockItems } from '@/domain/catalog/stock-items';
 import { createGoodsReceipt } from '@/domain/goods-receipt';
 import { createSupplier } from '@/domain/parties/parties';
 import {
@@ -130,10 +130,8 @@ export async function findStockItemsAction(query: string) {
         item.sku.toLocaleUpperCase('tr-TR') === wanted,
     )
     .slice(0, 20);
-  const codes = await colorCodesForItems(
-    db,
-    items.map((item) => item.id),
-  );
+  const ids = items.map((item) => item.id);
+  const [codes, twins] = await Promise.all([colorCodesForItems(db, ids), findTwinCards(db, ids)]);
   return items.map((item) => ({
     id: item.id,
     name: item.name,
@@ -142,21 +140,24 @@ export async function findStockItemsAction(query: string) {
     variantLabel: item.variantLabel,
     barcode: item.barcode,
     colorCodes: codes.get(item.id) ?? [],
+    twins: twins.get(item.id) ?? [],
   }));
 }
 
-/** Eslesen satirlara kartela kodlari: formda renk secilebilsin. */
+/**
+ * Eslesen satirlara kartela kodlari ve takima ozel basligin ikizleri: formda
+ * renk ve "hangi takimin basligi" secilebilsin.
+ */
 async function withColorCodes(result: ReadResult): Promise<ReadResult> {
   if (!result.ok) return result;
-  const codes = await colorCodesForItems(
-    db,
-    result.lines.flatMap((line) => (line.stockItemId ? [line.stockItemId] : [])),
-  );
+  const ids = result.lines.flatMap((line) => (line.stockItemId ? [line.stockItemId] : []));
+  const [codes, twins] = await Promise.all([colorCodesForItems(db, ids), findTwinCards(db, ids)]);
   return {
     ...result,
     lines: result.lines.map((line) => ({
       ...line,
       colorCodes: line.stockItemId ? (codes.get(line.stockItemId) ?? []) : [],
+      twins: line.stockItemId ? (twins.get(line.stockItemId) ?? []) : [],
     })),
   };
 }

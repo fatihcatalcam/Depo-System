@@ -86,6 +86,8 @@ export interface ReadLine {
   suggestion: NewItemSuggestion | null;
   /** Eslesen kartin kartela kodlari; formda renk secimi icin. */
   colorCodes?: string[];
+  /** Takima ozel baslikta ikizleri; formda "hangi takimin basligi" secimi. */
+  twins?: { id: string; setSize: string; label: string }[];
 }
 
 export type ReadResult =
@@ -120,6 +122,9 @@ const MATCH_RULES = [
   '- Tur kartin adinda yazmiyorsa kategorisine bak: "VANILLA TRAVİNA" kategorisi Komodin ise bir komodindir.',
   '- Olcu yazimlari aynidir: "090x190" = "90x190" = "90*190" = "90/190". Basliklarda olcu "160 CM" gibidir.',
   '- Olcuyu rakam rakam dikkatle oku: 190 ile 200 farkli kalemlerdir; yanlis olcu yanlis karta stok demektir.',
+  // 0018: ortak basliklar takima gore ikiye ayrildi; irsaliye ayrimi yazmiyor.
+  '- Bazi basliklar takima ozel iki kalemdir: "140 CM (140x190)" ve "140 CM (140x200)". Belgede yalnizca',
+  '  "140 CM" yaziyorsa "(...x200)" olani sec; kullanici formda degistirir.',
   '- Belgede katalogda olmayan ek kelimeler olabilir: seri adlari (NATURA, HVZ, LOOP, 2020, PRIME), renk ve',
   '  kod ekleri (A:MAVI, R:BK-178, RENK:BK-193, R:AYTASI-AGRA). Bunlari yok say; model adi, tur ve olcu',
   '  uyuyorsa eslestir.',

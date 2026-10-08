@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { stockItems } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 import { getOnHandQuantities, getReservedQuantities } from '@/domain/stock/availability';
@@ -204,6 +204,79 @@ export async function listStockItemsWithAvailability(
       isBelowMinimum: available < item.minStockLevel,
     };
   });
+}
+
+/** Takima ozel baslik olcusu: "140 CM (140x200)" -> "140x200". */
+export function twinSetSize(sizeLabel: string | null): string | null {
+  return sizeLabel?.match(/\((\d+\s*x\s*\d+)\)/i)?.[1] ?? null;
+}
+
+export interface TwinCard {
+  id: string;
+  /** "140x190": bu basligin ait oldugu takimin olcusu. */
+  setSize: string;
+  /** Formdaki satir adi: "BOHEMELA BASLIK · 140 CM (140x190) (SK-00423)". */
+  label: string;
+}
+
+/**
+ * Takima ozel basligin ikizleri: ayni ad, ayni genislik, parantezde farkli
+ * takim olcusu ("BOHEMELA BASLIK 140 CM (140x190)" / "(140x200)"). Irsaliye
+ * ayrimi yazmadigi icin mal kabulde hangisi oldugu secilir.
+ *
+ * Kart id -> ikizlerin hepsi (kendisi dahil), takim olcusune gore sirali.
+ * Ikizi olmayan kart haritada yok.
+ */
+export async function findTwinCards(
+  db: DbOrTx,
+  stockItemIds: string[],
+): Promise<Map<string, TwinCard[]>> {
+  const result = new Map<string, TwinCard[]>();
+  if (stockItemIds.length === 0) return result;
+  const sources = await db
+    .select({ id: stockItems.id, name: stockItems.name, sizeLabel: stockItems.sizeLabel })
+    .from(stockItems)
+    .where(inArray(stockItems.id, stockItemIds));
+  const named = sources.filter((source) => twinSetSize(source.sizeLabel));
+  if (named.length === 0) return result;
+
+  const pool = await db
+    .select({
+      id: stockItems.id,
+      name: stockItems.name,
+      sizeLabel: stockItems.sizeLabel,
+      sku: stockItems.sku,
+    })
+    .from(stockItems)
+    .where(
+      and(
+        inArray(
+          stockItems.name,
+          named.map((source) => source.name),
+        ),
+        isNull(stockItems.parentStockItemId),
+        eq(stockItems.isActive, true),
+      ),
+    );
+
+  const prefix = (label: string | null) => (label ?? '').replace(/\s*\(.*\)\s*$/, '').trim();
+  for (const source of named) {
+    const twins = pool
+      .filter(
+        (item) =>
+          item.name === source.name &&
+          prefix(item.sizeLabel) === prefix(source.sizeLabel) &&
+          twinSetSize(item.sizeLabel),
+      )
+      .map((item) => ({
+        id: item.id,
+        setSize: twinSetSize(item.sizeLabel) as string,
+        label: `${item.name} · ${item.sizeLabel} (${item.sku})`,
+      }))
+      .sort((a, b) => a.setSize.localeCompare(b.setSize, 'tr', { numeric: true }));
+    if (twins.length > 1) result.set(source.id, twins);
+  }
+  return result;
 }
 
 async function assertBarcodeAvailable(db: DbOrTx, barcode: string, excludeId: string | null) {

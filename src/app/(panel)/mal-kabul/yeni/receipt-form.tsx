@@ -31,6 +31,17 @@ interface LineRow {
   colorCode: string;
   /** Parcanin kartela kodlari; bossa renk secimi cikmaz. */
   colorCodes: string[];
+  /**
+   * Takima ozel basligin ikizleri ("140 CM (140x190)" / "(140x200)").
+   * Irsaliye ayrimi yazmiyor; hangisi oldugu satirda secilir.
+   */
+  twins: Twin[];
+}
+
+interface Twin {
+  id: string;
+  setSize: string;
+  label: string;
 }
 
 interface SearchResult {
@@ -41,6 +52,7 @@ interface SearchResult {
   variantLabel: string | null;
   barcode: string | null;
   colorCodes: string[];
+  twins: Twin[];
 }
 
 function labelFor(item: SearchResult) {
@@ -141,6 +153,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
               unitCost: toPriceInput(line.unitPrice),
               colorCode: '',
               colorCodes: line.colorCodes ?? [],
+              twins: line.twins ?? [],
             });
           }
         }
@@ -237,6 +250,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
           unitCost,
           colorCode: '',
           colorCodes: item.colorCodes,
+          twins: item.twins,
         },
       ];
     });
@@ -487,6 +501,31 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
                   className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white p-3"
                 >
                   <span className="min-w-0 flex-1 text-sm">{row.label}</span>
+                  {row.twins.length > 1 ? (
+                    <select
+                      value={row.stockItemId}
+                      onChange={(event) => {
+                        const twin = row.twins.find((entry) => entry.id === event.target.value);
+                        if (!twin) return;
+                        setLines((rows) =>
+                          rows.map((current, i) =>
+                            i === index
+                              ? { ...current, stockItemId: twin.id, label: twin.label }
+                              : current,
+                          ),
+                        );
+                      }}
+                      aria-label={`${row.label} hangi takimin basligi`}
+                      title="Irsaliyede yazmiyor: hangi takimin basligi?"
+                      className="h-10 rounded-md border border-amber-400 bg-amber-50 px-2 text-sm"
+                    >
+                      {row.twins.map((twin) => (
+                        <option key={twin.id} value={twin.id}>
+                          {twin.setSize} takimi
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                   {/* Renkli parca hangi renkte geldiyse o rengin stoguna girer;
                       kart yoksa kayitta acilir. */}
                   {row.colorCodes.length > 0 ? (

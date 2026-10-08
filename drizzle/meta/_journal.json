@@ -127,6 +127,13 @@
       "when": 1791288074481,
       "tag": "0017_renk-kartelasi",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791479434573,
+      "tag": "0018_ortak-baslik-ayir",
+      "breakpoints": true
     }
   ]
 }

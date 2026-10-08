@@ -19,9 +19,16 @@ export function sizeWidth(sizeLabel: string | null): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-/** "090x190" -> 190, "160 CM" -> null (tek olculu). */
+/**
+ * "090x190" -> 190, "160 CM" -> null (tek olculu).
+ *
+ * Takima ozel baslikta olcu "140 CM (140x200)": boy acik "AxB" kalibindan
+ * okunur, yoksa ikinci sayi 140 olurdu.
+ */
 export function sizeLength(sizeLabel: string | null): number | null {
   if (!sizeLabel) return null;
+  const pair = sizeLabel.match(/\d+\s*[x*×]\s*(\d+)/i);
+  if (pair) return Number(pair[1]);
   const matches = sizeLabel.trim().match(/\d+/g);
   if (!matches || matches.length < 2) return null;
   const value = Number(matches[1]);
