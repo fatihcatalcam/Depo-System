@@ -13,7 +13,7 @@ let stockItemId: string;
 
 beforeAll(async () => {
   ctx = await createTestDb();
-  const set = await makeBedSet(ctx.db, ctx.warehouseId, { model: 'OZET', size: '160x200' });
+  const set = await makeBedSet(ctx.db, ctx.warehouseId, { model: 'OZET', size: '160x200', stock: 50 });
   productId = set.product.id;
   stockItemId = set.yatak.id;
 });
@@ -173,5 +173,31 @@ describe('kalan metni', () => {
     expect(remainingItemText(gift, [part('OZET YATAK', 1, 3)])).toBe(
       '2 Ad. OZET YATAK · 160x200 (hediye)',
     );
+  });
+});
+
+describe('gun secimi', () => {
+  /** O gun alinan siparislerin hepsi: bekleyen de teslim edilen de; iptal degil. */
+  it('secilen gunun siparisleri, teslim edilenler dahil', async () => {
+    const waiting = await order('GUN BEKLEYEN', '2026-08-15');
+    const done = await order('GUN TESLIM', '2026-08-15');
+    await confirmOrder(ctx.db, ctx.scope, done.id);
+    await deliverRemaining(ctx.db, ctx.scope, done.id);
+    const cancelled = await order('GUN IPTAL', '2026-08-15');
+    await cancelOrder(ctx.db, ctx.scope, cancelled.id);
+    await order('GUN BASKA', '2026-08-16');
+
+    const rows = await listOrderSummaries(ctx.db, ctx.scope, { view: 'bekleyen', date: '2026-08-15' });
+    expect(rows.map((row) => row.customerName)).toEqual(['GUN BEKLEYEN', 'GUN TESLIM']);
+    expect(rows.find((row) => row.id === waiting.id)?.itemsText).toContain('OZET 160x200 Set');
+  });
+
+  it('gun ve arama birlikte', async () => {
+    const rows = await listOrderSummaries(ctx.db, ctx.scope, {
+      view: 'teslim',
+      date: '2026-08-15',
+      query: 'gun bekleyen',
+    });
+    expect(rows.map((row) => row.customerName)).toEqual(['GUN BEKLEYEN']);
   });
 });

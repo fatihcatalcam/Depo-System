@@ -40,7 +40,14 @@ export interface OrderSummaryRow extends OrderSummary {
 export interface SummaryFilters {
   view: SummaryView;
   query?: string;
+  /**
+   * Siparis tarihi (YYYY-MM-DD). Verilince sekme yok sayilir: o gun alinan
+   * siparislerin hepsi, teslim edilmis olsun olmasin. Iptaller yine yok.
+   */
+  date?: string;
 }
+
+const DAY_STATUSES: OrderStatus[] = ['draft', 'confirmed', 'partially_delivered', 'delivered'];
 
 /** Excel sayfasi da bu kadar satirla aciliyor; teslim edilenler zamanla birikir. */
 const SUMMARY_LIMIT = 1000;
@@ -51,7 +58,8 @@ export async function listOrderSummaries(
   filters: SummaryFilters,
 ): Promise<OrderSummaryRow[]> {
   const list = await listOrders(db, scope, {
-    statuses: VIEW_STATUSES[filters.view],
+    statuses: filters.date ? DAY_STATUSES : VIEW_STATUSES[filters.view],
+    orderDate: filters.date,
     query: filters.query,
     limit: SUMMARY_LIMIT,
   });
@@ -147,8 +155,8 @@ export async function listOrderSummaries(
   }));
 
   // Bekleyenler Excel'deki gibi eskiden yeniye: en uzun bekleyen ustte.
-  // Teslim edilenlerde en yenisi ustte.
-  return filters.view === 'bekleyen' ? rows.reverse() : rows;
+  // Teslim edilenlerde en yenisi ustte. Tek gunde girildigi sirayla.
+  return filters.date || filters.view === 'bekleyen' ? rows.reverse() : rows;
 }
 
 export interface LineComponent {

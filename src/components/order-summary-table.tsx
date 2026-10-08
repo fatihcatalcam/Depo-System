@@ -1,5 +1,5 @@
 import { RowLink } from '@/components/row-link';
-import type { OrderSummaryRow, SummaryView } from '@/domain/orders/summary';
+import type { OrderSummaryRow } from '@/domain/orders/summary';
 import { formatDate, todayInIstanbul } from '@/lib/dates';
 import { formatKurus, toTryKurus } from '@/lib/money';
 import { formatPaymentMethod } from '@/lib/payment-methods';
@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 
 interface Props {
   rows: OrderSummaryRow[];
-  view: SummaryView;
   /** Ekranda satira tiklayinca siparis acilir; kagitta anlami yok. */
   linkRows?: boolean;
   /** Kagit: daha kucuk punto, siyah cizgiler. */
@@ -20,7 +19,7 @@ interface Props {
  * siparisin cinsi, teslim tarihi, ilce — Excel'de olmayan odeme bilgisiyle
  * birlikte: toplam, alinan (yontem ve taksit kirilimiyla), kalan.
  */
-export function OrderSummaryTable({ rows, view, linkRows = false, print = false }: Props) {
+export function OrderSummaryTable({ rows, linkRows = false, print = false }: Props) {
   const today = todayInIstanbul();
   // Farkli para birimlerindeki tutarlar ancak TL karsiligiyla toplanir.
   const totals = rows.reduce(
@@ -61,8 +60,12 @@ export function OrderSummaryTable({ rows, view, linkRows = false, print = false 
       </thead>
       <tbody>
         {rows.map((row, index) => {
+          // Gecikme yalnizca teslim edilmemis sipariste anlamli; gunluk
+          // gorunumde teslim edilmisler de listede.
           const overdue =
-            view === 'bekleyen' && row.plannedDeliveryDate !== null && row.plannedDeliveryDate < today;
+            row.status !== 'delivered' &&
+            row.plannedDeliveryDate !== null &&
+            row.plannedDeliveryDate < today;
           const cells = (
             <>
               <td className={cn(cell, 'text-center tabular-nums text-neutral-500')}>{index + 1}</td>

@@ -6,10 +6,12 @@ import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
 import { listOrderSummaries, type SummaryView } from '@/domain/orders/summary';
 import { currentScope } from '@/lib/auth/current';
+import { formatLongDate } from '@/lib/dates';
 import { cn } from '@/lib/utils';
+import { DateFilter } from './date-filter';
 
 interface PageProps {
-  searchParams: Promise<{ gorunum?: string; q?: string }>;
+  searchParams: Promise<{ gorunum?: string; q?: string; tarih?: string }>;
 }
 
 const VIEWS: { value: SummaryView; label: string }[] = [
@@ -17,10 +19,18 @@ const VIEWS: { value: SummaryView; label: string }[] = [
   { value: 'teslim', label: 'Teslim edilenler' },
 ];
 
-function href(path: string, view: SummaryView, query: string | undefined) {
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function href(
+  path: string,
+  view: SummaryView,
+  query: string | undefined,
+  date?: string,
+) {
   const params = new URLSearchParams();
   if (view !== 'bekleyen') params.set('gorunum', view);
   if (query) params.set('q', query);
+  if (date) params.set('tarih', date);
   const search = params.toString();
   return search ? `${path}?${search}` : path;
 }
@@ -28,18 +38,23 @@ function href(path: string, view: SummaryView, query: string | undefined) {
 /**
  * Dukkanin Excel'deki siparis listesinin karsiligi: kim, ne, ne zaman,
  * nereye — ve Excel'de olmayan odeme bilgisi.
+ *
+ * Gun secilince sekme yok sayilir: o gun alinan siparislerin hepsi.
  */
 export default async function SiparisOzetiPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const view: SummaryView = params.gorunum === 'teslim' ? 'teslim' : 'bekleyen';
   const query = params.q?.trim() || undefined;
-  const rows = await listOrderSummaries(db, await currentScope(), { view, query });
+  const date = params.tarih && DATE_PATTERN.test(params.tarih) ? params.tarih : undefined;
+  const rows = await listOrderSummaries(db, await currentScope(), { view, query, date });
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Siparis ozeti</h1>
+          <h1 className="text-xl font-semibold">
+            {date ? `${formatLongDate(date)} siparisleri` : 'Siparis ozeti'}
+          </h1>
           <p className="text-sm text-neutral-500">
             {rows.length} siparis · satira tiklayinca siparis acilir
           </p>
@@ -52,7 +67,7 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
             Siparis listesi
           </Link>
           <Link
-            href={href('/siparisler/ozet/yazdir', view, query)}
+            href={href('/siparisler/ozet/yazdir', view, query, date)}
             className={cn(buttonVariants(), 'h-11 px-4')}
           >
             Yazdir
@@ -60,18 +75,25 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <Suspense fallback={<div className="h-11" />}>
-        <SearchBox placeholder="Musteri, telefon, siparis no, adres veya ilce ara" />
-      </Suspense>
+      <div className="flex flex-wrap gap-2">
+        <div className="min-w-0 flex-1">
+          <Suspense fallback={<div className="h-11" />}>
+            <SearchBox placeholder="Musteri, telefon, siparis no, adres veya ilce ara" />
+          </Suspense>
+        </div>
+        <Suspense fallback={<div className="h-11 w-40" />}>
+          <DateFilter />
+        </Suspense>
+      </div>
 
-      <nav className="flex flex-wrap gap-2">
+      <nav className="flex flex-wrap items-center gap-2">
         {VIEWS.map((option) => (
           <Link
             key={option.value}
             href={href('/siparisler/ozet', option.value, query)}
             className={cn(
               'rounded-full border px-3 py-1.5 text-sm',
-              view === option.value
+              !date && view === option.value
                 ? 'border-neutral-900 bg-neutral-900 text-white'
                 : 'border-neutral-300 bg-white text-neutral-600 hover:border-neutral-500',
             )}
@@ -79,15 +101,27 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
             {option.label}
           </Link>
         ))}
+        {date ? (
+          <Link
+            href={href('/siparisler/ozet', view, query)}
+            className="rounded-full border border-neutral-900 bg-neutral-900 px-3 py-1.5 text-sm text-white"
+          >
+            {formatLongDate(date)} · tarihi temizle ×
+          </Link>
+        ) : null}
       </nav>
 
       {rows.length === 0 ? (
         <p className="rounded-lg border border-neutral-200 bg-white p-6 text-center text-sm text-neutral-500">
-          {query ? `"${query}" icin siparis bulunamadi.` : 'Kayit yok.'}
+          {query
+            ? `"${query}" icin siparis bulunamadi.`
+            : date
+              ? 'Bu gun alinan siparis yok.'
+              : 'Kayit yok.'}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-          <OrderSummaryTable rows={rows} view={view} linkRows />
+          <OrderSummaryTable rows={rows} linkRows />
         </div>
       )}
     </div>

@@ -710,6 +710,8 @@ export interface OrderFilters {
   statuses?: OrderStatus[];
   customerId?: string;
   plannedDeliveryDate?: string;
+  /** Siparis tarihi (YYYY-MM-DD): o gun alinan siparisler. */
+  orderDate?: string;
   /** Yalnizca yonetici icin anlamli: tek subeye daraltir. */
   branchId?: string;
   /**
@@ -755,6 +757,7 @@ export async function listOrders(
   if (filters.plannedDeliveryDate) {
     conditions.push(eq(orders.plannedDeliveryDate, filters.plannedDeliveryDate));
   }
+  if (filters.orderDate) conditions.push(eq(orders.orderDate, filters.orderDate));
   // Yonetici tek subeyi suzmek isteyebilir; kapsam zaten genis oldugu icin bu
   // ek bir yetki acmaz, yalnizca daraltir.
   if (filters.branchId) conditions.push(eq(orders.branchId, filters.branchId));
