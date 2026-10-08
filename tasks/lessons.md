@@ -32,6 +32,13 @@ Her duzeltmeden sonra buraya bir kural. Oturum basinda okunur.
 - ROLLBACK sira sayaclarini (bigserial, `stock_movements_seq_seq`) geri almaz.
   Kuru denemeden sonra anlik goruntuyle karsilastir; yalnizca sayac farkliysa
   ve arada gercek kayit yoksa `setval` ile geri al (2026-10-03).
+- Canli veriye yazan betikte ROLLBACK/COMMIT ayrimi **tek yerde**:
+  `db.transaction(...)` icinde `if (!apply) throw new Rollback()`. Elle
+  `begin`/`commit` yazma; calistirmadan once betigi bastan oku. Bir kuru
+  deneme betigi `commit` cagirirken calistirilmadan yakalandi (2026-10-08).
+- Veri gocundeki SQL'i PGlite testinde gercek veri kurup calistir: pencere
+  fonksiyonunda `count(DISTINCT ...)` Postgres'te yok; goc canlida dusecekti,
+  test yakaladi (0018).
 
 ## Arayuz
 
