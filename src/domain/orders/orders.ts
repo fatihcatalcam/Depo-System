@@ -508,6 +508,48 @@ export async function cancelOrder(db: DbOrTx, scope: Scope, id: string): Promise
   });
 }
 
+/**
+ * "Fabrikaya siparis gecildi" isareti (siparis kodunun basindaki tik).
+ * Siparisin durumundan bagimsiz: teslim edilmis sipariste de durur. Iptal
+ * edilmis sipariste anlami yok.
+ */
+export async function setFactoryOrdered(
+  db: DbOrTx,
+  scope: Scope,
+  id: string,
+  ordered: boolean,
+): Promise<Order> {
+  const existing = await loadOrder(db, scope, id);
+  if (existing.status === 'cancelled') {
+    throw new DomainError('Iptal edilmis siparis isaretlenemez.', 'IMMUTABLE_ORDER');
+  }
+  const [order] = await db
+    .update(orders)
+    .set({ factoryOrderedAt: ordered ? sql`now()` : null, updatedAt: sql`now()` })
+    .where(eq(orders.id, id))
+    .returning();
+  return order;
+}
+
+/**
+ * Siparis notu. Siparisin geri kalanindan farkli olarak her durumda
+ * yazilabilir: teslimattan sonra da "musteri aradi" gibi notlar dusuluyor.
+ */
+export async function updateOrderNotes(
+  db: DbOrTx,
+  scope: Scope,
+  id: string,
+  notes: string | null,
+): Promise<Order> {
+  await loadOrder(db, scope, id);
+  const [order] = await db
+    .update(orders)
+    .set({ notes: notes?.trim() || null, updatedAt: sql`now()` })
+    .where(eq(orders.id, id))
+    .returning();
+  return order;
+}
+
 export interface OrderComponentDetail {
   id: string;
   /** Serbest satirda bos: katalogda karsiligi olan bir stok karti yok. */
@@ -1202,7 +1244,7 @@ function validateLines(lines: OrderLineInput[]) {
  * oldugu icin, yeni bir islem eklendiginde izolasyonu ayrica dusunmek
  * gerekmiyor: baska subenin siparisi zaten "bulunamadi" doner.
  */
-async function loadOrder(tx: Tx, scope: Scope, id: string): Promise<Order> {
+async function loadOrder(tx: DbOrTx, scope: Scope, id: string): Promise<Order> {
   const [row] = await tx
     .select()
     .from(orders)

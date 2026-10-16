@@ -8,7 +8,9 @@ import {
   cancelOrder,
   confirmOrder,
   createOrder,
+  setFactoryOrdered,
   updateOrder,
+  updateOrderNotes,
 } from '@/domain/orders/orders';
 import { addPayment, deletePayment } from '@/domain/orders/payments';
 import { searchCustomers } from '@/domain/parties/parties';
@@ -40,6 +42,8 @@ function toResult(error: unknown): ActionResult {
 function refresh(orderId?: string) {
   revalidatePath('/siparisler');
   revalidatePath('/siparisler/bekleyen');
+  revalidatePath('/siparisler/ozet');
+  revalidatePath('/sevkiyat/haftalik');
   // Teslimat ve iptal gunluk sevkiyat listesini de degistiriyor.
   revalidatePath('/sevkiyat');
   revalidatePath('/stok');
@@ -413,4 +417,34 @@ export async function searchCustomersAction(query: string) {
     city: customer.city,
     district: customer.district,
   }));
+}
+
+/** Siparis kodunun basindaki tik: butun urunler fabrikaya siparis gecildi. */
+export async function setFactoryOrderedAction(id: string, ordered: boolean): Promise<ActionResult> {
+  if (!z.uuid().safeParse(id).success || typeof ordered !== 'boolean') {
+    return { ok: false, error: 'Gecersiz istek.' };
+  }
+  try {
+    await setFactoryOrdered(db, await currentScope(), id, ordered);
+    refresh(id);
+    return { ok: true, id };
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+const notesSchema = z.string().max(2000, 'Not en fazla 2000 karakter olabilir.');
+
+export async function updateOrderNotesAction(id: string, notes: unknown): Promise<ActionResult> {
+  const parsed = notesSchema.safeParse(notes);
+  if (!z.uuid().safeParse(id).success || !parsed.success) {
+    return { ok: false, error: parsed.success ? 'Gecersiz istek.' : parsed.error.issues[0].message };
+  }
+  try {
+    await updateOrderNotes(db, await currentScope(), id, parsed.data);
+    refresh(id);
+    return { ok: true, id };
+  } catch (error) {
+    return toResult(error);
+  }
 }

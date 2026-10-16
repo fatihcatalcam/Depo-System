@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { FactoryTick } from '@/components/factory-tick';
 import { PlaceLine } from '@/components/place-line';
 import { notFound } from 'next/navigation';
 import { buttonVariants } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { DeliveryForm } from './delivery-form';
 import { DeliveryPlan } from './delivery-plan';
 import { OrderActions } from './order-actions';
+import { OrderNotes } from './order-notes';
 import { PaymentPanel } from './payment-panel';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
@@ -55,25 +57,36 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">{order.orderNo}</h1>
+          <h1 className="flex items-center gap-2 text-lg font-semibold">
+            <FactoryTick
+              orderId={order.id}
+              ordered={order.factoryOrderedAt !== null}
+              readOnly={order.status === 'cancelled'}
+            />
+            {order.orderNo}
+          </h1>
           <p className="text-sm text-neutral-500">
             {order.customerName}
             {order.customerPhone ? ` · ${order.customerPhone}` : ''} ·{' '}
             {ORDER_STATUS_LABELS[order.status]}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {order.status === 'draft' ||
-          order.status === 'confirmed' ||
-          order.status === 'partially_delivered' ? (
-            <Link
-              href={`/siparisler/${order.id}/duzenle`}
-              className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
-            >
-              Duzenle
-            </Link>
-          ) : null}
-          <OrderActions orderId={order.id} status={order.status} />
+        <div className="flex w-full flex-col items-end gap-3 sm:w-auto sm:min-w-[24rem]">
+          <div className="flex items-center gap-2">
+            {order.status === 'draft' ||
+            order.status === 'confirmed' ||
+            order.status === 'partially_delivered' ? (
+              <Link
+                href={`/siparisler/${order.id}/duzenle`}
+                className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
+              >
+                Duzenle
+              </Link>
+            ) : null}
+            <OrderActions orderId={order.id} status={order.status} />
+          </div>
+          {/* Butonlarin altindaki bos yer: siparise not dusmek icin. */}
+          <OrderNotes orderId={order.id} notes={order.notes} />
         </div>
       </div>
 
@@ -110,12 +123,6 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
             <div className="sm:col-span-2">
               <dt className="text-xs uppercase text-neutral-500">Teslimat notu</dt>
               <dd>{order.deliveryNotes}</dd>
-            </div>
-          ) : null}
-          {order.notes ? (
-            <div className="sm:col-span-2">
-              <dt className="text-xs uppercase text-neutral-500">Siparis notu</dt>
-              <dd>{order.notes}</dd>
             </div>
           ) : null}
           {/* Fatura bilgisi cogu sipariste bos; doluysa gosteriliyor. */}

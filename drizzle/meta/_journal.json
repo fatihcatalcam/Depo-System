@@ -134,6 +134,13 @@
       "when": 1791479434573,
       "tag": "0018_ortak-baslik-ayir",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792061262980,
+      "tag": "0019_fabrika-siparisi",
+      "breakpoints": true
     }
   ]
 }

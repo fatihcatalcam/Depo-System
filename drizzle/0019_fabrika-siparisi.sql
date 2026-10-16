@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "factory_ordered_at" timestamp with time zone;

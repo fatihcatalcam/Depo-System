@@ -12,6 +12,7 @@ import {
 import { currentUser } from '@/lib/auth/current';
 import { formatKurus, toTryKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
+import { FactoryTick } from '@/components/factory-tick';
 import { RowLink } from '@/components/row-link';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
@@ -145,12 +146,19 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
               {orders.map((order) => (
                 <RowLink key={order.id} href={`/siparisler/${order.id}`}>
                   <td className="p-3">
-                    <Link
-                      href={`/siparisler/${order.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {order.orderNo}
-                    </Link>
+                    <div className="flex items-center gap-1.5">
+                      <FactoryTick
+                        orderId={order.id}
+                        ordered={order.factoryOrderedAt !== null}
+                        readOnly={order.status === 'cancelled'}
+                      />
+                      <Link
+                        href={`/siparisler/${order.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {order.orderNo}
+                      </Link>
+                    </div>
                     <div className="text-xs text-neutral-400">{formatDate(order.orderDate)}</div>
                   </td>
                   {user.isCentral ? (

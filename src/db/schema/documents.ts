@@ -144,6 +144,11 @@ export const orders = pgTable(
     invoiceNo: text('invoice_no'),
     invoiceDate: date('invoice_date'),
     notes: text('notes'),
+    /**
+     * Siparisin butun urunleri fabrikaya siparis gecildi (siparis kodunun
+     * basindaki tik). Bos = henuz gecilmedi; ne zaman isaretlendigi de duruyor.
+     */
+    factoryOrderedAt: timestamp('factory_ordered_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
