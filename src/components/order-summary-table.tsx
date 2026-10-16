@@ -180,10 +180,10 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
   );
 }
 
-/** Teslim edilen mavi, edilmeyen kirmizi; urunler arasinda "+". */
+/** Teslim edilmeyen mavi, edilen kirmizi (dukkanin tercihi); urunler arasinda "+". */
 function ItemsCell({ items }: { items: SummaryItem[] }) {
   if (items.length === 0) return <>—</>;
-  const tone = (delivered: boolean) => (delivered ? 'text-blue-700' : 'text-red-600');
+  const tone = (delivered: boolean) => (delivered ? 'text-red-600' : 'text-blue-700');
   return (
     <>
       {items.map((item, index) => (

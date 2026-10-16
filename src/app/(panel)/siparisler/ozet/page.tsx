@@ -60,9 +60,9 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
             degisir
           </p>
           <p className="text-sm">
-            <span className="font-medium text-blue-700">Mavi: teslim edildi</span>
+            <span className="font-medium text-blue-700">Mavi: teslim edilmedi</span>
             <span className="text-neutral-400"> · </span>
-            <span className="font-medium text-red-600">Kirmizi: teslim edilmedi</span>
+            <span className="font-medium text-red-600">Kirmizi: teslim edildi</span>
             <span className="text-neutral-400"> · </span>
             <span className="text-neutral-600">Tik: fabrikaya siparis gecildi</span>
           </p>

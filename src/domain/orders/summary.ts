@@ -26,7 +26,7 @@ export interface PaymentBreakdown {
 }
 
 /**
- * Siparisin cinsindeki bir urun. Teslim edilen mavi, edilmeyen kirmizi
+ * Siparisin cinsindeki bir urun. Teslim edilmeyen mavi, edilen kirmizi
  * yazilir. Takimin parcalari farkli zamanlarda gittiyse `parts` dolu: urun
  * adi duz, parcalar kendi renginde ("LATEX MASTER Set: Yatak, Baza, Baslik").
  */
