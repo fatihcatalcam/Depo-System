@@ -357,7 +357,9 @@ export function OrderForm({
 
   return (
     <form
-      className="max-w-3xl space-y-6"
+      // Genis ekranda iki sutun: solda kim ve nereye, sagda ne ve kac para.
+      // Tek sutunda sag taraf bos kaliyordu; telefonda yine tek sutun.
+      className="max-w-3xl space-y-6 xl:grid xl:max-w-none xl:grid-cols-2 xl:items-start xl:gap-8 xl:space-y-0"
       onSubmit={(event) => {
         event.preventDefault();
         if (!customer) {
@@ -440,649 +442,654 @@ export function OrderForm({
         });
       }}
     >
-      <section className="space-y-2">
-        <Label htmlFor="customer-search">Musteri</Label>
-        {customer ? (
-          <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3">
-            <span className="text-sm">
-              <span className="font-medium">{customer.name}</span>
-              {customer.kind === 'existing' && customer.phone ? (
-                <span className="ml-2 text-neutral-500">{customer.phone}</span>
-              ) : null}
-              {customer.kind === 'new' ? (
-                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
-                  yeni musteri — siparisle birlikte kaydedilecek
-                </span>
-              ) : null}
-            </span>
-            <Button type="button" variant="ghost" onClick={() => setCustomer(null)}>
-              Degistir
-            </Button>
-          </div>
-        ) : (
-          <>
-            <Input
-              id="customer-search"
-              value={customerQuery}
-              onChange={(event) => void findCustomers(event.target.value)}
-              onKeyDown={(event) => {
-                // Enter'a basinca eslesme yoksa dogrudan yeni musteri olarak al.
-                if (event.key === 'Enter' && customerQuery.trim().length >= 2) {
-                  event.preventDefault();
-                  if (customerHits.length === 1) pickCustomer(customerHits[0]);
-                  else pickNewCustomer(customerQuery);
-                }
-              }}
-              placeholder="Musteri adini yazin (kayitli olmasi gerekmez)"
-              className="h-11"
-            />
+      <div className="space-y-6">
+        <section className="space-y-2">
+          <Label htmlFor="customer-search">Musteri</Label>
+          {customer ? (
+            <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3">
+              <span className="text-sm">
+                <span className="font-medium">{customer.name}</span>
+                {customer.kind === 'existing' && customer.phone ? (
+                  <span className="ml-2 text-neutral-500">{customer.phone}</span>
+                ) : null}
+                {customer.kind === 'new' ? (
+                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
+                    yeni musteri — siparisle birlikte kaydedilecek
+                  </span>
+                ) : null}
+              </span>
+              <Button type="button" variant="ghost" onClick={() => setCustomer(null)}>
+                Degistir
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Input
+                id="customer-search"
+                value={customerQuery}
+                onChange={(event) => void findCustomers(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter'a basinca eslesme yoksa dogrudan yeni musteri olarak al.
+                  if (event.key === 'Enter' && customerQuery.trim().length >= 2) {
+                    event.preventDefault();
+                    if (customerHits.length === 1) pickCustomer(customerHits[0]);
+                    else pickNewCustomer(customerQuery);
+                  }
+                }}
+                placeholder="Musteri adini yazin (kayitli olmasi gerekmez)"
+                className="h-11"
+              />
 
-            {customerQuery.trim().length >= 2 ? (
-              <ul className="rounded-lg border border-neutral-200 bg-white">
-                {customerHits.map((hit) => (
-                  <li key={hit.id}>
+              {customerQuery.trim().length >= 2 ? (
+                <ul className="rounded-lg border border-neutral-200 bg-white">
+                  {customerHits.map((hit) => (
+                    <li key={hit.id}>
+                      <button
+                        type="button"
+                        onClick={() => pickCustomer(hit)}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                      >
+                        {hit.name}
+                        {hit.phone ? (
+                          <span className="ml-2 text-xs text-neutral-400">{hit.phone}</span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+                  <li className="border-t border-neutral-100">
                     <button
                       type="button"
-                      onClick={() => pickCustomer(hit)}
+                      onClick={() => pickNewCustomer(customerQuery)}
                       className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
                     >
-                      {hit.name}
-                      {hit.phone ? (
-                        <span className="ml-2 text-xs text-neutral-400">{hit.phone}</span>
-                      ) : null}
+                      <span className="font-medium">
+                        &ldquo;{customerQuery.trim()}&rdquo; adiyla yeni musteri
+                      </span>
+                      <span className="ml-2 text-xs text-neutral-500">
+                        {customerHits.length > 0
+                          ? 'listedekilerden biri degilse'
+                          : 'kayit acmadan devam et'}
+                      </span>
                     </button>
                   </li>
-                ))}
-                <li className="border-t border-neutral-100">
-                  <button
-                    type="button"
-                    onClick={() => pickNewCustomer(customerQuery)}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
-                  >
-                    <span className="font-medium">
-                      &ldquo;{customerQuery.trim()}&rdquo; adiyla yeni musteri
-                    </span>
-                    <span className="ml-2 text-xs text-neutral-500">
-                      {customerHits.length > 0
-                        ? 'listedekilerden biri degilse'
-                        : 'kayit acmadan devam et'}
-                    </span>
-                  </button>
-                </li>
-              </ul>
-            ) : null}
+                </ul>
+              ) : null}
 
-            <p className="text-xs text-neutral-500">
-              Kayitli musteriden secebilir ya da sadece ismi yazip devam edebilirsiniz. Yeni
-              musteri, girdiginiz teslimat adresi ve telefonuyla birlikte kaydedilir.
-            </p>
-          </>
-        )}
-      </section>
+              <p className="text-xs text-neutral-500">
+                Kayitli musteriden secebilir ya da sadece ismi yazip devam edebilirsiniz. Yeni
+                musteri, girdiginiz teslimat adresi ve telefonuyla birlikte kaydedilir.
+              </p>
+            </>
+          )}
+        </section>
 
-      <section className="space-y-1.5">
-        <Label htmlFor="salesperson">Satici</Label>
-        <select
-          id="salesperson"
-          value={salespersonId}
-          onChange={(event) => setSalespersonId(event.target.value)}
-          required={!initial}
-          className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm sm:w-80"
-        >
-          <option value="">{initial ? '— secilmedi —' : 'Satici secin'}</option>
-          {salespeople.map((person) => (
-            <option key={person.id} value={person.id}>
-              {person.name}
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-neutral-500">Prim bu isme yazilir.</p>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="order-date">Siparis tarihi</Label>
-          <Input
-            id="order-date"
-            type="date"
-            value={orderDate}
-            onChange={(event) => setOrderDate(event.target.value)}
-            className="h-11"
-            required
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="delivery-date">Planlanan teslimat</Label>
-          <Input
-            id="delivery-date"
-            type="date"
-            value={plannedDeliveryDate}
-            onChange={(event) => setPlannedDeliveryDate(event.target.value)}
-            className="h-11"
-          />
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="address">Teslimat adresi</Label>
-          <Input
-            id="address"
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
-            placeholder="Mahalle, sokak, no, daire"
-            className="h-11"
-            required
-          />
-        </div>
-        {/* Ilce ayri alanda: sevkiyat ilceye gore planlaniyor, sofor once ilceye
-            bakiyor. Istanbul'da hazir liste cikiyor ama serbest yazim da olur. */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="delivery-district">Ilce</Label>
-            <Input
-              id="delivery-district"
-              value={district}
-              onChange={(event) => setDistrict(event.target.value)}
-              list={city === DEFAULT_CITY ? 'istanbul-districts' : undefined}
-              placeholder={city === DEFAULT_CITY ? 'Ornek: Başakşehir' : ''}
-              className="h-11"
-            />
-            <datalist id="istanbul-districts">
-              {ISTANBUL_DISTRICTS.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="delivery-city">Il</Label>
-            <Input
-              id="delivery-city"
-              value={city}
-              onChange={(event) => setCity(event.target.value)}
-              className="h-11"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="delivery-country">Ulke</Label>
-            <Input
-              id="delivery-country"
-              value={country}
-              onChange={(event) => setCountry(event.target.value)}
-              className="h-11"
-            />
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="delivery-phone">Teslimat telefonu</Label>
-            <Input
-              id="delivery-phone"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              className="h-11"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="delivery-phone2">Ikinci telefon</Label>
-            <Input
-              id="delivery-phone2"
-              value={phone2}
-              onChange={(event) => setPhone2(event.target.value)}
-              placeholder="Es, ev ya da is numarasi"
-              className="h-11"
-            />
-            <p className="text-xs text-neutral-500">
-              Sofor birine ulasamazsa digerini arar.
-            </p>
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="delivery-notes">Teslimat notu</Label>
-            <Input
-              id="delivery-notes"
-              value={deliveryNotes}
-              onChange={(event) => setDeliveryNotes(event.target.value)}
-              placeholder="3. kat, asansor yok"
-              className="h-11"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <Label htmlFor="item-search">Satirlar</Label>
-        <Input
-          id="item-search"
-          value={itemQuery}
-          onChange={(event) => {
-            setItemQuery(event.target.value);
-            setItemsOpen(true);
-          }}
-          onFocus={() => setItemsOpen(true)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setItemsOpen(false);
-          }}
-          placeholder="Urun seti veya tek parca ara"
-          className="h-11"
-        />
-
-        {/* Katalogda olmayan urun. Bazen disaridan yaptiriliyor; stok karti
-            acmak zorunda kalmadan siparise yazilabilmeli. */}
-        <div className="flex gap-2">
-          <Input
-            value={customName}
-            onChange={(event) => setCustomName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                addCustomLine();
-              }
-            }}
-            placeholder="Stokta olmayan urun (disaridan yaptirilacak)"
-            aria-label="Stokta olmayan urun adi"
-            className="h-11 flex-1"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 whitespace-nowrap"
-            disabled={customName.trim() === ''}
-            onClick={addCustomLine}
+        <section className="space-y-1.5">
+          <Label htmlFor="salesperson">Satici</Label>
+          <select
+            id="salesperson"
+            value={salespersonId}
+            onChange={(event) => setSalespersonId(event.target.value)}
+            required={!initial}
+            className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm sm:w-80"
           >
-            Satir ekle
-          </Button>
+            <option value="">{initial ? '— secilmedi —' : 'Satici secin'}</option>
+            {salespeople.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-neutral-500">Prim bu isme yazilir.</p>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="order-date">Siparis tarihi</Label>
+            <Input
+              id="order-date"
+              type="date"
+              value={orderDate}
+              onChange={(event) => setOrderDate(event.target.value)}
+              className="h-11"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="delivery-date">Planlanan teslimat</Label>
+            <Input
+              id="delivery-date"
+              type="date"
+              value={plannedDeliveryDate}
+              onChange={(event) => setPlannedDeliveryDate(event.target.value)}
+              className="h-11"
+            />
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="address">Teslimat adresi</Label>
+            <Input
+              id="address"
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+              placeholder="Mahalle, sokak, no, daire"
+              className="h-11"
+              required
+            />
+          </div>
+          {/* Ilce ayri alanda: sevkiyat ilceye gore planlaniyor, sofor once ilceye
+              bakiyor. Istanbul'da hazir liste cikiyor ama serbest yazim da olur. */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="delivery-district">Ilce</Label>
+              <Input
+                id="delivery-district"
+                value={district}
+                onChange={(event) => setDistrict(event.target.value)}
+                list={city === DEFAULT_CITY ? 'istanbul-districts' : undefined}
+                placeholder={city === DEFAULT_CITY ? 'Ornek: Başakşehir' : ''}
+                className="h-11"
+              />
+              <datalist id="istanbul-districts">
+                {ISTANBUL_DISTRICTS.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="delivery-city">Il</Label>
+              <Input
+                id="delivery-city"
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="delivery-country">Ulke</Label>
+              <Input
+                id="delivery-country"
+                value={country}
+                onChange={(event) => setCountry(event.target.value)}
+                className="h-11"
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="delivery-phone">Teslimat telefonu</Label>
+              <Input
+                id="delivery-phone"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="delivery-phone2">Ikinci telefon</Label>
+              <Input
+                id="delivery-phone2"
+                value={phone2}
+                onChange={(event) => setPhone2(event.target.value)}
+                placeholder="Es, ev ya da is numarasi"
+                className="h-11"
+              />
+              <p className="text-xs text-neutral-500">
+                Sofor birine ulasamazsa digerini arar.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="delivery-notes">Teslimat notu</Label>
+              <Input
+                id="delivery-notes"
+                value={deliveryNotes}
+                onChange={(event) => setDeliveryNotes(event.target.value)}
+                placeholder="3. kat, asansor yok"
+                className="h-11"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Fatura bilgisi siparisin anlik kopyasi: ayni musteri bir siparisi
+            sahsina, digerini sirketine kestirebiliyor. */}
+        <details
+          className="rounded-lg border border-neutral-200 bg-white p-4"
+          open={hasInvoice(invoice)}
+        >
+          <summary className="cursor-pointer list-none text-sm font-semibold">
+            Fatura bilgisi
+            <span className="ml-2 font-normal text-neutral-500">
+              {hasInvoice(invoice) ? 'dolu' : 'istege bagli'}
+            </span>
+          </summary>
+
+          <div className="mt-3 space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice-title">Fatura unvani</Label>
+              <Input
+                id="invoice-title"
+                value={invoice.title}
+                onChange={(event) => setInvoice((v) => ({ ...v, title: event.target.value }))}
+                placeholder="Sahis adi ya da sirket unvani"
+                className="h-11"
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="invoice-tax-number">VKN / TCKN</Label>
+                <Input
+                  id="invoice-tax-number"
+                  value={invoice.taxNumber}
+                  onChange={(event) => setInvoice((v) => ({ ...v, taxNumber: event.target.value }))}
+                  inputMode="numeric"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="invoice-tax-office">Vergi dairesi</Label>
+                <Input
+                  id="invoice-tax-office"
+                  value={invoice.taxOffice}
+                  onChange={(event) => setInvoice((v) => ({ ...v, taxOffice: event.target.value }))}
+                  className="h-11"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice-address">Fatura adresi</Label>
+              <Input
+                id="invoice-address"
+                value={invoice.address}
+                onChange={(event) => setInvoice((v) => ({ ...v, address: event.target.value }))}
+                placeholder="Teslimat adresinden farkliysa"
+                className="h-11"
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="invoice-no">Fatura no</Label>
+                <Input
+                  id="invoice-no"
+                  value={invoice.no}
+                  onChange={(event) => setInvoice((v) => ({ ...v, no: event.target.value }))}
+                  placeholder="Kesildikten sonra"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="invoice-date">Fatura tarihi</Label>
+                <Input
+                  id="invoice-date"
+                  type="date"
+                  value={invoice.date}
+                  onChange={(event) => setInvoice((v) => ({ ...v, date: event.target.value }))}
+                  className="h-11"
+                />
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="order-notes">Siparis notu</Label>
+          <Input
+            id="order-notes"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            className="h-11"
+          />
         </div>
 
-        {productHits.length > 0 || stockHits.length > 0 ? (
-          <div className="max-h-64 overflow-y-auto rounded-lg border border-neutral-200 bg-white">
-            {productHits.length > 0 ? (
-              <>
-                <p className="border-b border-neutral-100 bg-neutral-50 px-3 py-1 text-xs uppercase text-neutral-500">
-                  Urun setleri
-                </p>
-                {productHits.map((product) => (
-                  <button
-                    key={product.id}
-                    type="button"
-                    onClick={() =>
-                      addLine({
-                        itemType: 'product',
-                        productId: product.id,
-                        stockItemId: null,
-                        label: product.name,
-                        quantity: 1,
-                        unitPrice: toTlInput(product.defaultPriceKurus),
-                        isGift: false,
-                      })
-                    }
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
-                  >
-                    {product.name}
-                    <span className="ml-2 text-xs text-neutral-400">
-                      {product.defaultPriceKurus
-                        ? formatKurus(product.defaultPriceKurus)
-                        : 'fiyat yok'}
-                    </span>
-                  </button>
-                ))}
-              </>
-            ) : null}
+      </div>
 
-            {stockHits.length > 0 ? (
-              <>
-                <p className="border-b border-t border-neutral-100 bg-neutral-50 px-3 py-1 text-xs uppercase text-neutral-500">
-                  Tek parcalar
-                </p>
-                {stockHits.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() =>
-                      addLine({
-                        itemType: 'stock_item',
-                        productId: null,
-                        stockItemId: item.id,
-                        label: [item.name, item.sizeLabel, item.variantLabel]
-                          .filter(Boolean)
-                          .join(' · '),
-                        quantity: 1,
-                        unitPrice: '',
-                        isGift: false,
-                      })
-                    }
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
-                  >
-                    {[item.name, item.sizeLabel, item.variantLabel].filter(Boolean).join(' · ')}
-                    <span className="ml-2 text-xs text-neutral-400">{item.sku}</span>
-                  </button>
-                ))}
-              </>
-            ) : null}
+      <div className="space-y-6">
+        <section className="space-y-2">
+          <Label htmlFor="item-search">Satirlar</Label>
+          <Input
+            id="item-search"
+            value={itemQuery}
+            onChange={(event) => {
+              setItemQuery(event.target.value);
+              setItemsOpen(true);
+            }}
+            onFocus={() => setItemsOpen(true)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setItemsOpen(false);
+            }}
+            placeholder="Urun seti veya tek parca ara"
+            className="h-11"
+          />
+
+          {/* Katalogda olmayan urun. Bazen disaridan yaptiriliyor; stok karti
+              acmak zorunda kalmadan siparise yazilabilmeli. */}
+          <div className="flex gap-2">
+            <Input
+              value={customName}
+              onChange={(event) => setCustomName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addCustomLine();
+                }
+              }}
+              placeholder="Stokta olmayan urun (disaridan yaptirilacak)"
+              aria-label="Stokta olmayan urun adi"
+              className="h-11 flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 whitespace-nowrap"
+              disabled={customName.trim() === ''}
+              onClick={addCustomLine}
+            >
+              Satir ekle
+            </Button>
           </div>
-        ) : null}
 
-        {lines.length === 0 ? (
-          <p className="text-sm text-neutral-500">Henuz satir eklenmedi.</p>
-        ) : (
-          <ul className="space-y-2">
-            {lines.map((line, index) => (
-              <li
-                key={line.key}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white p-3"
-              >
-                <span className="min-w-0 flex-1 text-sm">
-                  {line.label}
-                  {line.itemType === 'custom' ? (
-                    <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-800">
-                      stok disi
-                    </span>
-                  ) : (
-                    <span className="ml-2 text-xs text-neutral-400">
-                      {line.itemType === 'product' ? 'set' : 'parca'}
-                    </span>
-                  )}
-                </span>
-                <QuantityInput
-                  value={line.quantity}
-                  aria-label={`${line.label} adedi`}
-                  onValueChange={(quantity) =>
-                    setLines((rows) => rows.map((row, i) => (i === index ? { ...row, quantity } : row)))
-                  }
-                />
-                <Input
-                  value={line.unitPrice}
-                  onChange={(event) =>
-                    setLines((rows) =>
-                      rows.map((row, i) =>
-                        i === index ? { ...row, unitPrice: event.target.value } : row,
-                      ),
-                    )
-                  }
-                  placeholder="Birim fiyat"
-                  // Hediyede fiyat degistirilemez ama gorunur kalir: "bu
-                  // yastik 850 TL ama veriyoruz" bilgisi kayda geciyor.
-                  disabled={line.isGift}
-                  className="h-10 w-32 disabled:bg-neutral-50 disabled:text-neutral-400"
-                  aria-label="Birim fiyat"
-                />
+          {productHits.length > 0 || stockHits.length > 0 ? (
+            <div className="max-h-64 overflow-y-auto rounded-lg border border-neutral-200 bg-white">
+              {productHits.length > 0 ? (
+                <>
+                  <p className="border-b border-neutral-100 bg-neutral-50 px-3 py-1 text-xs uppercase text-neutral-500">
+                    Urun setleri
+                  </p>
+                  {productHits.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() =>
+                        addLine({
+                          itemType: 'product',
+                          productId: product.id,
+                          stockItemId: null,
+                          label: product.name,
+                          quantity: 1,
+                          unitPrice: toTlInput(product.defaultPriceKurus),
+                          isGift: false,
+                        })
+                      }
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                    >
+                      {product.name}
+                      <span className="ml-2 text-xs text-neutral-400">
+                        {product.defaultPriceKurus
+                          ? formatKurus(product.defaultPriceKurus)
+                          : 'fiyat yok'}
+                      </span>
+                    </button>
+                  ))}
+                </>
+              ) : null}
 
-                <label className="flex select-none items-center gap-1.5 whitespace-nowrap text-sm">
-                  <input
-                    type="checkbox"
-                    checked={line.isGift}
+              {stockHits.length > 0 ? (
+                <>
+                  <p className="border-b border-t border-neutral-100 bg-neutral-50 px-3 py-1 text-xs uppercase text-neutral-500">
+                    Tek parcalar
+                  </p>
+                  {stockHits.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        addLine({
+                          itemType: 'stock_item',
+                          productId: null,
+                          stockItemId: item.id,
+                          label: [item.name, item.sizeLabel, item.variantLabel]
+                            .filter(Boolean)
+                            .join(' · '),
+                          quantity: 1,
+                          unitPrice: '',
+                          isGift: false,
+                        })
+                      }
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                    >
+                      {[item.name, item.sizeLabel, item.variantLabel].filter(Boolean).join(' · ')}
+                      <span className="ml-2 text-xs text-neutral-400">{item.sku}</span>
+                    </button>
+                  ))}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
+          {lines.length === 0 ? (
+            <p className="text-sm text-neutral-500">Henuz satir eklenmedi.</p>
+          ) : (
+            <ul className="space-y-2">
+              {lines.map((line, index) => (
+                <li
+                  key={line.key}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white p-3"
+                >
+                  <span className="min-w-0 flex-1 text-sm">
+                    {line.label}
+                    {line.itemType === 'custom' ? (
+                      <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-800">
+                        stok disi
+                      </span>
+                    ) : (
+                      <span className="ml-2 text-xs text-neutral-400">
+                        {line.itemType === 'product' ? 'set' : 'parca'}
+                      </span>
+                    )}
+                  </span>
+                  <QuantityInput
+                    value={line.quantity}
+                    aria-label={`${line.label} adedi`}
+                    onValueChange={(quantity) =>
+                      setLines((rows) => rows.map((row, i) => (i === index ? { ...row, quantity } : row)))
+                    }
+                  />
+                  <Input
+                    value={line.unitPrice}
                     onChange={(event) =>
                       setLines((rows) =>
                         rows.map((row, i) =>
-                          i === index ? { ...row, isGift: event.target.checked } : row,
+                          i === index ? { ...row, unitPrice: event.target.value } : row,
                         ),
                       )
                     }
-                    className="size-4 accent-neutral-900"
+                    placeholder="Birim fiyat"
+                    // Hediyede fiyat degistirilemez ama gorunur kalir: "bu
+                    // yastik 850 TL ama veriyoruz" bilgisi kayda geciyor.
+                    disabled={line.isGift}
+                    className="h-10 w-32 disabled:bg-neutral-50 disabled:text-neutral-400"
+                    aria-label="Birim fiyat"
                   />
-                  Hediye
-                </label>
 
-                <span className="w-28 text-right text-sm tabular-nums">
-                  {line.isGift ? (
-                    <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
-                      Hediye
-                    </span>
-                  ) : (
-                    formatKurus(safeKurus(line.unitPrice) * line.quantity, { currency })
-                  )}
-                </span>
+                  <label className="flex select-none items-center gap-1.5 whitespace-nowrap text-sm">
+                    <input
+                      type="checkbox"
+                      checked={line.isGift}
+                      onChange={(event) =>
+                        setLines((rows) =>
+                          rows.map((row, i) =>
+                            i === index ? { ...row, isGift: event.target.checked } : row,
+                          ),
+                        )
+                      }
+                      className="size-4 accent-neutral-900"
+                    />
+                    Hediye
+                  </label>
+
+                  <span className="w-28 text-right text-sm tabular-nums">
+                    {line.isGift ? (
+                      <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
+                        Hediye
+                      </span>
+                    ) : (
+                      formatKurus(safeKurus(line.unitPrice) * line.quantity, { currency })
+                    )}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-red-600"
+                    onClick={() => setLines((rows) => rows.filter((_, i) => i !== index))}
+                  >
+                    Kaldir
+                  </Button>
+                  <ColorSelects
+                    parts={colorPartsOf(line)}
+                    colors={line.colors ?? {}}
+                    lineLabel={line.label}
+                    onChange={(stockItemId, code) => setLineColor(index, stockItemId, code)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
+          {/* Para birimi siparisin tamamini kapsar: satir fiyatlari, toplam ve
+              tahsilatlar hep bundan. Tahsilat girildikten sonra degistirilemez,
+              yoksa alinan paranin neyden oldugu belirsizlesirdi. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-3">
+            <Label htmlFor="currency" className="text-neutral-600">
+              Para birimi
+            </Label>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <select
+                id="currency"
+                value={currency}
+                disabled={initial?.currencyLocked}
+                onChange={(event) => {
+                  const next = event.target.value as Currency;
+                  setCurrency(next);
+                  // Kuru hazir getiriyoruz; kullanici uzerine yazabilir.
+                  setExchangeRate(next === 'TRY' ? '' : (rates?.[next]?.rate ?? ''));
+                }}
+                className="h-11 rounded-md border border-neutral-300 bg-white px-3 text-sm disabled:bg-neutral-50 disabled:text-neutral-400"
+              >
+                {(Object.keys(CURRENCY_LABELS) as Currency[]).map((code) => (
+                  <option key={code} value={code}>
+                    {CURRENCY_LABELS[code]}
+                  </option>
+                ))}
+              </select>
+
+              {currency === 'TRY' ? null : (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="exchange-rate" className="text-xs text-neutral-500">
+                    Kur
+                  </Label>
+                  <Input
+                    id="exchange-rate"
+                    value={exchangeRate}
+                    onChange={(event) => setExchangeRate(event.target.value)}
+                    placeholder="0,0000"
+                    aria-label="Kur"
+                    className="h-11 w-28 text-right"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {currency === 'TRY' ? null : (
+            <p className="text-right text-xs text-neutral-500">
+              {rateNote}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-neutral-600">Ara toplam</span>
+            <span className="tabular-nums">{formatKurus(subtotal, { currency })}</span>
+          </div>
+          {giftValue > 0 ? (
+            // Hediyenin bedeli musteriye yansimiyor ama patrona yansiyor;
+            // toplamin yaninda gormek karari bilincli kiliyor.
+            <div className="flex items-center justify-between text-sm text-green-700">
+              <span>Hediye edilen</span>
+              <span className="tabular-nums">{formatKurus(giftValue, { currency })}</span>
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <Label htmlFor="discount" className="text-neutral-600">
+              Iskonto
+            </Label>
+            <Input
+              id="discount"
+              value={discount}
+              onChange={(event) => setDiscount(event.target.value)}
+              placeholder="0,00"
+              // Genel toplam elle yazildiginda iskonto anlamini yitirir: ayni
+              // indirimi iki kere ifade etmis olurduk.
+              disabled={manualTotalKurus !== null}
+              className="h-10 w-32 text-right disabled:bg-neutral-50 disabled:text-neutral-400"
+            />
+          </div>
+
+          {/* Satirlari tek tek fiyatlandirmak zorunlu degil: musteriye cogu
+              zaman "hepsi su kadar" deniyor. Bos birakilirsa satirlardan
+              hesaplanir. */}
+          <div className="flex items-center justify-between gap-3 border-t border-neutral-200 pt-3">
+            <Label htmlFor="manual-total" className="text-base font-semibold">
+              Genel toplam
+            </Label>
+            <div className="flex items-center gap-2">
+              {manualTotalKurus !== null ? (
                 <Button
                   type="button"
                   variant="ghost"
-                  className="text-red-600"
-                  onClick={() => setLines((rows) => rows.filter((_, i) => i !== index))}
+                  className="h-8 px-2 text-xs"
+                  onClick={() => setManualTotal('')}
                 >
-                  Kaldir
+                  Otomatige don
                 </Button>
-                <ColorSelects
-                  parts={colorPartsOf(line)}
-                  colors={line.colors ?? {}}
-                  lineLabel={line.label}
-                  onChange={(stockItemId, code) => setLineColor(index, stockItemId, code)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
-        {/* Para birimi siparisin tamamini kapsar: satir fiyatlari, toplam ve
-            tahsilatlar hep bundan. Tahsilat girildikten sonra degistirilemez,
-            yoksa alinan paranin neyden oldugu belirsizlesirdi. */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-3">
-          <Label htmlFor="currency" className="text-neutral-600">
-            Para birimi
-          </Label>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <select
-              id="currency"
-              value={currency}
-              disabled={initial?.currencyLocked}
-              onChange={(event) => {
-                const next = event.target.value as Currency;
-                setCurrency(next);
-                // Kuru hazir getiriyoruz; kullanici uzerine yazabilir.
-                setExchangeRate(next === 'TRY' ? '' : (rates?.[next]?.rate ?? ''));
-              }}
-              className="h-11 rounded-md border border-neutral-300 bg-white px-3 text-sm disabled:bg-neutral-50 disabled:text-neutral-400"
-            >
-              {(Object.keys(CURRENCY_LABELS) as Currency[]).map((code) => (
-                <option key={code} value={code}>
-                  {CURRENCY_LABELS[code]}
-                </option>
-              ))}
-            </select>
-
-            {currency === 'TRY' ? null : (
-              <div className="flex items-center gap-2">
-                <Label htmlFor="exchange-rate" className="text-xs text-neutral-500">
-                  Kur
-                </Label>
-                <Input
-                  id="exchange-rate"
-                  value={exchangeRate}
-                  onChange={(event) => setExchangeRate(event.target.value)}
-                  placeholder="0,0000"
-                  aria-label="Kur"
-                  className="h-11 w-28 text-right"
-                />
-              </div>
-            )}
+              ) : null}
+              <Input
+                id="manual-total"
+                value={manualTotal}
+                onChange={(event) => setManualTotal(event.target.value)}
+                placeholder={kurusToTl(autoTotal).toFixed(2).replace('.', ',')}
+                aria-label="Genel toplam"
+                className="h-11 w-40 text-right text-base font-semibold"
+              />
+            </div>
           </div>
-        </div>
-
-        {currency === 'TRY' ? null : (
           <p className="text-right text-xs text-neutral-500">
-            {rateNote}
+            {manualTotalKurus !== null
+              ? `Elle yazildi - satir toplami ${formatKurus(subtotal, { currency })}`
+              : 'Bos birakirsaniz satirlardan hesaplanir.'}
           </p>
+        </section>
+
+        {/* Kapora: musteri parayi siparisi verirken birakiyor. Siparisle ayni
+            anda kaydediliyor ki "aldik mi almadik mi" sorusu hic dogmasin. */}
+        {initial ? null : (
+          <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
+            <h2 className="text-sm font-semibold">Alinan ucret (kapora)</h2>
+            <DepositRows
+              rows={deposits}
+              onChange={setDeposits}
+              currency={currency}
+              totalKurus={total}
+              toKurus={safeKurus}
+            />
+          </section>
         )}
 
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-neutral-600">Ara toplam</span>
-          <span className="tabular-nums">{formatKurus(subtotal, { currency })}</span>
-        </div>
-        {giftValue > 0 ? (
-          // Hediyenin bedeli musteriye yansimiyor ama patrona yansiyor;
-          // toplamin yaninda gormek karari bilincli kiliyor.
-          <div className="flex items-center justify-between text-sm text-green-700">
-            <span>Hediye edilen</span>
-            <span className="tabular-nums">{formatKurus(giftValue, { currency })}</span>
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <Label htmlFor="discount" className="text-neutral-600">
-            Iskonto
-          </Label>
-          <Input
-            id="discount"
-            value={discount}
-            onChange={(event) => setDiscount(event.target.value)}
-            placeholder="0,00"
-            // Genel toplam elle yazildiginda iskonto anlamini yitirir: ayni
-            // indirimi iki kere ifade etmis olurduk.
-            disabled={manualTotalKurus !== null}
-            className="h-10 w-32 text-right disabled:bg-neutral-50 disabled:text-neutral-400"
-          />
-        </div>
-
-        {/* Satirlari tek tek fiyatlandirmak zorunlu degil: musteriye cogu
-            zaman "hepsi su kadar" deniyor. Bos birakilirsa satirlardan
-            hesaplanir. */}
-        <div className="flex items-center justify-between gap-3 border-t border-neutral-200 pt-3">
-          <Label htmlFor="manual-total" className="text-base font-semibold">
-            Genel toplam
-          </Label>
-          <div className="flex items-center gap-2">
-            {manualTotalKurus !== null ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-8 px-2 text-xs"
-                onClick={() => setManualTotal('')}
-              >
-                Otomatige don
-              </Button>
-            ) : null}
-            <Input
-              id="manual-total"
-              value={manualTotal}
-              onChange={(event) => setManualTotal(event.target.value)}
-              placeholder={kurusToTl(autoTotal).toFixed(2).replace('.', ',')}
-              aria-label="Genel toplam"
-              className="h-11 w-40 text-right text-base font-semibold"
-            />
-          </div>
-        </div>
-        <p className="text-right text-xs text-neutral-500">
-          {manualTotalKurus !== null
-            ? `Elle yazildi - satir toplami ${formatKurus(subtotal, { currency })}`
-            : 'Bos birakirsaniz satirlardan hesaplanir.'}
+        <Button
+          type="submit"
+          disabled={pending || lines.length === 0 || !customer || (!initial && !salespersonId)}
+          className="h-11 w-full sm:w-auto"
+        >
+          {pending ? 'Kaydediliyor...' : (submitLabel ?? 'Taslak siparisi olustur')}
+        </Button>
+        <p className="text-xs text-neutral-500">
+          Taslak siparis stogu etkilemez. Onayladiginizda malzemeler rezerve edilir.
         </p>
-      </section>
-
-      {/* Kapora: musteri parayi siparisi verirken birakiyor. Siparisle ayni
-          anda kaydediliyor ki "aldik mi almadik mi" sorusu hic dogmasin. */}
-      {initial ? null : (
-        <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
-          <h2 className="text-sm font-semibold">Alinan ucret (kapora)</h2>
-          <DepositRows
-            rows={deposits}
-            onChange={setDeposits}
-            currency={currency}
-            totalKurus={total}
-            toKurus={safeKurus}
-          />
-        </section>
-      )}
-
-      {/* Fatura bilgisi siparisin anlik kopyasi: ayni musteri bir siparisi
-          sahsina, digerini sirketine kestirebiliyor. */}
-      <details
-        className="rounded-lg border border-neutral-200 bg-white p-4"
-        open={hasInvoice(invoice)}
-      >
-        <summary className="cursor-pointer list-none text-sm font-semibold">
-          Fatura bilgisi
-          <span className="ml-2 font-normal text-neutral-500">
-            {hasInvoice(invoice) ? 'dolu' : 'istege bagli'}
-          </span>
-        </summary>
-
-        <div className="mt-3 space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="invoice-title">Fatura unvani</Label>
-            <Input
-              id="invoice-title"
-              value={invoice.title}
-              onChange={(event) => setInvoice((v) => ({ ...v, title: event.target.value }))}
-              placeholder="Sahis adi ya da sirket unvani"
-              className="h-11"
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="invoice-tax-number">VKN / TCKN</Label>
-              <Input
-                id="invoice-tax-number"
-                value={invoice.taxNumber}
-                onChange={(event) => setInvoice((v) => ({ ...v, taxNumber: event.target.value }))}
-                inputMode="numeric"
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="invoice-tax-office">Vergi dairesi</Label>
-              <Input
-                id="invoice-tax-office"
-                value={invoice.taxOffice}
-                onChange={(event) => setInvoice((v) => ({ ...v, taxOffice: event.target.value }))}
-                className="h-11"
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="invoice-address">Fatura adresi</Label>
-            <Input
-              id="invoice-address"
-              value={invoice.address}
-              onChange={(event) => setInvoice((v) => ({ ...v, address: event.target.value }))}
-              placeholder="Teslimat adresinden farkliysa"
-              className="h-11"
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="invoice-no">Fatura no</Label>
-              <Input
-                id="invoice-no"
-                value={invoice.no}
-                onChange={(event) => setInvoice((v) => ({ ...v, no: event.target.value }))}
-                placeholder="Kesildikten sonra"
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="invoice-date">Fatura tarihi</Label>
-              <Input
-                id="invoice-date"
-                type="date"
-                value={invoice.date}
-                onChange={(event) => setInvoice((v) => ({ ...v, date: event.target.value }))}
-                className="h-11"
-              />
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="order-notes">Siparis notu</Label>
-        <Input
-          id="order-notes"
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          className="h-11"
-        />
       </div>
-
-      <Button
-        type="submit"
-        disabled={pending || lines.length === 0 || !customer || (!initial && !salespersonId)}
-        className="h-11 w-full sm:w-auto"
-      >
-        {pending ? 'Kaydediliyor...' : (submitLabel ?? 'Taslak siparisi olustur')}
-      </Button>
-      <p className="text-xs text-neutral-500">
-        Taslak siparis stogu etkilemez. Onayladiginizda malzemeler rezerve edilir.
-      </p>
     </form>
   );
 }
