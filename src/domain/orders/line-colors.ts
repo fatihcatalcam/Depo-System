@@ -113,11 +113,12 @@ export async function resolveLineColors(
   });
 }
 
-const PART_ORDER = ['Baza', 'Başlık'];
+const PART_ORDER = ['Yatak', 'Baza', 'Başlık'];
 
 /**
- * Renkli parcalarin gosterim sirasi: baza, baslik, digerleri. Alfabe sirasi
- * tersini verirdi (Turkcede "s" "z"den once).
+ * Takim parcalarinin gosterim sirasi: yatak, baza, baslik, digerleri. Alfabe
+ * sirasi bazayla basligi ters verirdi (Turkcede "s" "z"den once); veritabani
+ * da bilesenleri belli bir sirayla dondurmuyor.
  */
 export function colorPartOrder(label: string): number {
   const index = PART_ORDER.indexOf(label);

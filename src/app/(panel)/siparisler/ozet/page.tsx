@@ -56,7 +56,15 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
             {date ? `${formatLongDate(date)} siparisleri` : 'Siparis ozeti'}
           </h1>
           <p className="text-sm text-neutral-500">
-            {rows.length} siparis · satira tiklayinca siparis acilir
+            {rows.length} siparis · satira tiklayinca siparis acilir · teslim tarihine tiklayinca
+            degisir
+          </p>
+          <p className="text-sm">
+            <span className="font-medium text-blue-700">Mavi: teslim edildi</span>
+            <span className="text-neutral-400"> · </span>
+            <span className="font-medium text-red-600">Kirmizi: teslim edilmedi</span>
+            <span className="text-neutral-400"> · </span>
+            <span className="text-neutral-600">Tik: fabrikaya siparis gecildi</span>
           </p>
         </div>
         <div className="flex gap-2">

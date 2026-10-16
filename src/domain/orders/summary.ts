@@ -1,7 +1,7 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 import { orderLineComponents, orderLines, payments, stockItems } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
-import { colorPartLabel } from '@/domain/orders/line-colors';
+import { colorPartLabel, colorPartOrder } from '@/domain/orders/line-colors';
 import { listOrders, type OrderStatus, type OrderSummary } from '@/domain/orders/orders';
 import type { Scope } from '@/domain/scope';
 import type { PaymentMethod } from '@/lib/payment-methods';
@@ -25,12 +25,20 @@ export interface PaymentBreakdown {
   amountKurus: number;
 }
 
+/**
+ * Siparisin cinsindeki bir urun. Teslim edilen mavi, edilmeyen kirmizi
+ * yazilir. Takimin parcalari farkli zamanlarda gittiyse `parts` dolu: urun
+ * adi duz, parcalar kendi renginde ("LATEX MASTER Set: Yatak, Baza, Baslik").
+ */
+export interface SummaryItem {
+  text: string;
+  delivered: boolean;
+  parts?: { label: string; delivered: boolean }[];
+}
+
 export interface OrderSummaryRow extends OrderSummary {
-  /**
-   * "2 Ad. 90x190 Fresh Cell Yatak + 100x200 Dozy Yatak". Teslim edilmemis
-   * sipariste yalnizca kalanlar: teslim edilen satir duser.
-   */
-  itemsText: string;
+  /** "2 Ad. 90x190 Fresh Cell Yatak", "100x200 Dozy Yatak"... teslim durumuyla. */
+  items: SummaryItem[];
   /** Tekrarsiz: siparisin ve musterinin telefonlari, bu sirayla. */
   phones: string[];
   /** Yontem ve taksit bazinda toplanmis tahsilat. */
@@ -116,14 +124,13 @@ export async function listOrderSummaries(
   }
   const delivered = new Set(list.filter((order) => order.status === 'delivered').map((o) => o.id));
 
-  const items = new Map<string, string[]>();
+  const items = new Map<string, SummaryItem[]>();
   for (const line of lineRows) {
-    // Teslim edilmis sipariste her sey teslim; yazi bos kalmasin diye tam hali.
-    const text = delivered.has(line.orderId)
-      ? lineText(line, line.quantity)
-      : remainingItemText(line, componentsByLine.get(line.id) ?? []);
-    if (text === null) continue;
-    items.set(line.orderId, [...(items.get(line.orderId) ?? []), text]);
+    // Teslim edilmis sipariste her sey teslim edilmistir; bilesen bakmaya gerek yok.
+    const lineItems = delivered.has(line.orderId)
+      ? [{ text: lineText(line, line.quantity), delivered: true }]
+      : summaryItems(line, componentsByLine.get(line.id) ?? []);
+    items.set(line.orderId, [...(items.get(line.orderId) ?? []), ...lineItems]);
   }
 
   const breakdowns = new Map<string, PaymentBreakdown[]>();
@@ -144,7 +151,7 @@ export async function listOrderSummaries(
 
   const rows = list.map((order) => ({
     ...order,
-    itemsText: (items.get(order.id) ?? []).join(' + '),
+    items: items.get(order.id) ?? [],
     phones: uniquePhones([
       order.deliveryPhone,
       order.deliveryPhone2,
@@ -178,37 +185,39 @@ function lineText(line: SummaryLine, quantity: number): string {
 }
 
 /**
- * Satirin henuz teslim edilmemis kismi; tamami teslim edildiyse null.
+ * Satirin teslim durumu.
  *
- * Taslakta bilesen yok (onayda donduruluyor): satir oldugu gibi. Takimin her
- * parcasindan ayni oranda kaldiysa "1 Ad. LATEX MASTER 160x200 Set"; yatak
- * gitmis baza ve baslik kalmissa hangi parcalarin kaldigi yazilir, depocu
- * neyi yukleyecegini bilsin.
+ * Taslakta bilesen yok (onayda donduruluyor): teslim edilmemis. Takimin her
+ * parcasindan ayni oranda gittiyse iki parca: "1 Ad. ... Set" teslim, "1 Ad.
+ * ... Set" bekliyor. Yatak gitmis baza ve baslik kalmissa urun adi ve
+ * parcalari kendi renginde: depocu neyin gittigini, neyin kaldigini gorsun.
  */
-export function remainingItemText(line: SummaryLine, components: LineComponent[]): string | null {
-  if (components.length === 0) return lineText(line, line.quantity);
+export function summaryItems(line: SummaryLine, components: LineComponent[]): SummaryItem[] {
+  const full = (delivered: boolean) => [{ text: lineText(line, line.quantity), delivered }];
+  if (components.length === 0) return full(false);
+  if (components.every((c) => c.deliveredQuantity >= c.totalQuantity)) return full(true);
+  if (components.every((c) => c.deliveredQuantity === 0)) return full(false);
 
-  const remaining = components.map((component) => ({
-    component,
-    left: component.totalQuantity - component.deliveredQuantity,
-  }));
-  if (remaining.every((entry) => entry.left <= 0)) return null;
-  if (remaining.every((entry) => entry.component.deliveredQuantity === 0)) {
-    return lineText(line, line.quantity);
+  const sent = components.map((c) => c.deliveredQuantity / c.quantityPerUnit);
+  if (sent.every((value) => value === sent[0]) && Number.isInteger(sent[0])) {
+    return [
+      { text: lineText(line, line.quantity - sent[0]), delivered: false },
+      { text: lineText(line, sent[0]), delivered: true },
+    ];
   }
 
-  const units = remaining.map((entry) => entry.left / entry.component.quantityPerUnit);
-  if (units.every((value) => value === units[0]) && Number.isInteger(units[0])) {
-    return lineText(line, units[0]);
-  }
-
-  const parts = remaining
-    .filter((entry) => entry.left > 0)
-    .map((entry) => {
-      const label = entry.component.name ? colorPartLabel(entry.component.name) : line.description;
-      return `${entry.left > 1 ? `${entry.left} ` : ''}${label}`;
+  const partName = (c: LineComponent) => (c.name ? colorPartLabel(c.name) : line.description);
+  const parts = [...components]
+    .sort((a, b) => colorPartOrder(partName(a)) - colorPartOrder(partName(b)))
+    .flatMap((c) => {
+      const count = (n: number) => `${n > 1 ? `${n} ` : ''}${partName(c)}`;
+      const left = c.totalQuantity - c.deliveredQuantity;
+      return [
+        ...(c.deliveredQuantity > 0 ? [{ label: count(c.deliveredQuantity), delivered: true }] : []),
+        ...(left > 0 ? [{ label: count(left), delivered: false }] : []),
+      ];
     });
-  return `${lineText(line, 1)} (kalan: ${parts.join(', ')})`;
+  return [{ text: lineText(line, line.quantity), delivered: false, parts }];
 }
 
 /** Ayni numara bosluklu ve bosluksuz yazilmis olabilir; rakamlara gore tekrarsiz. */

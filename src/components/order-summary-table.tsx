@@ -1,5 +1,7 @@
+import { FactoryTick } from '@/components/factory-tick';
+import { PlannedDateCell } from '@/components/planned-date-cell';
 import { RowLink } from '@/components/row-link';
-import type { OrderSummaryRow } from '@/domain/orders/summary';
+import type { OrderSummaryRow, SummaryItem } from '@/domain/orders/summary';
 import { formatDate, todayInIstanbul } from '@/lib/dates';
 import { formatKurus, toTryKurus } from '@/lib/money';
 import { formatPaymentMethod } from '@/lib/payment-methods';
@@ -78,10 +80,19 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
                 ))}
               </td>
               <td className={cn(cell, 'whitespace-nowrap')}>
-                <div className="font-semibold">{row.orderNo}</div>
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <FactoryTick
+                    orderId={row.id}
+                    ordered={row.factoryOrderedAt !== null}
+                    readOnly={print || row.status === 'cancelled'}
+                  />
+                  {row.orderNo}
+                </div>
                 <div className="text-neutral-500">{formatDate(row.orderDate)}</div>
               </td>
-              <td className={cell}>{row.itemsText || '—'}</td>
+              <td className={cell}>
+                <ItemsCell items={row.items} />
+              </td>
               <td
                 className={cn(
                   cell,
@@ -90,7 +101,16 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
                   overdue && 'text-red-600',
                 )}
               >
-                {formatDate(row.plannedDeliveryDate)}
+                {/* Ekranda teslim edilmemis sipariste tarih tiklanip degistirilir. */}
+                {!print && row.status !== 'delivered' && row.status !== 'cancelled' ? (
+                  <PlannedDateCell
+                    orderId={row.id}
+                    date={row.plannedDeliveryDate}
+                    overdue={overdue}
+                  />
+                ) : (
+                  formatDate(row.plannedDeliveryDate)
+                )}
               </td>
               <td className={cn(cell, 'font-semibold uppercase')}>
                 {formatPlace({
@@ -157,5 +177,33 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
         </tr>
       </tfoot>
     </table>
+  );
+}
+
+/** Teslim edilen mavi, edilmeyen kirmizi; urunler arasinda "+". */
+function ItemsCell({ items }: { items: SummaryItem[] }) {
+  if (items.length === 0) return <>—</>;
+  const tone = (delivered: boolean) => (delivered ? 'text-blue-700' : 'text-red-600');
+  return (
+    <>
+      {items.map((item, index) => (
+        <span key={index}>
+          {index > 0 ? <span className="text-neutral-400"> + </span> : null}
+          {item.parts ? (
+            <>
+              <span>{item.text}: </span>
+              {item.parts.map((part, partIndex) => (
+                <span key={partIndex} className={cn('font-medium', tone(part.delivered))}>
+                  {partIndex > 0 ? ', ' : ''}
+                  {part.label}
+                </span>
+              ))}
+            </>
+          ) : (
+            <span className={cn('font-medium', tone(item.delivered))}>{item.text}</span>
+          )}
+        </span>
+      ))}
+    </>
   );
 }

@@ -2,13 +2,34 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { cancelOrder, confirmOrder, createOrder, getOrder } from '@/domain/orders/orders';
 import { createDelivery, deliverRemaining } from '@/domain/orders/deliveries';
 import { addPayment } from '@/domain/orders/payments';
-import { listOrderSummaries, remainingItemText, type LineComponent } from '@/domain/orders/summary';
+import {
+  listOrderSummaries,
+  summaryItems,
+  type LineComponent,
+  type OrderSummaryRow,
+  type SummaryItem,
+} from '@/domain/orders/summary';
 import { createCustomer } from '@/domain/parties/parties';
 import { makeBedSet } from '../../helpers/order-fixtures';
 import { createTestDb, type TestDb } from '../../helpers/test-db';
 
 let ctx: TestDb;
 let productId: string;
+
+/**
+ * Siparisin cinsi duz metin olarak; teslim edilen [mavi], edilmeyen duz.
+ * "OZET Set: [Yatak], Baza" gibi.
+ */
+function itemText(item: SummaryItem): string {
+  const mark = (text: string, delivered: boolean) => (delivered ? `[${text}]` : text);
+  return item.parts
+    ? `${item.text}: ${item.parts.map((part) => mark(part.label, part.delivered)).join(', ')}`
+    : mark(item.text, item.delivered);
+}
+
+function itemsOf(row: OrderSummaryRow): string {
+  return row.items.map(itemText).join(' + ');
+}
 let stockItemId: string;
 
 beforeAll(async () => {
@@ -52,7 +73,7 @@ describe('siparis ozeti', () => {
     await order('OZET BIR', '2026-09-01', { phone: '05321112233' });
 
     const [row] = await listOrderSummaries(ctx.db, ctx.scope, { view: 'bekleyen', query: 'ozet bir' });
-    expect(row.itemsText).toBe('OZET 160x200 Set + 2 Ad. OZET YATAK · 160x200 (hediye)');
+    expect(itemsOf(row)).toBe('OZET 160x200 Set + 2 Ad. OZET YATAK · 160x200 (hediye)');
     // Ayni numara iki kez yazilmaz.
     expect(row.phones).toEqual(['05321112233', '0544 555 66 77']);
     expect(row.deliveryDistrict).toBe('Başakşehir');
@@ -105,9 +126,9 @@ describe('siparis ozeti', () => {
   });
 });
 
-describe('siparisin cinsi: yalnizca kalanlar', () => {
+describe('siparisin cinsi: teslim edilen mavi, edilmeyen kirmizi', () => {
   /** Yatak teslim edildi, baza ve baslik bekliyor; hediye yatak da gitti. */
-  it('teslim edilen satir duser, kismi satirda kalan parcalar yazilir', async () => {
+  it('teslim edilen de edilmeyen de yazilir, durumuyla', async () => {
     const created = await order('OZET KISMI', '2026-09-07');
     await confirmOrder(ctx.db, ctx.scope, created.id);
     const detail = await getOrder(ctx.db, ctx.scope, created.id);
@@ -122,7 +143,9 @@ describe('siparisin cinsi: yalnizca kalanlar', () => {
     });
 
     const [row] = await listOrderSummaries(ctx.db, ctx.scope, { view: 'bekleyen', query: 'ozet kismi' });
-    expect(row.itemsText).toBe('OZET 160x200 Set (kalan: Baza, Başlık)');
+    expect(itemsOf(row)).toBe(
+      'OZET 160x200 Set: [Yatak], Baza, Başlık + [2 Ad. OZET YATAK · 160x200 (hediye)]',
+    );
   });
 
   it('teslim edilmis sipariste her sey yazilir', async () => {
@@ -131,11 +154,11 @@ describe('siparisin cinsi: yalnizca kalanlar', () => {
     await deliverRemaining(ctx.db, ctx.scope, created.id);
 
     const [row] = await listOrderSummaries(ctx.db, ctx.scope, { view: 'teslim', query: 'ozet hepsi' });
-    expect(row.itemsText).toBe('OZET 160x200 Set + 2 Ad. OZET YATAK · 160x200 (hediye)');
+    expect(itemsOf(row)).toBe('[OZET 160x200 Set] + [2 Ad. OZET YATAK · 160x200 (hediye)]');
   });
 });
 
-describe('kalan metni', () => {
+describe('satirin teslim durumu', () => {
   const line = { description: 'LATEX MASTER 160x200 Set', quantity: 2, isGift: false };
   const part = (name: string, delivered: number, total = 2): LineComponent => ({
     name,
@@ -143,35 +166,40 @@ describe('kalan metni', () => {
     totalQuantity: total,
     deliveredQuantity: delivered,
   });
+  const text = (items: SummaryItem[]) => items.map(itemText).join(' + ');
 
-  it('taslak (bilesen yok): oldugu gibi', () => {
-    expect(remainingItemText(line, [])).toBe('2 Ad. LATEX MASTER 160x200 Set');
+  it('taslak (bilesen yok): teslim edilmedi', () => {
+    expect(text(summaryItems(line, []))).toBe('2 Ad. LATEX MASTER 160x200 Set');
   });
 
-  it('hic teslim yok: oldugu gibi', () => {
+  it('hic teslim yok: teslim edilmedi', () => {
     const parts = [part('X YATAK', 0), part('X BAZA', 0), part('X BASLIK', 0)];
-    expect(remainingItemText(line, parts)).toBe('2 Ad. LATEX MASTER 160x200 Set');
+    expect(text(summaryItems(line, parts))).toBe('2 Ad. LATEX MASTER 160x200 Set');
   });
 
-  it('hepsi teslim: duser', () => {
+  it('hepsi teslim: teslim edildi', () => {
     const parts = [part('X YATAK', 2), part('X BAZA', 2), part('X BASLIK', 2)];
-    expect(remainingItemText(line, parts)).toBeNull();
+    expect(text(summaryItems(line, parts))).toBe('[2 Ad. LATEX MASTER 160x200 Set]');
   });
 
-  it('her parcadan bir takim gitti: kalan takim sayisi', () => {
+  it('her parcadan bir takim gitti: bir takim kirmizi, bir takim mavi', () => {
     const parts = [part('X YATAK', 1), part('X BAZA', 1), part('X BASLIK', 1)];
-    expect(remainingItemText(line, parts)).toBe('LATEX MASTER 160x200 Set');
+    expect(text(summaryItems(line, parts))).toBe(
+      'LATEX MASTER 160x200 Set + [LATEX MASTER 160x200 Set]',
+    );
   });
 
-  it('farkli oranda: kalan parcalar adetleriyle', () => {
+  it('farkli oranda: parcalar adetleri ve durumlariyla', () => {
     const parts = [part('X YATAK', 2), part('X BAZA', 0), part('X BASLIK', 1)];
-    expect(remainingItemText(line, parts)).toBe('LATEX MASTER 160x200 Set (kalan: 2 Baza, Başlık)');
+    expect(text(summaryItems(line, parts))).toBe(
+      '2 Ad. LATEX MASTER 160x200 Set: [2 Yatak], 2 Baza, [Başlık], Başlık',
+    );
   });
 
   it('tek parca satiri ve hediye', () => {
     const gift = { description: 'OZET YATAK · 160x200', quantity: 3, isGift: true };
-    expect(remainingItemText(gift, [part('OZET YATAK', 1, 3)])).toBe(
-      '2 Ad. OZET YATAK · 160x200 (hediye)',
+    expect(text(summaryItems(gift, [part('OZET YATAK', 1, 3)]))).toBe(
+      '2 Ad. OZET YATAK · 160x200 (hediye) + [OZET YATAK · 160x200 (hediye)]',
     );
   });
 });
@@ -189,7 +217,7 @@ describe('gun secimi', () => {
 
     const rows = await listOrderSummaries(ctx.db, ctx.scope, { view: 'bekleyen', date: '2026-08-15' });
     expect(rows.map((row) => row.customerName)).toEqual(['GUN BEKLEYEN', 'GUN TESLIM']);
-    expect(rows.find((row) => row.id === waiting.id)?.itemsText).toContain('OZET 160x200 Set');
+    expect(itemsOf(rows.find((row) => row.id === waiting.id)!)).toContain('OZET 160x200 Set');
   });
 
   it('gun ve arama birlikte', async () => {

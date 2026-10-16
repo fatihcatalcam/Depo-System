@@ -24,7 +24,11 @@ export default async function SiparisOzetiYazdirPage({ searchParams }: PageProps
 
   return (
     <>
-      <style>{'@page { size: A4 landscape; margin: 10mm; }'}</style>
+      {/* Teslim edilen mavi, edilmeyen kirmizi: tarayici kagitta renkleri
+          atmasin diye renk koruma acik. */}
+      <style>
+        {'@page { size: A4 landscape; margin: 10mm; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }'}
+      </style>
       <PrintHeader
         title={title}
         subtitle={`${formatLongDate(todayInIstanbul())}${query ? ` · arama: ${query}` : ''}`}
