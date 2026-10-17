@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { BranchFilter } from '@/components/branch-filter';
 import { SearchBox } from '@/components/search-box';
 import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
+import { listBranches } from '@/domain/branches';
 import {
   ORDER_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
@@ -46,26 +48,32 @@ const FILTERS: { value: string; label: string }[] = [
 ];
 
 interface PageProps {
-  searchParams: Promise<{ durum?: string; q?: string }>;
+  searchParams: Promise<{ durum?: string; q?: string; sube?: string }>;
 }
 
-/** Durum sekmesi degisince arama kaybolmasin. */
-function filterHref(status: string, query: string | undefined) {
+/** Durum ya da sube degisince digerleri ve arama kaybolmasin. */
+function filterHref(status: string, query: string | undefined, branch: string | undefined) {
   const params = new URLSearchParams();
   if (status) params.set('durum', status);
   if (query) params.set('q', query);
+  if (branch) params.set('sube', branch);
   const search = params.toString();
   return search ? `/siparisler?${search}` : '/siparisler';
 }
 
 export default async function SiparislerPage({ searchParams }: PageProps) {
-  const [{ durum, q }, user] = await Promise.all([searchParams, currentUser()]);
+  const [{ durum, q, sube }, user] = await Promise.all([searchParams, currentUser()]);
   const status = FILTERS.some((f) => f.value === durum && f.value)
     ? (durum as OrderStatus)
     : undefined;
   const query = q?.trim() || undefined;
+  // Sube secimi yalnizca merkez icin; sube kullanicisi zaten kendi siparislerini goruyor.
+  const branches = user.isCentral
+    ? (await listBranches(db)).filter((branch) => branch.isActive)
+    : [];
+  const branch = branches.find((option) => option.code === sube);
 
-  const orders = await listOrders(db, user.scope, { status, query });
+  const orders = await listOrders(db, user.scope, { status, query, branchId: branch?.id });
   const openBalance = orders
     .filter((order) => order.status !== 'cancelled')
     // Farkli para birimlerindeki bakiyeler ancak TL karsiligiyla toplanir.
@@ -108,7 +116,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
         {FILTERS.map((filter) => (
           <Link
             key={filter.value || 'all'}
-            href={filterHref(filter.value, query)}
+            href={filterHref(filter.value, query, branch?.code)}
             className={cn(
               'rounded-full border px-3 py-1.5 text-xs',
               (durum ?? '') === filter.value
@@ -120,6 +128,14 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
           </Link>
         ))}
       </nav>
+
+      {branches.length > 1 ? (
+        <BranchFilter
+          branches={branches}
+          current={branch?.code}
+          hrefFor={(code) => filterHref(durum ?? '', query, code)}
+        />
+      ) : null}
 
       {orders.length === 0 ? (
         <p className="text-sm text-neutral-500">

@@ -53,6 +53,8 @@ export interface SummaryFilters {
    * siparislerin hepsi, teslim edilmis olsun olmasin. Iptaller yine yok.
    */
   date?: string;
+  /** Merkez icin tek sube; bos = kapsamdaki butun subeler. */
+  branchId?: string;
 }
 
 const DAY_STATUSES: OrderStatus[] = ['draft', 'confirmed', 'partially_delivered', 'delivered'];
@@ -68,6 +70,7 @@ export async function listOrderSummaries(
   const list = await listOrders(db, scope, {
     statuses: filters.date ? DAY_STATUSES : VIEW_STATUSES[filters.view],
     orderDate: filters.date,
+    branchId: filters.branchId,
     query: filters.query,
     limit: SUMMARY_LIMIT,
   });

@@ -1,17 +1,19 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { BranchFilter } from '@/components/branch-filter';
 import { OrderSummaryTable } from '@/components/order-summary-table';
 import { SearchBox } from '@/components/search-box';
 import { buttonVariants } from '@/components/ui/button';
 import { db } from '@/db/client';
+import { listBranches } from '@/domain/branches';
 import { listOrderSummaries, type SummaryView } from '@/domain/orders/summary';
-import { currentScope } from '@/lib/auth/current';
+import { currentUser } from '@/lib/auth/current';
 import { formatLongDate } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { DateFilter } from './date-filter';
 
 interface PageProps {
-  searchParams: Promise<{ gorunum?: string; q?: string; tarih?: string }>;
+  searchParams: Promise<{ gorunum?: string; q?: string; tarih?: string; sube?: string }>;
 }
 
 const VIEWS: { value: SummaryView; label: string }[] = [
@@ -26,11 +28,13 @@ function href(
   view: SummaryView,
   query: string | undefined,
   date?: string,
+  branch?: string,
 ) {
   const params = new URLSearchParams();
   if (view !== 'bekleyen') params.set('gorunum', view);
   if (query) params.set('q', query);
   if (date) params.set('tarih', date);
+  if (branch) params.set('sube', branch);
   const search = params.toString();
   return search ? `${path}?${search}` : path;
 }
@@ -46,7 +50,18 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
   const view: SummaryView = params.gorunum === 'teslim' ? 'teslim' : 'bekleyen';
   const query = params.q?.trim() || undefined;
   const date = params.tarih && DATE_PATTERN.test(params.tarih) ? params.tarih : undefined;
-  const rows = await listOrderSummaries(db, await currentScope(), { view, query, date });
+  const user = await currentUser();
+  // Sube secimi yalnizca merkez icin; sube kullanicisi zaten kendi siparislerini goruyor.
+  const branches = user.isCentral
+    ? (await listBranches(db)).filter((branch) => branch.isActive)
+    : [];
+  const branch = branches.find((option) => option.code === params.sube);
+  const rows = await listOrderSummaries(db, user.scope, {
+    view,
+    query,
+    date,
+    branchId: branch?.id,
+  });
 
   return (
     <div className="space-y-4">
@@ -75,7 +90,7 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
             Siparis listesi
           </Link>
           <Link
-            href={href('/siparisler/ozet/yazdir', view, query, date)}
+            href={href('/siparisler/ozet/yazdir', view, query, date, branch?.code)}
             className={cn(buttonVariants(), 'h-11 px-4')}
           >
             Yazdir
@@ -98,7 +113,7 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
         {VIEWS.map((option) => (
           <Link
             key={option.value}
-            href={href('/siparisler/ozet', option.value, query)}
+            href={href('/siparisler/ozet', option.value, query, undefined, branch?.code)}
             className={cn(
               'rounded-full border px-3 py-1.5 text-sm',
               !date && view === option.value
@@ -111,13 +126,21 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
         ))}
         {date ? (
           <Link
-            href={href('/siparisler/ozet', view, query)}
+            href={href('/siparisler/ozet', view, query, undefined, branch?.code)}
             className="rounded-full border border-neutral-900 bg-neutral-900 px-3 py-1.5 text-sm text-white"
           >
             {formatLongDate(date)} · tarihi temizle ×
           </Link>
         ) : null}
       </nav>
+
+      {branches.length > 1 ? (
+        <BranchFilter
+          branches={branches}
+          current={branch?.code}
+          hrefFor={(code) => href('/siparisler/ozet', view, query, date, code)}
+        />
+      ) : null}
 
       {rows.length === 0 ? (
         <p className="rounded-lg border border-neutral-200 bg-white p-6 text-center text-sm text-neutral-500">
