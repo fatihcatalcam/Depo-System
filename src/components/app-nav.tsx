@@ -51,7 +51,8 @@ export const SECONDARY_LINKS = SECONDARY;
 /**
  * Siparis ozeti yan menude siparislerin hemen altinda; dukkan Excel'deki
  * siparis listesine bakar gibi ona sik bakiyor. Mobil alt menude yer yok,
- * orada "Diger" sayfasinda.
+ * orada "Diger" sayfasinda. Yalnizca merkezde: sube kendi siparislerini
+ * siparis listesinden izliyor.
  */
 const ORDER_SUMMARY: NavItem = { href: '/siparisler/ozet', label: 'Siparis ozeti', icon: Sheet };
 
@@ -69,11 +70,11 @@ function activeHref(pathname: string, hrefs: readonly string[]): string | undefi
     .sort((a, b) => b.length - a.length)[0];
 }
 
-export function DesktopNav() {
+export function DesktopNav({ isCentral }: { isCentral: boolean }) {
   const pathname = usePathname();
   const items: NavItem[] = [
     ...PRIMARY.flatMap((item): NavItem[] =>
-      item.href === '/siparisler' ? [item, ORDER_SUMMARY] : [item],
+      item.href === '/siparisler' && isCentral ? [item, ORDER_SUMMARY] : [item],
     ),
     ...SECONDARY,
   ];

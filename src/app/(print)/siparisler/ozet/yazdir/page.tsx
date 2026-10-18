@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { OrderSummaryTable } from '@/components/order-summary-table';
 import { PrintHeader } from '@/components/print-header';
 import { db } from '@/db/client';
@@ -17,9 +18,9 @@ export default async function SiparisOzetiYazdirPage({ searchParams }: PageProps
   const query = params.q?.trim() || undefined;
   const date = params.tarih && /^\d{4}-\d{2}-\d{2}$/.test(params.tarih) ? params.tarih : undefined;
   const user = await currentUser();
-  const branch = user.isCentral
-    ? (await listBranches(db)).find((option) => option.code === params.sube)
-    : undefined;
+  // Ozet yalnizca merkezde.
+  if (!user.isCentral) redirect('/siparisler');
+  const branch = (await listBranches(db)).find((option) => option.code === params.sube);
   const rows = await listOrderSummaries(db, user.scope, {
     view,
     query,

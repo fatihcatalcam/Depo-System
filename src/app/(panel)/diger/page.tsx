@@ -10,6 +10,7 @@ import {
   Warehouse,
 } from 'lucide-react';
 import Link from 'next/link';
+import { currentUser } from '@/lib/auth/current';
 
 const LINKS = [
   {
@@ -63,12 +64,16 @@ const LINKS = [
   },
 ] as const;
 
-export default function DigerPage() {
+export default async function DigerPage() {
+  const user = await currentUser();
+  // Siparis ozeti yalnizca merkezde.
+  const links = user.isCentral ? LINKS : LINKS.filter((link) => link.href !== '/siparisler/ozet');
+
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold">Diger</h1>
       <ul className="space-y-2">
-        {LINKS.map(({ href, label, description, icon: Icon }) => (
+        {links.map(({ href, label, description, icon: Icon }) => (
           <li key={href}>
             <Link
               href={href}

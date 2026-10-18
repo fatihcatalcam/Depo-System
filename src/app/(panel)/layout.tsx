@@ -14,7 +14,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-screen">
-      <DesktopNav />
+      <DesktopNav isCentral={user.isCentral} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4">
           <span className="truncate text-sm font-semibold md:hidden">Depo Sistemi</span>

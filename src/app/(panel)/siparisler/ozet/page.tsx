@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { BranchFilter } from '@/components/branch-filter';
 import { OrderSummaryTable } from '@/components/order-summary-table';
@@ -51,10 +52,9 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
   const query = params.q?.trim() || undefined;
   const date = params.tarih && DATE_PATTERN.test(params.tarih) ? params.tarih : undefined;
   const user = await currentUser();
-  // Sube secimi yalnizca merkez icin; sube kullanicisi zaten kendi siparislerini goruyor.
-  const branches = user.isCentral
-    ? (await listBranches(db)).filter((branch) => branch.isActive)
-    : [];
+  // Ozet yalnizca merkezde; sube kendi siparislerini siparis listesinden izliyor.
+  if (!user.isCentral) redirect('/siparisler');
+  const branches = (await listBranches(db)).filter((branch) => branch.isActive);
   const branch = branches.find((option) => option.code === params.sube);
   const rows = await listOrderSummaries(db, user.scope, {
     view,

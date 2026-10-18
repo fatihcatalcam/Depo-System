@@ -90,12 +90,14 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link
-            href="/siparisler/ozet"
-            className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
-          >
-            Ozet
-          </Link>
+          {user.isCentral ? (
+            <Link
+              href="/siparisler/ozet"
+              className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
+            >
+              Ozet
+            </Link>
+          ) : null}
           <Link
             href="/siparisler/bekleyen"
             className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
