@@ -33,6 +33,10 @@ interface LineRow {
   isGift: boolean;
   /** Kumas rengi: parca id -> kod. Secilmeyen parca standart. */
   colors?: Record<string, string>;
+  /** Duzenlemede mevcut satirin kimligi. */
+  lineId?: string;
+  /** Teslimati baslamis satir: degistirilemez, kaldirilamaz. */
+  delivered?: boolean;
 }
 
 interface CustomerHit {
@@ -182,6 +186,7 @@ export interface OrderSubmitInput {
   deposits?: { amount: string; method: PaymentMethod; installments: number | null }[];
   notes?: string;
   lines: {
+    id?: string;
     itemType: 'product' | 'stock_item' | 'custom';
     productId: string | null;
     stockItemId: string | null;
@@ -415,6 +420,7 @@ export function OrderForm({
                   })),
             notes: notes || undefined,
             lines: lines.map((line) => ({
+              id: line.lineId,
               itemType: line.itemType,
               productId: line.productId,
               stockItemId: line.stockItemId,
@@ -879,70 +885,88 @@ export function OrderForm({
                         {line.itemType === 'product' ? 'set' : 'parca'}
                       </span>
                     )}
-                  </span>
-                  <QuantityInput
-                    value={line.quantity}
-                    aria-label={`${line.label} adedi`}
-                    onValueChange={(quantity) =>
-                      setLines((rows) => rows.map((row, i) => (i === index ? { ...row, quantity } : row)))
-                    }
-                  />
-                  <Input
-                    value={line.unitPrice}
-                    onChange={(event) =>
-                      setLines((rows) =>
-                        rows.map((row, i) =>
-                          i === index ? { ...row, unitPrice: event.target.value } : row,
-                        ),
-                      )
-                    }
-                    placeholder="Birim fiyat"
-                    // Hediyede fiyat degistirilemez ama gorunur kalir: "bu
-                    // yastik 850 TL ama veriyoruz" bilgisi kayda geciyor.
-                    disabled={line.isGift}
-                    className="h-10 w-32 disabled:bg-neutral-50 disabled:text-neutral-400"
-                    aria-label="Birim fiyat"
-                  />
-
-                  <label className="flex select-none items-center gap-1.5 whitespace-nowrap text-sm">
-                    <input
-                      type="checkbox"
-                      checked={line.isGift}
-                      onChange={(event) =>
-                        setLines((rows) =>
-                          rows.map((row, i) =>
-                            i === index ? { ...row, isGift: event.target.checked } : row,
-                          ),
-                        )
-                      }
-                      className="size-4 accent-neutral-900"
-                    />
-                    Hediye
-                  </label>
-
-                  <span className="w-28 text-right text-sm tabular-nums">
-                    {line.isGift ? (
-                      <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
-                        Hediye
+                    {line.delivered ? (
+                      <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
+                        teslim edildi · degistirilemez
                       </span>
-                    ) : (
-                      formatKurus(safeKurus(line.unitPrice) * line.quantity, { currency })
-                    )}
+                    ) : null}
                   </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="text-red-600"
-                    onClick={() => setLines((rows) => rows.filter((_, i) => i !== index))}
-                  >
-                    Kaldir
-                  </Button>
-                  <ColorSelects
-                    parts={colorPartsOf(line)}
-                    colors={line.colors ?? {}}
-                    lineLabel={line.label}
-                    onChange={(stockItemId, code) => setLineColor(index, stockItemId, code)}
-                  />
+                  {line.delivered ? (
+                    // Teslim edilen mal geriye donuk degismez; satir yalnizca
+                    // bilgi olarak duruyor, toplama yine giriyor.
+                    <span className="text-sm tabular-nums text-neutral-600">
+                      {line.quantity} Ad. ·{' '}
+                      {line.isGift
+                        ? 'Hediye'
+                        : formatKurus(safeKurus(line.unitPrice) * line.quantity, { currency })}
+                    </span>
+                  ) : (
+                    <>
+                      <QuantityInput
+                        value={line.quantity}
+                        aria-label={`${line.label} adedi`}
+                        onValueChange={(quantity) =>
+                          setLines((rows) => rows.map((row, i) => (i === index ? { ...row, quantity } : row)))
+                        }
+                      />
+                      <Input
+                        value={line.unitPrice}
+                        onChange={(event) =>
+                          setLines((rows) =>
+                            rows.map((row, i) =>
+                              i === index ? { ...row, unitPrice: event.target.value } : row,
+                            ),
+                          )
+                        }
+                        placeholder="Birim fiyat"
+                        // Hediyede fiyat degistirilemez ama gorunur kalir: "bu
+                        // yastik 850 TL ama veriyoruz" bilgisi kayda geciyor.
+                        disabled={line.isGift}
+                        className="h-10 w-32 disabled:bg-neutral-50 disabled:text-neutral-400"
+                        aria-label="Birim fiyat"
+                      />
+
+                      <label className="flex select-none items-center gap-1.5 whitespace-nowrap text-sm">
+                        <input
+                          type="checkbox"
+                          checked={line.isGift}
+                          onChange={(event) =>
+                            setLines((rows) =>
+                              rows.map((row, i) =>
+                                i === index ? { ...row, isGift: event.target.checked } : row,
+                              ),
+                            )
+                          }
+                          className="size-4 accent-neutral-900"
+                        />
+                        Hediye
+                      </label>
+
+                      <span className="w-28 text-right text-sm tabular-nums">
+                        {line.isGift ? (
+                          <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
+                            Hediye
+                          </span>
+                        ) : (
+                          formatKurus(safeKurus(line.unitPrice) * line.quantity, { currency })
+                        )}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="text-red-600"
+                        onClick={() => setLines((rows) => rows.filter((_, i) => i !== index))}
+                      >
+                        Kaldir
+                      </Button>
+                      <ColorSelects
+                        parts={colorPartsOf(line)}
+                        colors={line.colors ?? {}}
+                        lineLabel={line.label}
+                        onChange={(stockItemId, code) => setLineColor(index, stockItemId, code)}
+                      />
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

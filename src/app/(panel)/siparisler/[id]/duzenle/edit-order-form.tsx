@@ -17,18 +17,9 @@ interface Props {
   salespeople: SalespersonOption[];
   catalog: OrderCatalog;
   rates?: Partial<Record<Currency, RateOption>>;
-  /** Teslimati baslamis sipariste satirlar gonderilmez. */
-  linesLocked: boolean;
 }
 
-export function EditOrderForm({
-  orderId,
-  initial,
-  salespeople,
-  catalog,
-  rates,
-  linesLocked,
-}: Props) {
+export function EditOrderForm({ orderId, initial, salespeople, catalog, rates }: Props) {
   async function submit(input: OrderSubmitInput) {
     return updateOrderAction(orderId, {
       orderDate: input.orderDate,
@@ -54,10 +45,9 @@ export function EditOrderForm({
       invoiceNo: input.invoiceNo ?? '',
       invoiceDate: input.invoiceDate ?? '',
       notes: input.notes ?? '',
-      // Teslimat baslamissa satirlari hic gondermiyoruz: alan katmani zaten
-      // reddederdi, ama gondermemek hatayi bastan onluyor ve kullanicinin
-      // yaptigi diger degisiklikler kaybolmuyor.
-      lines: linesLocked ? undefined : input.lines,
+      // Teslim edilen satirlar kimligiyle gidiyor; alan katmani onlari
+      // oldugu gibi korur, digerlerini yeniden yazar.
+      lines: input.lines,
     }).then((result) => ({ ...result, id: orderId }));
   }
 

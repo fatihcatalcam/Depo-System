@@ -121,7 +121,7 @@ describe('siparis duzenleme', () => {
   });
 
   /** Teslim edilmis mal geriye donuk degistirilemez. */
-  it('teslimati baslamis sipariste satirlar degistirilemez', async () => {
+  it('teslim edilen satir siparisten cikarilamaz', async () => {
     const { order, set } = await draftOrder();
     await confirmOrder(ctx.db, ctx.scope, order.id);
 
@@ -142,7 +142,7 @@ describe('siparis duzenleme', () => {
           },
         ],
       }),
-    ).rejects.toThrow('Teslimati baslamis');
+    ).rejects.toThrow('Teslim edilen satir');
 
     // Ama tarih ve adres yine duzeltilebilir olmali.
     await updateOrder(ctx.db, ctx.scope, order.id, {
@@ -152,5 +152,115 @@ describe('siparis duzenleme', () => {
     const after = await getOrder(ctx.db, ctx.scope, order.id);
     expect(after.plannedDeliveryDate).toBe('2026-08-25');
     expect(after.deliveryAddress).toBe('Yeni adres');
+  });
+});
+
+/**
+ * Kismen teslim: baza gitti, musteri yatagi degistirmek istiyor. Teslim
+ * edilen satir oldugu gibi kalir, digerleri degistirilebilir.
+ */
+describe('kismen teslim edilmis sipariste duzenleme', () => {
+  async function partialOrder() {
+    const tag = `KSM${(++sequence).toString().padStart(3, '0')}`;
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: tag, size: '160x200', stock: 10 });
+    const other = await makeBedSet(ctx.db, ctx.branchId, {
+      model: `${tag}B`,
+      size: '160x200',
+      stock: 10,
+    });
+    const customer = await createCustomer(ctx.db, ctx.scope, { name: `Musteri ${tag}` });
+    const order = await createOrder(ctx.db, ctx.scope, {
+      customerId: customer.id,
+      orderDate: '2026-10-20',
+      deliveryAddress: 'Adres',
+      lines: [
+        { itemType: 'stock_item', stockItemId: set.baza.id, quantity: 1, unitPriceKurus: 1_000_000 },
+        { itemType: 'stock_item', stockItemId: set.yatak.id, quantity: 1, unitPriceKurus: 2_000_000 },
+      ],
+    });
+    await confirmOrder(ctx.db, ctx.scope, order.id);
+    const detail = await getOrder(ctx.db, ctx.scope, order.id);
+    const bazaLine = detail.lines[0];
+    await createDelivery(ctx.db, ctx.scope, {
+      orderId: order.id,
+      lines: [{ orderLineComponentId: bazaLine.components[0].id, quantity: 1 }],
+    });
+    return { order, set, other, bazaLine };
+  }
+
+  it('teslim edilmeyen satir degisir, teslim edilen korunur', async () => {
+    const { order, set, other, bazaLine } = await partialOrder();
+
+    await updateOrder(ctx.db, ctx.scope, order.id, {
+      lines: [
+        // Teslim edilen satira gonderilen degisiklik yok sayilir.
+        {
+          id: bazaLine.id,
+          itemType: 'stock_item',
+          stockItemId: set.baza.id,
+          quantity: 5,
+          unitPriceKurus: 1,
+        },
+        { itemType: 'stock_item', stockItemId: other.yatak.id, quantity: 2, unitPriceKurus: 2_500_000 },
+      ],
+    });
+
+    const after = await getOrder(ctx.db, ctx.scope, order.id);
+    expect(after.status).toBe('partially_delivered');
+    expect(after.lines).toHaveLength(2);
+    const [baza, yatak] = after.lines;
+    expect(baza.id).toBe(bazaLine.id);
+    expect(baza.quantity).toBe(1);
+    expect(baza.unitPriceKurus).toBe(1_000_000);
+    expect(baza.components[0].deliveredQuantity).toBe(1);
+    expect(yatak.stockItemId).toBe(other.yatak.id);
+    expect(yatak.components[0]).toMatchObject({ stockItemId: other.yatak.id, totalQuantity: 2 });
+    expect(after.subtotalKurus).toBe(1_000_000 + 5_000_000);
+  });
+
+  it('kalan satir cikarilinca siparis teslim edilmis olur', async () => {
+    const { order, set, bazaLine } = await partialOrder();
+
+    await updateOrder(ctx.db, ctx.scope, order.id, {
+      lines: [
+        {
+          id: bazaLine.id,
+          itemType: 'stock_item',
+          stockItemId: set.baza.id,
+          quantity: 1,
+          unitPriceKurus: 1_000_000,
+        },
+      ],
+    });
+
+    const after = await getOrder(ctx.db, ctx.scope, order.id);
+    expect(after.status).toBe('delivered');
+    expect(after.subtotalKurus).toBe(1_000_000);
+  });
+
+  it('yeni satir teslim edilen satirin onune de eklenebilir', async () => {
+    const { order, set, other, bazaLine } = await partialOrder();
+
+    await updateOrder(ctx.db, ctx.scope, order.id, {
+      lines: [
+        { itemType: 'custom', description: 'Yastik', quantity: 2, unitPriceKurus: 50_000 },
+        {
+          id: bazaLine.id,
+          itemType: 'stock_item',
+          stockItemId: set.baza.id,
+          quantity: 1,
+          unitPriceKurus: 1_000_000,
+        },
+        { itemType: 'stock_item', stockItemId: other.yatak.id, quantity: 1, unitPriceKurus: 2_000_000 },
+      ],
+    });
+
+    const after = await getOrder(ctx.db, ctx.scope, order.id);
+    expect(after.lines.map((line) => line.description)).toEqual([
+      'Yastik',
+      bazaLine.description,
+      expect.stringContaining(`${other.yatak.name}`),
+    ]);
+    expect(after.status).toBe('partially_delivered');
   });
 });

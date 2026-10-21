@@ -52,6 +52,8 @@ function refresh(orderId?: string) {
 }
 
 const lineSchema = z.object({
+  /** Duzenlemede mevcut satir: teslim edilen satir bununla korunur. */
+  id: z.uuid().optional(),
   itemType: z.enum(['product', 'stock_item', 'custom']),
   productId: z.uuid().nullable().optional(),
   stockItemId: z.uuid().nullable().optional(),
@@ -279,6 +281,7 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
       invoiceNo: parsed.data.invoiceNo,
       invoiceDate: parsed.data.invoiceDate,
       lines: parsed.data.lines?.map((line) => ({
+        id: line.id,
         itemType: line.itemType,
         productId: line.productId ?? null,
         stockItemId: line.stockItemId ?? null,

@@ -70,9 +70,9 @@ export default async function SiparisDuzenlePage({
     .filter((person) => person.isActive || person.id === order.salespersonId)
     .map((person) => ({ id: person.id, name: person.name }));
 
-  const deliveredAny = order.lines.some((line) =>
-    line.components.some((component) => component.deliveredQuantity > 0),
-  );
+  const isDelivered = (line: OrderLineDetail) =>
+    line.components.some((component) => component.deliveredQuantity > 0);
+  const deliveredAny = order.lines.some(isDelivered);
 
   return (
     <div className="space-y-4">
@@ -85,15 +85,15 @@ export default async function SiparisDuzenlePage({
 
       {deliveredAny ? (
         <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          Bu siparisin bir kismi teslim edildi. Tarih, adres ve telefon
-          degistirilebilir; <strong>satirlar degistirilemez</strong> — teslim
-          edilmis mal geriye donuk degistirilemez.
+          Bu siparisin bir kismi teslim edildi. <strong>Teslim edilen satirlar
+          degistirilemez</strong>; teslim edilmeyenler degistirilebilir,
+          kaldirilabilir ve yeni satir eklenebilir. Bir takimin tek parcasi
+          gittiyse takimin tamami kilitli.
         </p>
       ) : null}
 
       <EditOrderForm
         orderId={id}
-        linesLocked={deliveredAny}
         salespeople={salespeople}
         catalog={catalog}
         rates={toRateOptions(rates)}
@@ -138,12 +138,18 @@ export default async function SiparisDuzenlePage({
           currencyLocked: order.status !== 'draft' || payments.length > 0,
           lines: order.lines.map((line) => ({
             key: line.id,
+            lineId: line.id,
+            delivered: isDelivered(line),
             itemType: line.itemType,
             productId: line.productId,
             stockItemId: line.stockItemId,
             // Aciklamadaki renk eki secimle tekrar yazilir; formda renk ayri
             // seciliyor, eki gostermek degistirince eskisini birakirdi.
-            label: line.colors.length > 0 ? baseLabel(catalog, line) : line.description,
+            // Teslim edilen satirda renk degismiyor; eki ile birlikte kalsin.
+            label:
+              line.colors.length > 0 && !isDelivered(line)
+                ? baseLabel(catalog, line)
+                : line.description,
             colors: Object.fromEntries(line.colors.map((color) => [color.baseStockItemId, color.code])),
             quantity: line.quantity,
             unitPrice: toTlInput(line.unitPriceKurus),

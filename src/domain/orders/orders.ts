@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, notInArray, or, sql } from 'drizzle-orm';
 import {
   branches,
   customers,
@@ -80,6 +80,12 @@ export interface OrderLineInput {
    * parca standart (renksiz) karttan gider.
    */
   colors?: LineColorInput[];
+  /**
+   * Duzenlemede mevcut satirin kimligi. Teslimati baslamis satir kimligiyle
+   * geri gonderilmeli; oldugu gibi korunur, gonderilen diger alanlari yok
+   * sayilir. Teslim edilmemis satirlar icin onemi yok: onlar yeniden yazilir.
+   */
+  id?: string;
 }
 
 /**
@@ -217,7 +223,7 @@ export async function createOrder(
       })
       .returning();
 
-    await insertLines(tx, order.id, resolved);
+    await insertLines(tx, order.id, numbered(resolved));
 
     // Kapora siparisle ayni transaction'a yaziliyor. Taslak siparise odeme
     // eklenmesi normalde yasak — ama kapora tam olarak bunun icin var: musteri
@@ -311,7 +317,11 @@ export interface UpdateOrderInput extends InvoiceInput {
    */
   manualTotalKurus?: number | null;
   notes?: string | null;
-  /** Verilirse satirlar tamamen bununla degistirilir. */
+  /**
+   * Verilirse satirlar bununla degistirilir. Teslimati baslamis satirlar
+   * (kismen teslim) kimligiyle listede yer almali ve degismeden kalir;
+   * digerleri silinip yeniden yazilir.
+   */
   lines?: OrderLineInput[];
 }
 
@@ -331,10 +341,7 @@ export async function updateOrder(
       );
     }
 
-    if (input.lines) {
-      validateLines(input.lines);
-      await assertNothingDelivered(tx, id);
-    }
+    if (input.lines) validateLines(input.lines);
 
     const address = input.deliveryAddress?.trim() ?? existing.deliveryAddress;
     if (address === '') throw new DomainError('Teslimat adresi bos olamaz.', 'INVALID_INPUT');
@@ -352,13 +359,54 @@ export async function updateOrder(
     let subtotal = existing.subtotalKurus;
 
     if (input.lines) {
-      const resolved = await resolveLines(tx, input.lines);
-      // Satirlar degisti: bilesenler de yeniden yazilmali. Cascade ile
-      // eski bilesenler siliniyor, onayliysa yenileri donduruluyor.
-      await tx.delete(orderLines).where(eq(orderLines.orderId, id));
-      await insertLines(tx, id, resolved);
-      if (existing.status !== 'draft') await freezeComponents(tx, id);
-      subtotal = sumLines(resolved);
+      // Teslim edilen mal geriye donuk degismez: o satirlar oldugu gibi
+      // kalir. Musteri gonderilmemis parcayi degistirmek isteyebilir (baza
+      // gitti, yatak degisiyor); geri kalan satirlar bunun icin serbest.
+      const kept = await deliveredLines(tx, id);
+      const keptIds = new Set(kept.map((line) => line.id));
+      for (const lineId of keptIds) {
+        if (input.lines.filter((line) => line.id === lineId).length !== 1) {
+          throw new DomainError(
+            'Teslim edilen satir siparisten cikarilamaz.',
+            'ALREADY_DELIVERED',
+          );
+        }
+      }
+      const isKept = (line: OrderLineInput) => line.id !== undefined && keptIds.has(line.id);
+      const resolved = await resolveLines(tx, input.lines.filter((line) => !isKept(line)));
+
+      // Teslim edilmemis satirlar siliniyor; cascade bilesenlerini de
+      // goturur. Onlarda teslimat satiri yok, silinmeleri guvenli.
+      await tx
+        .delete(orderLines)
+        .where(
+          and(
+            eq(orderLines.orderId, id),
+            keptIds.size > 0 ? notInArray(orderLines.id, [...keptIds]) : undefined,
+          ),
+        );
+
+      // Satir sirasi formdaki gibi: korunan satirlar araya da dusebilir.
+      const fresh: NumberedLine[] = [];
+      let next = 0;
+      for (const [index, line] of input.lines.entries()) {
+        if (isKept(line)) {
+          await tx
+            .update(orderLines)
+            .set({ lineNo: index + 1 })
+            .where(eq(orderLines.id, line.id as string));
+        } else {
+          fresh.push({ ...resolved[next++], lineNo: index + 1 });
+        }
+      }
+      const insertedIds = await insertLines(tx, id, fresh);
+      if (existing.status !== 'draft') {
+        await freezeComponents(tx, id, insertedIds);
+        // Kalan satirlarin hepsi cikarildiysa siparis artik teslim edilmis;
+        // yeni satir eklendiyse kismen teslime doner.
+        await recalcOrderStatus(tx, id);
+      }
+      subtotal = kept.reduce((sum, line) => sum + line.lineTotalKurus, 0) + sumLines(resolved);
     }
 
     const totals = resolveTotals(
@@ -981,11 +1029,21 @@ async function resolveLines(tx: Tx, lines: OrderLineInput[]): Promise<ResolvedLi
   });
 }
 
-async function insertLines(tx: Tx, orderId: string, lines: ResolvedLine[]) {
+interface NumberedLine extends ResolvedLine {
+  lineNo: number;
+}
+
+function numbered(lines: ResolvedLine[]): NumberedLine[] {
+  return lines.map((line, index) => ({ ...line, lineNo: index + 1 }));
+}
+
+/** Satirlari yazar, eklenen satirlarin kimliklerini doner. */
+async function insertLines(tx: Tx, orderId: string, lines: NumberedLine[]): Promise<string[]> {
+  if (lines.length === 0) return [];
   const inserted = await tx.insert(orderLines).values(
-    lines.map((line, index) => ({
+    lines.map((line) => ({
       orderId,
-      lineNo: index + 1,
+      lineNo: line.lineNo,
       itemType: line.itemType,
       productId: line.itemType === 'product' ? (line.productId as string) : null,
       stockItemId: line.itemType === 'stock_item' ? (line.stockItemId as string) : null,
@@ -997,19 +1055,31 @@ async function insertLines(tx: Tx, orderId: string, lines: ResolvedLine[]) {
     })),
   ).returning({ id: orderLines.id, lineNo: orderLines.lineNo });
 
+  const byNo = new Map(lines.map((line) => [line.lineNo, line]));
   const colors = inserted.flatMap((row) =>
-    (lines[row.lineNo - 1].colors ?? []).map((color) => ({
+    (byNo.get(row.lineNo)?.colors ?? []).map((color) => ({
       orderLineId: row.id,
       baseStockItemId: color.baseStockItemId,
       colorCode: color.code,
     })),
   );
   if (colors.length > 0) await tx.insert(orderLineColors).values(colors);
+  return inserted.map((row) => row.id);
 }
 
-/** Urun recetelerini siparis satirlarina kopyalar (dondurma). */
-async function freezeComponents(tx: Tx, orderId: string) {
-  const lines = await tx.select().from(orderLines).where(eq(orderLines.orderId, orderId));
+/**
+ * Urun recetelerini siparis satirlarina kopyalar (dondurma). `lineIds`
+ * verilirse yalnizca o satirlar: teslimati baslamis satirin bilesenine
+ * teslimat satiri bagli, yeniden yazilamaz.
+ */
+async function freezeComponents(tx: Tx, orderId: string, lineIds?: string[]) {
+  if (lineIds?.length === 0) return;
+  const lines = await tx
+    .select()
+    .from(orderLines)
+    .where(
+      and(eq(orderLines.orderId, orderId), lineIds ? inArray(orderLines.id, lineIds) : undefined),
+    );
   if (lines.length === 0) return;
 
   await tx.delete(orderLineComponents).where(
@@ -1081,19 +1151,13 @@ async function freezeComponents(tx: Tx, orderId: string) {
   if (values.length > 0) await tx.insert(orderLineComponents).values(values);
 }
 
-async function assertNothingDelivered(tx: Tx, orderId: string) {
-  const rows = await tx
-    .select({ delivered: orderLineComponents.deliveredQuantity })
-    .from(orderLineComponents)
-    .innerJoin(orderLines, eq(orderLines.id, orderLineComponents.orderLineId))
+/** Teslimati baslamis satirlar: duzenlemede degismeden kalirlar. */
+async function deliveredLines(tx: Tx, orderId: string) {
+  return tx
+    .selectDistinct({ id: orderLines.id, lineTotalKurus: orderLines.lineTotalKurus })
+    .from(orderLines)
+    .innerJoin(orderLineComponents, eq(orderLineComponents.orderLineId, orderLines.id))
     .where(and(eq(orderLines.orderId, orderId), sql`${orderLineComponents.deliveredQuantity} > 0`));
-
-  if (rows.length > 0) {
-    throw new DomainError(
-      'Teslimati baslamis siparisin satirlari degistirilemez.',
-      'ALREADY_DELIVERED',
-    );
-  }
 }
 
 function sumLines(lines: ResolvedLine[]): number {
