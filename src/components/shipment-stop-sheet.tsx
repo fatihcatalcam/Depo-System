@@ -85,7 +85,10 @@ export function ShipmentStopSheet({
         </div>
       </div>
 
-      <table className="w-full border-collapse text-sm">
+      {/* Inecek mal sofor icin telefon kadar onemli: arac basinda, kamyonun
+          kasasinda okunuyor. Adet adin onunde - en sagda kaliyordu, satir
+          okunurken gozden kaciyordu - ve yazi telefonlar kadar buyuk, kalin. */}
+      <table className="w-full border-collapse text-lg font-bold leading-snug">
         <tbody>
           {stop.items.map((item, itemIndex) => (
             // Serbest satirin stok karti yok; kimligi bos olabilir.
@@ -93,16 +96,16 @@ export function ShipmentStopSheet({
               key={`${item.stockItemId ?? item.stockItemName}-${itemIndex}`}
               className="border-t border-neutral-200"
             >
-              <td className="w-8 py-1">
-                <span className="inline-block h-3.5 w-3.5 border border-neutral-500" />
+              <td className="w-8 py-1.5 align-top">
+                <span className="mt-1 inline-block h-4 w-4 border-2 border-neutral-600" />
               </td>
-              <td className="py-1">
+              <td className="w-px whitespace-nowrap py-1.5 pr-3 align-top tabular-nums">
+                {item.quantity} Ad.
+              </td>
+              <td className="py-1.5 align-top">
                 {item.stockItemName}
                 {item.sizeLabel ? ` · ${item.sizeLabel}` : ''}
                 {item.variantLabel ? ` · ${item.variantLabel}` : ''}
-              </td>
-              <td className="w-16 py-1 text-right font-bold tabular-nums">
-                {item.quantity}
               </td>
             </tr>
           ))}
