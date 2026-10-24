@@ -12,6 +12,7 @@ import { updateCompanyInfo } from '@/domain/settings';
 import { recalculateStockBalances } from '@/domain/stock/maintenance';
 import { currentScope, currentUser } from '@/lib/auth/current';
 import { isStockLocked } from '@/lib/auth/locks';
+import { isDemo } from '@/lib/demo';
 import { DomainError } from '@/lib/errors';
 
 export interface ActionResult {
@@ -26,6 +27,13 @@ function toResult(error: unknown): ActionResult {
   return { ok: false, error: 'Beklenmeyen bir hata oluştu.' };
 }
 
+/**
+ * Demoda kapali olanlar: firma bilgisi ve parolalar (ziyaretciler ortak
+ * kullaniyor, biri degistirirse herkesin demosu bozulur) ve Excel'den ice
+ * aktarma (disaridan dosya alinmiyor). Ekranda da gizli; bu ikinci kat.
+ */
+const DEMO_CLOSED: ActionResult = { ok: false, error: 'Demoda kapalı.' };
+
 const companySchema = z.object({
   companyName: z.string().min(1, 'Firma adı girin.'),
   address: z.string().optional(),
@@ -35,6 +43,7 @@ const companySchema = z.object({
 });
 
 export async function updateCompanyAction(input: unknown): Promise<ActionResult> {
+  if (isDemo()) return DEMO_CLOSED;
   const parsed = companySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -60,6 +69,7 @@ const passwordSchema = z
 
 /** Oturumu acik olan subenin kendi giris parolasi — mevcut parola sorulur. */
 export async function changePasswordAction(input: unknown): Promise<ActionResult> {
+  if (isDemo()) return DEMO_CLOSED;
   const parsed = passwordSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -94,6 +104,7 @@ const unlockPasswordSchema = z
  * verdigi tek bir anahtar. Unutuldugunda merkezden yenisi konulabilmeli.
  */
 export async function setUnlockPasswordAction(input: unknown): Promise<ActionResult> {
+  if (isDemo()) return DEMO_CLOSED;
   const parsed = unlockPasswordSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -126,6 +137,7 @@ const branchNameSchema = z.object({
 });
 
 export async function renameBranchAction(input: unknown): Promise<ActionResult> {
+  if (isDemo()) return DEMO_CLOSED;
   const parsed = branchNameSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -146,6 +158,7 @@ const branchPasswordSchema = z.object({
 });
 
 export async function setBranchPasswordAction(input: unknown): Promise<ActionResult> {
+  if (isDemo()) return DEMO_CLOSED;
   const parsed = branchPasswordSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -194,6 +207,7 @@ export async function importExcelAction(
   kind: 'musteri' | 'stok' | 'sayim',
   formData: FormData,
 ): Promise<ImportActionResult> {
+  if (isDemo()) return DEMO_CLOSED;
   const file = formData.get('file');
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: 'Bir Excel dosyası seçin.' };

@@ -3,6 +3,7 @@ import { listBranches } from '@/domain/branches';
 import { countPaletteItems, listPalettes } from '@/domain/catalog/colors';
 import { ensureSettings, getSettings } from '@/domain/settings';
 import { currentUser } from '@/lib/auth/current';
+import { isDemo } from '@/lib/demo';
 import {
   BranchPanel,
   ColorPalettesPanel,
@@ -20,6 +21,8 @@ const EXPORTS = [
 ];
 
 export default async function AyarlarPage() {
+  // Demoda firma bilgisi, parolalar ve Excel'den ice aktarma kapali; eylemler de reddediyor.
+  const demo = isDemo();
   await ensureSettings(db, process.env.INITIAL_APP_PASSWORD ?? 'depo2026');
   const [settings, user, branches, palettes, paletteItems] = await Promise.all([
     getSettings(db),
@@ -38,21 +41,30 @@ export default async function AyarlarPage() {
         </p>
       </div>
 
-      {user.isCentral ? <BranchPanel branches={branches} /> : null}
+      {demo ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          Demoda firma bilgisi, parolalar ve Excel&apos;den içe aktarma kapalı. Dışa aktarma ve
+          renk kartelaları açık.
+        </p>
+      ) : (
+        <>
+          {user.isCentral ? <BranchPanel branches={branches} /> : null}
 
-      <CompanyPanel
-        initial={{
-          companyName: settings.companyName,
-          address: settings.address ?? '',
-          phone: settings.phone ?? '',
-          email: settings.email ?? '',
-          taxInfo: settings.taxInfo ?? '',
-        }}
-      />
+          <CompanyPanel
+            initial={{
+              companyName: settings.companyName,
+              address: settings.address ?? '',
+              phone: settings.phone ?? '',
+              email: settings.email ?? '',
+              taxInfo: settings.taxInfo ?? '',
+            }}
+          />
 
-      <PasswordPanel />
+          <PasswordPanel />
 
-      {user.isCentral ? <UnlockPasswordPanel /> : null}
+          {user.isCentral ? <UnlockPasswordPanel /> : null}
+        </>
+      )}
 
       {user.isCentral ? (
         <ColorPalettesPanel
@@ -83,7 +95,7 @@ export default async function AyarlarPage() {
         </div>
       </section>
 
-      <ImportPanel />
+      {demo ? null : <ImportPanel />}
       <MaintenancePanel />
     </div>
   );

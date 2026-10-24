@@ -1,0 +1,198 @@
+[
+  {
+    "id": "foto",
+    "waybillNo": "DEMO-2026-0517",
+    "date": "2026-10-23",
+    "supplierName": "ORNEK YATAK FABRIKASI A.S.",
+    "lines": [
+      {
+        "text": "LUNA VISCO YATAK 160X200",
+        "card": {
+          "name": "LUNA VISCO YATAK",
+          "sizeLabel": "160x200"
+        },
+        "quantity": 4,
+        "unitPrice": 4700,
+        "suggestion": null
+      },
+      {
+        "text": "LUNA VISCO BAZA 160*200",
+        "card": {
+          "name": "LUNA VISCO BAZA",
+          "sizeLabel": "160x200"
+        },
+        "quantity": 4,
+        "unitPrice": 2820,
+        "suggestion": null
+      },
+      {
+        "text": "LUNA VISCO BASLIK 160 CM",
+        "card": {
+          "name": "LUNA VISCO BASLIK",
+          "sizeLabel": "160 CM"
+        },
+        "quantity": 4,
+        "unitPrice": 1880,
+        "suggestion": null
+      },
+      {
+        "text": "ZEN BAMBU YATAK 180X200",
+        "card": {
+          "name": "ZEN BAMBU YATAK",
+          "sizeLabel": "180x200"
+        },
+        "quantity": 2,
+        "unitPrice": 4300,
+        "suggestion": null
+      },
+      {
+        "text": "NOVA ORTP. YATAK 090X190",
+        "card": {
+          "name": "NOVA ORTOPEDIK YATAK",
+          "sizeLabel": "090x190"
+        },
+        "quantity": 3,
+        "unitPrice": 3900,
+        "suggestion": null
+      },
+      {
+        "text": "ORKIDE PEDLI YATAK 150X200",
+        "card": null,
+        "quantity": 2,
+        "unitPrice": 3400,
+        "suggestion": {
+          "name": "ORKİDE PEDLİ YATAK",
+          "sizeLabel": "150x200",
+          "category": "Yatak"
+        }
+      }
+    ]
+  },
+  {
+    "id": "pdf",
+    "waybillNo": "ORN2026000000823",
+    "date": "2026-10-21",
+    "supplierName": "ÖRNEK YATAK FABRİKASI A.Ş.",
+    "lines": [
+      {
+        "text": "ELIT YAYLI YATAK 160X200 NATURA",
+        "card": {
+          "name": "ELIT YAYLI YATAK",
+          "sizeLabel": "160x200"
+        },
+        "quantity": 3,
+        "unitPrice": 2700,
+        "suggestion": null
+      },
+      {
+        "text": "ELIT YAYLI BAZA 160X200 R:GR-02",
+        "card": {
+          "name": "ELIT YAYLI BAZA",
+          "sizeLabel": "160x200"
+        },
+        "quantity": 2,
+        "unitPrice": 1620,
+        "suggestion": null
+      },
+      {
+        "text": "ELIT YAYLI BASLIK 160 CM R:GR-02",
+        "card": {
+          "name": "ELIT YAYLI BASLIK",
+          "sizeLabel": "160 CM"
+        },
+        "quantity": 2,
+        "unitPrice": 1080,
+        "suggestion": null
+      },
+      {
+        "text": "MELODI LATEKS YATAK 160X200",
+        "card": {
+          "name": "MELODI LATEKS YATAK",
+          "sizeLabel": "160x200"
+        },
+        "quantity": 2,
+        "unitPrice": 5600,
+        "suggestion": null
+      },
+      {
+        "text": "ARYA PEDLI BAZA 160X200 R:BJ-11",
+        "card": {
+          "name": "ARYA PEDLI BAZA",
+          "sizeLabel": "160x200"
+        },
+        "quantity": 2,
+        "unitPrice": 1860,
+        "suggestion": null
+      },
+      {
+        "text": "VEGA AIR YATAK 180X200",
+        "card": {
+          "name": "VEGA AIR YATAK",
+          "sizeLabel": "180x200"
+        },
+        "quantity": 1,
+        "unitPrice": 3600,
+        "suggestion": null
+      }
+    ]
+  },
+  {
+    "id": "excel",
+    "waybillNo": null,
+    "date": null,
+    "supplierName": null,
+    "lines": [
+      {
+        "text": "PAMUK YASTIK 50X70",
+        "card": {
+          "name": "PAMUK YASTIK",
+          "sizeLabel": "50x70"
+        },
+        "quantity": 12,
+        "unitPrice": null,
+        "suggestion": null
+      },
+      {
+        "text": "VISCO YASTIK 40X60",
+        "card": {
+          "name": "VISCO YASTIK",
+          "sizeLabel": "40x60"
+        },
+        "quantity": 10,
+        "unitPrice": null,
+        "suggestion": null
+      },
+      {
+        "text": "SIVI GECIRMEZ ALEZ 160X200",
+        "card": {
+          "name": "SIVI GECIRMEZ ALEZ",
+          "sizeLabel": "160x200"
+        },
+        "quantity": 6,
+        "unitPrice": null,
+        "suggestion": null
+      },
+      {
+        "text": "CIFT KISILIK YORGAN 195X215",
+        "card": {
+          "name": "CIFT KISILIK YORGAN",
+          "sizeLabel": "195x215"
+        },
+        "quantity": 4,
+        "unitPrice": null,
+        "suggestion": null
+      },
+      {
+        "text": "BAMBU YASTIK 50X70",
+        "card": null,
+        "quantity": 8,
+        "unitPrice": null,
+        "suggestion": {
+          "name": "BAMBU YASTIK",
+          "sizeLabel": "50x70",
+          "category": "Aksesuar"
+        }
+      }
+    ]
+  }
+]

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { db } from '@/db/client';
 import { colorCodesForItems } from '@/domain/catalog/colors';
 import { findTwinCards, searchStockItems } from '@/domain/catalog/stock-items';
+import { readDemoReceiptSample } from '@/domain/demo/receipt-samples';
 import { createGoodsReceipt } from '@/domain/goods-receipt';
 import { createSupplier } from '@/domain/parties/parties';
 import {
@@ -17,6 +18,7 @@ import {
 import { parseReceiptSpreadsheet, SpreadsheetError } from '@/domain/receipt-spreadsheet';
 import { readFirstSheet, XlsxError } from '@/lib/xlsx-reader';
 import { currentScope } from '@/lib/auth/current';
+import { isDemo } from '@/lib/demo';
 import { DomainError } from '@/lib/errors';
 import { parseTlInput } from '@/lib/money';
 
@@ -176,6 +178,8 @@ const MAX_DOCUMENT_BYTES = 3.8 * 1024 * 1024;
 export async function readReceiptDocumentAction(formData: FormData): Promise<ReadResult> {
   // Oturum kontrolu: disaridan cagrilip yapay zeka faturasi sisirilmesin.
   await currentScope();
+  // Demoda disaridan dosya alinmiyor; hazir ornekler readDemoReceiptAction ile.
+  if (isDemo()) return { ok: false, error: 'Demoda dosya yüklenmiyor; hazır örneklerden birini seçin.' };
 
   const file = formData.get('document');
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Belge seçilmedi.' };
@@ -205,6 +209,13 @@ export async function readReceiptDocumentAction(formData: FormData): Promise<Rea
     console.error(error);
     return { ok: false, error: 'Belge okunamadı.' };
   }
+}
+
+/** Demonun hazir irsaliyeleri: kayitli okuma sonucu, o geceki kartlara cevrilmis. */
+export async function readDemoReceiptAction(sampleId: string): Promise<ReadResult> {
+  await currentScope();
+  if (!isDemo()) return { ok: false, error: 'Örnekler yalnızca demoda var.' };
+  return withColorCodes(await readDemoReceiptSample(db, sampleId));
 }
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';

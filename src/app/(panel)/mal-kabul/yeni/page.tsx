@@ -1,8 +1,10 @@
 import { flattenCategories } from '@/components/category-select';
 import { db } from '@/db/client';
+import { DEMO_RECEIPT_SAMPLES } from '@/domain/demo/receipt-samples';
 import { listCategoryTree } from '@/domain/catalog/categories';
 import { listSuppliers } from '@/domain/parties/parties';
 import { isReceiptReaderConfigured } from '@/domain/receipt-reader';
+import { isDemo } from '@/lib/demo';
 import { ReceiptForm } from './receipt-form';
 
 export default async function YeniMalKabulPage() {
@@ -20,6 +22,7 @@ export default async function YeniMalKabulPage() {
         suppliers={suppliers}
         categories={flattenCategories(categoryTree)}
         aiEnabled={isReceiptReaderConfigured()}
+        samples={isDemo() ? DEMO_RECEIPT_SAMPLES : null}
       />
     </div>
   );

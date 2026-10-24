@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { del, list, put } from '@vercel/blob';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createDump, createPool, dumpSummary } from '@/domain/backup';
+import { isDemo } from '@/lib/demo';
 
 /**
  * Gunluk otomatik yedek.
@@ -42,6 +43,8 @@ function authorized(request: NextRequest): boolean {
 }
 
 export async function GET(request: NextRequest) {
+  // Demonun yedegi yok: veri her gece zaten sifirlaniyor, Blob deposu da bagli degil.
+  if (isDemo()) return NextResponse.json({ error: 'Bulunamadı.' }, { status: 404 });
   if (!authorized(request)) {
     return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
   }

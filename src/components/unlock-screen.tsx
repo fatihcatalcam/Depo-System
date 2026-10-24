@@ -8,6 +8,7 @@ import { unlockAction } from '@/app/(panel)/kilit-actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { LockArea } from '@/lib/auth/locks';
+import { DEMO_UNLOCK_PASSWORD, isDemo } from '@/lib/demo';
 
 interface Props {
   area: LockArea;
@@ -30,6 +31,12 @@ export function UnlockScreen({ area, title, description }: Props) {
       <div>
         <h1 className="text-lg font-semibold">{title}</h1>
         <p className="mt-1 text-sm text-neutral-500">{description}</p>
+        {/* Demoda kilit ozelligi gorunsun ama ziyaretci takilmasin. */}
+        {isDemo() ? (
+          <p className="mt-2 rounded-md bg-amber-100 px-2 py-1 text-sm text-amber-950">
+            Demo parolası: <strong className="font-mono">{DEMO_UNLOCK_PASSWORD}</strong>
+          </p>
+        ) : null}
       </div>
 
       <form

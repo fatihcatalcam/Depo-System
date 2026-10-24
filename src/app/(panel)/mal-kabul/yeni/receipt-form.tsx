@@ -10,11 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Supplier } from '@/domain/parties/parties';
+import type { ReadResult } from '@/domain/receipt-reader';
 import { shrinkImage } from '@/lib/shrink-image';
 import { foldText, stockCardKey } from '@/lib/text';
 import {
   createGoodsReceiptAction,
   findStockItemsAction,
+  readDemoReceiptAction,
   readReceiptDocumentAction,
 } from '../actions';
 import { MissingItems, type MissingRow } from './missing-items';
@@ -90,9 +92,18 @@ interface Props {
   categories: { id: string; label: string }[];
   /** OPENAI_API_KEY tanimli mi; degilse "belgeden oku" kapali. */
   aiEnabled: boolean;
+  /** Yalnizca demoda: dosya yukleme yerine secilen hazir irsaliyeler. */
+  samples?: readonly DemoSample[] | null;
 }
 
-export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
+interface DemoSample {
+  id: string;
+  label: string;
+  detail: string;
+  href: string;
+}
+
+export function ReceiptForm({ suppliers, categories, aiEnabled, samples }: Props) {
   const [supplierId, setSupplierId] = useState('');
   const [waybillNo, setWaybillNo] = useState('');
   const [receivedAt, setReceivedAt] = useState(() => new Date().toISOString().slice(0, 10));
@@ -109,14 +120,22 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
   // adedini ve fiyatini alsin.
   const [resolving, setResolving] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [sampleId, setSampleId] = useState(samples?.[0]?.id ?? '');
   const router = useRouter();
 
   async function readDocument(file: File) {
-    setReading(true);
-    try {
+    await readWith(async () => {
       const formData = new FormData();
       formData.set('document', await shrinkImage(file));
-      const result = await readReceiptDocumentAction(formData);
+      return readReceiptDocumentAction(formData);
+    });
+  }
+
+  /** Okuma sonucunu forma doldurur; belge de demo ornegi de buradan gecer. */
+  async function readWith(load: () => Promise<ReadResult>) {
+    setReading(true);
+    try {
+      const result = await load();
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -334,32 +353,42 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
       >
         {/* Irsaliyeyi okuyup formu doldurur; stoga yazmaz. Kayit asagidaki
             dugmeyle, kullanici kontrol ettikten sonra. */}
-        <div className="space-y-2 rounded-lg border border-dashed border-neutral-300 bg-white p-4">
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,application/pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void readDocument(file);
-            }}
+        {samples ? (
+          <DemoSamplePicker
+            samples={samples}
+            selected={sampleId}
+            onSelect={setSampleId}
+            reading={reading}
+            onRead={() => void readWith(() => readDemoReceiptAction(sampleId))}
           />
-          <Button
-            type="button"
-            className="h-11 gap-2"
-            disabled={!aiEnabled || reading}
-            onClick={() => fileInput.current?.click()}
-          >
-            <FileScan className="size-4" />
-            {reading ? 'Belge okunuyor...' : 'Belgeden oku (yapay zekâ)'}
-          </Button>
-          <p className="text-xs text-neutral-500">
-            {aiEnabled
-              ? 'İrsaliyenin Excel\'ini, fotoğrafını ya da PDF\'ini seçin; satırlar forma dolar. Stoğa girmez — kontrol edip kaydedince girer.'
-              : 'Yapay zekâ ayarlı değil: Vercel\'de OPENAI_API_KEY tanımlanmalı.'}
-          </p>
-        </div>
+        ) : (
+          <div className="space-y-2 rounded-lg border border-dashed border-neutral-300 bg-white p-4">
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void readDocument(file);
+              }}
+            />
+            <Button
+              type="button"
+              className="h-11 gap-2"
+              disabled={!aiEnabled || reading}
+              onClick={() => fileInput.current?.click()}
+            >
+              <FileScan className="size-4" />
+              {reading ? 'Belge okunuyor...' : 'Belgeden oku (yapay zekâ)'}
+            </Button>
+            <p className="text-xs text-neutral-500">
+              {aiEnabled
+                ? 'İrsaliyenin Excel\'ini, fotoğrafını ya da PDF\'ini seçin; satırlar forma dolar. Stoğa girmez — kontrol edip kaydedince girer.'
+                : 'Yapay zekâ ayarlı değil: Vercel\'de OPENAI_API_KEY tanımlanmalı.'}
+            </p>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -603,5 +632,70 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
         </Button>
       </form>
     </>
+  );
+}
+
+/**
+ * Demoda dosya yukleme yerine: uc hazir irsaliye. Ziyaretci birini secip
+ * okutur; belgeyi yeni sekmede acip neyin okundugunu karsilastirabilir.
+ */
+function DemoSamplePicker({
+  samples,
+  selected,
+  onSelect,
+  reading,
+  onRead,
+}: {
+  samples: readonly DemoSample[];
+  selected: string;
+  onSelect: (id: string) => void;
+  reading: boolean;
+  onRead: () => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-dashed border-neutral-300 bg-white p-4">
+      <p className="text-sm font-medium">Örnek irsaliye seçin</p>
+      <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Örnek irsaliye">
+        {samples.map((sample) => (
+          <label
+            key={sample.id}
+            className={`flex cursor-pointer items-start gap-1.5 rounded-md border p-2 text-sm ${
+              selected === sample.id ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200'
+            }`}
+          >
+            <input
+              type="radio"
+              name="demo-sample"
+              value={sample.id}
+              checked={selected === sample.id}
+              onChange={() => onSelect(sample.id)}
+              className="mt-0.5"
+            />
+            <span className="min-w-0">
+              <span className="block font-medium">{sample.label}</span>
+              {/* Telefonda uc kutu yan yana sigsin: aciklama yalnizca genis ekranda. */}
+              <span className="hidden text-xs text-neutral-500 sm:block">{sample.detail}</span>
+              <a
+                href={sample.href}
+                target="_blank"
+                rel="noopener"
+                className="text-xs text-neutral-600 underline"
+                onClick={(event) => event.stopPropagation()}
+              >
+                Belgeyi aç
+              </a>
+            </span>
+          </label>
+        ))}
+      </div>
+      <Button type="button" className="h-11 gap-2" disabled={reading || !selected} onClick={onRead}>
+        <FileScan className="size-4" />
+        {reading ? 'Belge okunuyor...' : 'Belgeden oku (yapay zekâ)'}
+      </Button>
+      <p className="text-xs text-neutral-500">
+        Demoda dosya yüklenmiyor. Bu örnekler gerçek okuyucuyla bir kez okundu; sonuç kayıtlı. Satırlar
+        forma dolar, stoğa girmez — kontrol edip kaydedince girer.
+      </p>
+    </div>
   );
 }

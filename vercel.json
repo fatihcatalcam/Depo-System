@@ -8,6 +8,10 @@
     {
       "path": "/api/kur",
       "schedule": "0 6 * * 1-5"
+    },
+    {
+      "path": "/api/demo-sifirla",
+      "schedule": "0 0 * * *"
     }
   ]
 }
