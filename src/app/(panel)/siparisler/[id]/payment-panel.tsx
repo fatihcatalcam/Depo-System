@@ -64,21 +64,21 @@ export function PaymentPanel({
 
   return (
     <div className="space-y-4 rounded-lg border border-neutral-200 bg-white p-4">
-      <h2 className="text-sm font-semibold">Odemeler</h2>
+      <h2 className="text-sm font-semibold">Ödemeler</h2>
 
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between">
-          <dt className="text-neutral-600">Siparis tutari</dt>
+          <dt className="text-neutral-600">Sipariş tutarı</dt>
           <dd className="tabular-nums">{formatKurus(totalKurus, { currency })}</dd>
         </div>
         {depositKurus > 0 ? (
           <div className="flex justify-between">
-            <dt className="text-neutral-600">Alinan ucret (kapora)</dt>
+            <dt className="text-neutral-600">Alınan ücret (kapora)</dt>
             <dd className="tabular-nums text-green-700">{formatKurus(depositKurus, { currency })}</dd>
           </div>
         ) : null}
         <div className="flex justify-between">
-          <dt className="text-neutral-600">Odenen</dt>
+          <dt className="text-neutral-600">Ödenen</dt>
           <dd className="tabular-nums text-green-700">{formatKurus(paidKurus, { currency })}</dd>
         </div>
         <div className="flex justify-between border-t border-neutral-200 pt-1 text-base font-semibold">
@@ -114,11 +114,11 @@ export function PaymentPanel({
                 className="text-red-600"
                 disabled={pending}
                 onClick={() => {
-                  if (window.confirm('Bu odeme kaydi silinsin mi?')) {
+                  if (window.confirm('Bu ödeme kaydı silinsin mi?')) {
                     startTransition(async () => {
                       const result = await deletePaymentAction(orderId, payment.id);
                       if (result.ok) {
-                        toast.success('Odeme silindi.');
+                        toast.success('Ödeme silindi.');
                         router.refresh();
                       } else {
                         toast.error(result.error ?? 'Silinemedi.');
@@ -149,13 +149,13 @@ export function PaymentPanel({
                 notes: notes || undefined,
               });
               if (result.ok) {
-                toast.success(isDeposit ? 'Kapora kaydedildi.' : 'Odeme kaydedildi.');
+                toast.success(isDeposit ? 'Kapora kaydedildi.' : 'Ödeme kaydedildi.');
                 setAmount('');
                 setInstallments(null);
                 setNotes('');
                 router.refresh();
               } else {
-                toast.error(result.error ?? 'Odeme kaydedilemedi.');
+                toast.error(result.error ?? 'Ödeme kaydedilemedi.');
               }
             });
           }}
@@ -178,7 +178,7 @@ export function PaymentPanel({
                   className="h-11 whitespace-nowrap"
                   onClick={() => setAmount(kurusToTl(balanceKurus).toFixed(2).replace('.', ','))}
                 >
-                  Kalani yaz
+                  Kalanı yaz
                 </Button>
               ) : null}
             </div>
@@ -186,7 +186,7 @@ export function PaymentPanel({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="payment-method">Yontem</Label>
+              <Label htmlFor="payment-method">Yöntem</Label>
               <select
                 id="payment-method"
                 value={method}
@@ -211,7 +211,7 @@ export function PaymentPanel({
                   }
                   className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm"
                 >
-                  <option value="">Tek cekim</option>
+                  <option value="">Tek çekim</option>
                   {INSTALLMENT_OPTIONS.map((count) => (
                     <option key={count} value={count}>
                       {count} taksit
@@ -243,12 +243,12 @@ export function PaymentPanel({
               disabled={depositOnly}
               className="size-4 accent-neutral-900"
             />
-            Alinan ucret (kapora)
+            Alınan ücret (kapora)
           </label>
           {depositOnly ? (
             <p className="text-xs text-neutral-500">
-              Siparis henuz taslak. Bu asamada yalnizca kapora alinabilir;
-              kalan tahsilat siparis onaylandiktan sonra girilir.
+              Sipariş henüz taslak. Bu aşamada yalnızca kapora alınabilir;
+              kalan tahsilat sipariş onaylandıktan sonra girilir.
             </p>
           ) : null}
 
@@ -263,12 +263,12 @@ export function PaymentPanel({
           </div>
 
           <Button type="submit" disabled={pending} className="h-11 w-full">
-            {pending ? 'Kaydediliyor...' : isDeposit ? 'Kapora ekle' : 'Odeme ekle'}
+            {pending ? 'Kaydediliyor...' : isDeposit ? 'Kapora ekle' : 'Ödeme ekle'}
           </Button>
         </form>
       ) : (
         <p className="border-t border-neutral-200 pt-3 text-xs text-neutral-500">
-          Iptal edilmis siparise odeme eklenemez.
+          İptal edilmiş siparişe ödeme eklenemez.
         </p>
       )}
     </div>

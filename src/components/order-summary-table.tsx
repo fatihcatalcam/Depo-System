@@ -50,13 +50,13 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
       >
         <tr>
           <th className={cn(cell, 'w-8 text-center')}>No</th>
-          <th className={cell}>Musteri</th>
-          <th className={cell}>Siparis</th>
-          <th className={cn(cell, 'w-[26%]')}>Siparisin cinsi</th>
+          <th className={cell}>Müşteri</th>
+          <th className={cell}>Sipariş</th>
+          <th className={cn(cell, 'w-[26%]')}>Siparişin cinsi</th>
           <th className={cell}>Teslim</th>
-          <th className={cell}>Ilce</th>
+          <th className={cell}>İlçe</th>
           <th className={cn(cell, 'text-right')}>Toplam</th>
-          <th className={cn(cell, 'text-right')}>Alinan</th>
+          <th className={cn(cell, 'text-right')}>Alınan</th>
           <th className={cn(cell, 'text-right')}>Kalan</th>
         </tr>
       </thead>
@@ -163,7 +163,7 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
       <tfoot className={cn('font-bold', print ? 'bg-neutral-100' : 'border-t-2 border-neutral-300')}>
         <tr>
           <td className={cell} colSpan={6}>
-            {rows.length} siparis · toplamlar TL karsiligi
+            {rows.length} sipariş · toplamlar TL karşılığı
           </td>
           <td className={cn(cell, 'whitespace-nowrap text-right tabular-nums')}>
             {formatKurus(totals.total)}

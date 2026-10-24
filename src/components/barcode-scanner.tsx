@@ -38,7 +38,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       })
       .catch(() => {
         setError(
-          'Kameraya erisilemedi. Tarayici izni verilmemis olabilir; arama kutusunu kullanin.',
+          'Kameraya erişilemedi. Tarayıcı izni verilmemiş olabilir; arama kutusunu kullanın.',
         );
       });
 
@@ -69,7 +69,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       )}
 
       <p className="pt-3 text-center text-xs text-white/70">
-        Barkodu kameranin ortasina getirin.
+        Barkodu kameranın ortasına getirin.
       </p>
     </div>
   );

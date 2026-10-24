@@ -45,7 +45,7 @@ export async function addPayment(
   input: AddPaymentInput,
 ): Promise<PaymentResult> {
   if (!Number.isInteger(input.amountKurus) || input.amountKurus <= 0) {
-    throw new DomainError('Odeme tutari sifirdan buyuk olmali.', 'INVALID_AMOUNT');
+    throw new DomainError('Ödeme tutarı sıfırdan büyük olmalı.', 'INVALID_AMOUNT');
   }
   const installments = resolveInstallments(input.method, input.installments);
 
@@ -53,20 +53,20 @@ export async function addPayment(
     .select()
     .from(orders)
     .where(and(eq(orders.id, input.orderId), scopeFilter(scope, orders.branchId)));
-  if (!order) throw new NotFoundError('Siparis');
+  if (!order) throw new NotFoundError('Sipariş');
 
   // Taslak siparise odeme eklenmez — ama kapora istisna. Musteri parayi
   // siparisi verirken birakiyor; siparis o anda henuz onaylanmamis oluyor.
   // Yasak, mal cikmadan once yazilan siradan tahsilatlari kastediyor.
   if (order.status === 'draft' && !input.isDeposit) {
     throw new DomainError(
-      'Taslak siparise yalnizca kapora eklenebilir. Once siparisi onaylayin.',
+      'Taslak siparişe yalnızca kapora eklenebilir. Önce siparişi onaylayın.',
       'INVALID_STATUS',
     );
   }
 
   if (order.status === 'cancelled') {
-    throw new DomainError('Iptal edilmis siparise odeme eklenemez.', 'INVALID_STATUS');
+    throw new DomainError('İptal edilmiş siparişe ödeme eklenemez.', 'INVALID_STATUS');
   }
 
   const [payment] = await db
@@ -116,6 +116,6 @@ export async function deletePayment(
     .from(payments)
     .innerJoin(orders, eq(orders.id, payments.orderId))
     .where(and(eq(payments.id, paymentId), scopeFilter(scope, orders.branchId)));
-  if (!row) throw new NotFoundError('Odeme');
+  if (!row) throw new NotFoundError('Ödeme');
   await db.delete(payments).where(eq(payments.id, paymentId));
 }

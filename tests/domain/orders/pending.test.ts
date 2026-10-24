@@ -208,7 +208,7 @@ describe('deliverRemaining', () => {
     await deliverRemaining(ctx.db, ctx.scope, order.id);
 
     await expect(deliverRemaining(ctx.db, ctx.scope, order.id)).rejects.toThrow(
-      'teslim edilecek parca kalmadi',
+      'teslim edilecek parça kalmadı',
     );
   });
 

@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Depo Sistemi',
-  description: 'Stok, siparis, teslimat ve odeme takibi',
+  description: 'Stok, sipariş, teslimat ve ödeme takibi',
   manifest: '/manifest.webmanifest',
 };
 

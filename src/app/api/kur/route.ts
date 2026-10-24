@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   if (rates.size === 0) {
     // 200 donuyoruz: kur cekilememesi bir ariza degil, gecici bir durum.
     // Cron'u kirmizi yakmak, gercek bir sorun cikinca fark edilmesini zorlastirir.
-    return NextResponse.json({ ok: false, reason: 'TCMB kurlari alinamadi.' });
+    return NextResponse.json({ ok: false, reason: 'TCMB kurları alınamadı.' });
   }
 
   return NextResponse.json({

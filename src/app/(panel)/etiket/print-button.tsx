@@ -8,7 +8,7 @@ export function PrintButton({ count }: { count: number }) {
       disabled={count === 0}
       className="h-11 rounded-md bg-neutral-900 px-4 text-sm font-medium text-white disabled:opacity-50"
     >
-      {count} etiketi yazdir
+      {count} etiketi yazdır
     </button>
   );
 }

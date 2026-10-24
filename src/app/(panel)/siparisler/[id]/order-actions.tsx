@@ -25,7 +25,7 @@ export function OrderActions({ orderId, status }: Props) {
         toast.success(success);
         router.refresh();
       } else {
-        toast.error(result.error ?? 'Islem basarisiz.');
+        toast.error(result.error ?? 'İşlem başarısız.');
       }
     });
   }
@@ -36,7 +36,7 @@ export function OrderActions({ orderId, status }: Props) {
         href={`/siparisler/${orderId}/yazdir`}
         className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
       >
-        Yazdir / PDF
+        Yazdır / PDF
       </Link>
 
       {status === 'draft' ? (
@@ -46,11 +46,11 @@ export function OrderActions({ orderId, status }: Props) {
           onClick={() =>
             run(
               () => confirmOrderAction(orderId),
-              'Siparis onaylandi, malzemeler rezerve edildi.',
+              'Sipariş onaylandı, malzemeler rezerve edildi.',
             )
           }
         >
-          Siparisi onayla
+          Siparişi onayla
         </Button>
       ) : null}
 
@@ -62,14 +62,14 @@ export function OrderActions({ orderId, status }: Props) {
           onClick={() => {
             const message =
               status === 'partially_delivered' || status === 'delivered'
-                ? 'Bu sipariste teslim edilmis mal var. Iptal edilirse teslim edilenler stoga iade edilecek. Devam edilsin mi?'
-                : 'Siparis iptal edilsin mi?';
+                ? 'Bu siparişte teslim edilmiş mal var. İptal edilirse teslim edilenler stoğa iade edilecek. Devam edilsin mi?'
+                : 'Sipariş iptal edilsin mi?';
             if (window.confirm(message)) {
-              run(() => cancelOrderAction(orderId), 'Siparis iptal edildi.');
+              run(() => cancelOrderAction(orderId), 'Sipariş iptal edildi.');
             }
           }}
         >
-          Siparisi iptal et
+          Siparişi iptal et
         </Button>
       ) : null}
     </div>

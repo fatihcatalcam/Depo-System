@@ -38,7 +38,7 @@ export function DeliveryForm({ orderId, lines }: Props) {
   if (pendingComponents.length === 0) {
     return (
       <p className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">
-        Teslim edilecek parca kalmadi.
+        Teslim edilecek parça kalmadı.
       </p>
     );
   }
@@ -59,7 +59,7 @@ export function DeliveryForm({ orderId, lines }: Props) {
       });
 
       if (result.ok) {
-        toast.success('Teslimat kaydedildi, stok dusuldu.');
+        toast.success('Teslimat kaydedildi, stok düşüldü.');
         setQuantities({});
         setIdempotencyKey(crypto.randomUUID());
         router.refresh();
@@ -69,7 +69,7 @@ export function DeliveryForm({ orderId, lines }: Props) {
       if (result.needsStockOverride) {
         if (
           window.confirm(
-            `${result.error}\n\nYine de teslim edilsin mi? Stok eksiye dusecek ve hareket defterine islenecek.`,
+            `${result.error}\n\nYine de teslim edilsin mi? Stok eksiye düşecek ve hareket defterine işlenecek.`,
           )
         ) {
           submit(true);
@@ -86,7 +86,7 @@ export function DeliveryForm({ orderId, lines }: Props) {
       <div>
         <h2 className="text-sm font-semibold">Teslimat yap</h2>
         <p className="text-xs text-neutral-500">
-          Bu sevkiyatta giden parcalarin adetlerini girin. Kalanlar sipariste bekler.
+          Bu sevkiyatta giden parçaların adetlerini girin. Kalanlar siparişte bekler.
         </p>
       </div>
 
@@ -126,7 +126,7 @@ export function DeliveryForm({ orderId, lines }: Props) {
                 }))
               }
             >
-              Tumu
+              Tümü
             </Button>
           </li>
         ))}
@@ -139,7 +139,7 @@ export function DeliveryForm({ orderId, lines }: Props) {
             id="delivered-by"
             value={deliveredBy}
             onChange={(event) => setDeliveredBy(event.target.value)}
-            placeholder="Sofor adi"
+            placeholder="Şoför adı"
             className="h-11"
           />
         </div>

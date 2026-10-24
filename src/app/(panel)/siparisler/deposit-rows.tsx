@@ -62,13 +62,13 @@ export function DepositRows({ rows, onChange, currency, totalKurus, toKurus }: P
             onChange={(event) => update(row.key, { amount: event.target.value })}
             placeholder="0,00"
             inputMode="decimal"
-            aria-label={`${index + 1}. odeme tutari`}
+            aria-label={`${index + 1}. ödeme tutarı`}
             className="h-11 w-36"
           />
           <select
             value={row.method}
             onChange={(event) => update(row.key, { method: event.target.value as PaymentMethod })}
-            aria-label={`${index + 1}. odeme yontemi`}
+            aria-label={`${index + 1}. ödeme yöntemi`}
             className="h-11 rounded-md border border-neutral-300 bg-white px-3 text-sm"
           >
             {PAYMENT_METHODS.map((method) => (
@@ -86,10 +86,10 @@ export function DepositRows({ rows, onChange, currency, totalKurus, toKurus }: P
                   installments: event.target.value ? Number(event.target.value) : null,
                 })
               }
-              aria-label={`${index + 1}. odeme taksit`}
+              aria-label={`${index + 1}. ödeme taksit`}
               className="h-11 rounded-md border border-neutral-300 bg-white px-3 text-sm"
             >
-              <option value="">Tek cekim</option>
+              <option value="">Tek çekim</option>
               {INSTALLMENT_OPTIONS.map((count) => (
                 <option key={count} value={count}>
                   {count} taksit
@@ -102,7 +102,7 @@ export function DepositRows({ rows, onChange, currency, totalKurus, toKurus }: P
             <button
               type="button"
               onClick={() => onChange(rows.filter((other) => other.key !== row.key))}
-              aria-label={`${index + 1}. odemeyi kaldir`}
+              aria-label={`${index + 1}. ödemeyi kaldır`}
               className="flex size-11 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
             >
               <X className="size-4" />
@@ -121,24 +121,24 @@ export function DepositRows({ rows, onChange, currency, totalKurus, toKurus }: P
         }
       >
         <Plus className="size-4" />
-        Odeme yontemi ekle
+        Ödeme yöntemi ekle
       </Button>
 
       {paidKurus > 0 ? (
         <p className="text-sm text-neutral-600">
-          Alinan <strong className="tabular-nums">{formatKurus(paidKurus, { currency })}</strong>
+          Alınan <strong className="tabular-nums">{formatKurus(paidKurus, { currency })}</strong>
           {' · '}Kalan{' '}
           <strong className="tabular-nums">
             {formatKurus(Math.max(0, totalKurus - paidKurus), { currency })}
           </strong>
           {paidKurus > totalKurus ? (
-            <span className="ml-2 text-red-600">Alinan, siparis tutarini asiyor.</span>
+            <span className="ml-2 text-red-600">Alınan, sipariş tutarını aşıyor.</span>
           ) : null}
         </p>
       ) : (
         <p className="text-xs text-neutral-500">
-          Pesin alinan yoksa bos birakin. Sonraki tahsilatlar siparis sayfasindaki odeme
-          bolumunden girilir.
+          Peşin alınan yoksa boş bırakın. Sonraki tahsilatlar sipariş sayfasındaki ödeme
+          bölümünden girilir.
         </p>
       )}
     </div>

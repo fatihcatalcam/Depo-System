@@ -23,7 +23,7 @@ export default async function MalKabulPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">Mal kabul</h1>
-          <p className="text-sm text-neutral-500">Fabrikadan gelen sevkiyatlarin kaydi</p>
+          <p className="text-sm text-neutral-500">Fabrikadan gelen sevkiyatların kaydı</p>
         </div>
         <Link href="/mal-kabul/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
           Yeni mal kabul
@@ -31,7 +31,7 @@ export default async function MalKabulPage() {
       </div>
 
       {receipts.length === 0 ? (
-        <p className="text-sm text-neutral-500">Henuz mal kabul kaydi yok.</p>
+        <p className="text-sm text-neutral-500">Henüz mal kabul kaydı yok.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
           <table className="w-full min-w-[640px] text-sm">
@@ -39,8 +39,8 @@ export default async function MalKabulPage() {
               <tr>
                 <th className="p-3">Belge</th>
                 <th className="p-3">Tarih</th>
-                <th className="p-3">Tedarikci</th>
-                <th className="p-3">Irsaliye</th>
+                <th className="p-3">Tedarikçi</th>
+                <th className="p-3">İrsaliye</th>
                 <th className="p-3 text-right">Kalem</th>
                 <th className="p-3 text-right">Toplam adet</th>
               </tr>

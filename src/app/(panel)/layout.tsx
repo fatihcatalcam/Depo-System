@@ -31,7 +31,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
             </span>
             <form action={logoutAction}>
               <button type="submit" className="text-sm text-neutral-500 hover:text-neutral-900">
-                Cikis
+                Çıkış
               </button>
             </form>
           </div>

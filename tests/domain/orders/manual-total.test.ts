@@ -209,7 +209,7 @@ describe('siparisle birlikte kapora', () => {
           },
         ],
       }),
-    ).rejects.toThrow('Kapora siparis tutarindan buyuk olamaz');
+    ).rejects.toThrow('Kapora sipariş tutarından büyük olamaz');
   });
 
   /** Kapora reddedilirse siparis de yazilmamali: ikisi tek transaction. */

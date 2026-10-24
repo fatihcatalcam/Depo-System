@@ -22,7 +22,7 @@ export interface CreateCategoryInput {
 
 export async function createCategory(db: DbOrTx, input: CreateCategoryInput): Promise<Category> {
   const name = input.name.trim();
-  if (name === '') throw new DomainError('Kategori adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Kategori adı boş olamaz.', 'INVALID_INPUT');
 
   await assertNameAvailable(db, name, input.parentId ?? null, null);
 
@@ -52,7 +52,7 @@ export async function updateCategory(
   }
 
   const name = input.name?.trim() ?? existing.name;
-  if (name === '') throw new DomainError('Kategori adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Kategori adı boş olamaz.', 'INVALID_INPUT');
 
   const parentId = input.parentId !== undefined ? input.parentId : existing.parentId;
   await assertNameAvailable(db, name, parentId, id);
@@ -95,7 +95,7 @@ export async function deleteCategory(db: DbOrTx, id: string): Promise<void> {
     .limit(1);
 
   if (usedByStock || usedByProduct) {
-    throw new DomainError('Bu kategoriye bagli kayitlar var, silinemez.', 'IN_USE');
+    throw new DomainError('Bu kategoriye bağlı kayıtlar var, silinemez.', 'IN_USE');
   }
 
   await db.delete(categories).where(eq(categories.id, id));
@@ -156,7 +156,7 @@ async function assertNotDescendant(db: DbOrTx, id: string, newParentId: string |
 
   while (cursor) {
     if (cursor === id) {
-      throw new DomainError('Kategori kendi alt kategorisine tasinamaz.', 'CYCLE');
+      throw new DomainError('Kategori kendi alt kategorisine taşınamaz.', 'CYCLE');
     }
     if (seen.has(cursor)) break;
     seen.add(cursor);

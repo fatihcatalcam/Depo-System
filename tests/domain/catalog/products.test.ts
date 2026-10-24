@@ -54,7 +54,7 @@ describe('createProduct', () => {
 
   it('recetesiz urun reddedilir', async () => {
     await expect(createProduct(ctx.db, { name: 'Bos Urun', components: [] })).rejects.toThrow(
-      'Urun en az bir parca icermeli',
+      'Ürün en az bir parça içermeli',
     );
   });
 
@@ -69,7 +69,7 @@ describe('createProduct', () => {
           { stockItemId: part.id, quantity: 2 },
         ],
       }),
-    ).rejects.toThrow('Ayni parca recetede birden fazla kez yer alamaz');
+    ).rejects.toThrow('Aynı parça reçetede birden fazla kez yer alamaz');
   });
 
   it('sifir miktarli recete satiri reddedilir', async () => {
@@ -80,7 +80,7 @@ describe('createProduct', () => {
         name: 'Sifir Miktarli Urun',
         components: [{ stockItemId: part.id, quantity: 0 }],
       }),
-    ).rejects.toThrow('Recete miktari sifirdan buyuk olmali');
+    ).rejects.toThrow('Reçete miktarı sıfırdan büyük olmalı');
   });
 
   it('bir parcadan birden fazla adet iceren recete kaydedilir', async () => {
@@ -102,7 +102,7 @@ describe('createProduct', () => {
         name: '  ',
         components: [{ stockItemId: part.id, quantity: 1 }],
       }),
-    ).rejects.toThrow('Urun adi bos olamaz');
+    ).rejects.toThrow('Ürün adı boş olamaz');
   });
 });
 
@@ -344,7 +344,7 @@ describe('duplicateProductForSize', () => {
         name: 'Belirsiz Urun 160x200',
         targetSizeLabel: '160x200',
       }),
-    ).rejects.toThrow('birden fazla secenegi var');
+    ).rejects.toThrow('birden fazla seçeneği var');
   });
 
   it('elle verilen eslestirmeler otomatik oneriyi ezer', async () => {

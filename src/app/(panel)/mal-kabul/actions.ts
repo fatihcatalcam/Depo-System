@@ -28,17 +28,17 @@ export interface ActionResult {
 
 function toResult(error: unknown): ActionResult {
   if (error instanceof DomainError) return { ok: false, error: error.message };
-  if (error instanceof Error && error.message.startsWith('Gecersiz tutar')) {
-    return { ok: false, error: 'Fiyat bicimi hatali. Ornek: 1.250,00' };
+  if (error instanceof Error && error.message.startsWith('Geçersiz tutar')) {
+    return { ok: false, error: 'Fiyat biçimi hatalı. Örnek: 1.250,00' };
   }
   console.error(error);
-  return { ok: false, error: 'Beklenmeyen bir hata olustu.' };
+  return { ok: false, error: 'Beklenmeyen bir hata oluştu.' };
 }
 
 const receiptSchema = z.object({
   supplierId: z.uuid().nullable().optional(),
   waybillNo: z.string().optional(),
-  receivedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.'),
+  receivedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih geçersiz.'),
   notes: z.string().optional(),
   lines: z
     .array(
@@ -58,7 +58,7 @@ const receiptSchema = z.object({
   newItems: z
     .array(
       z.object({
-        name: z.string().trim().min(1, 'Yeni kartin adini yazin.'),
+        name: z.string().trim().min(1, 'Yeni kartın adını yazın.'),
         sizeLabel: z.string().optional(),
         categoryId: z.uuid().nullable().optional(),
         quantity: z.coerce.number().int().min(1),
@@ -71,7 +71,7 @@ export async function createGoodsReceiptAction(input: unknown): Promise<ActionRe
   const parsed = receiptSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   if (parsed.data.lines.length === 0 && parsed.data.newItems.length === 0) {
-    return { ok: false, error: 'En az bir satir ekleyin.' };
+    return { ok: false, error: 'En az bir satır ekleyin.' };
   }
 
   try {
@@ -178,19 +178,19 @@ export async function readReceiptDocumentAction(formData: FormData): Promise<Rea
   await currentScope();
 
   const file = formData.get('document');
-  if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Belge secilmedi.' };
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Belge seçilmedi.' };
   if (file.size > MAX_DOCUMENT_BYTES) {
-    return { ok: false, error: 'Belge cok buyuk. PDF yerine belgenin fotografini cekin.' };
+    return { ok: false, error: 'Belge çok büyük. PDF yerine belgenin fotoğrafını çekin.' };
   }
 
   const name = file.name.toLowerCase();
   // Bazi tarayicilar .xlsx icin tur bildirmiyor; uzantiya da bakiliyor.
   if (file.type === XLSX_MIME || name.endsWith('.xlsx')) return withColorCodes(await readSpreadsheet(file));
   if (name.endsWith('.xls')) {
-    return { ok: false, error: 'Eski .xls bicimi okunmuyor. Excel\'de "Farkli kaydet > .xlsx" ile kaydedin.' };
+    return { ok: false, error: 'Eski .xls biçimi okunmuyor. Excel\'de "Farklı kaydet > .xlsx" ile kaydedin.' };
   }
   if (!RECEIPT_MIME_TYPES.includes(file.type as ReceiptMimeType)) {
-    return { ok: false, error: 'Fotograf (JPG, PNG), PDF ya da Excel (.xlsx) yukleyin.' };
+    return { ok: false, error: 'Fotoğraf (JPG, PNG), PDF ya da Excel (.xlsx) yükleyin.' };
   }
 
   try {
@@ -203,7 +203,7 @@ export async function readReceiptDocumentAction(formData: FormData): Promise<Rea
     );
   } catch (error) {
     console.error(error);
-    return { ok: false, error: 'Belge okunamadi.' };
+    return { ok: false, error: 'Belge okunamadı.' };
   }
 }
 
@@ -215,7 +215,7 @@ async function readSpreadsheet(file: File): Promise<ReadResult> {
     const sheet = parseReceiptSpreadsheet(readFirstSheet(new Uint8Array(await file.arrayBuffer())));
     const result = await readReceiptSpreadsheet(db, sheet);
     if (result.ok && sheet.skipped > 0) {
-      result.notice = `${sheet.skipped} satirin adedi okunamadi (bos ya da kesirli), atlandi.`;
+      result.notice = `${sheet.skipped} satırın adedi okunamadı (boş ya da kesirli), atlandı.`;
     }
     return result;
   } catch (error) {
@@ -223,6 +223,6 @@ async function readSpreadsheet(file: File): Promise<ReadResult> {
       return { ok: false, error: error.message };
     }
     console.error(error);
-    return { ok: false, error: 'Excel dosyasi okunamadi.' };
+    return { ok: false, error: 'Excel dosyası okunamadı.' };
   }
 }

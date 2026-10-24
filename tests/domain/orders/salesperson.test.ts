@@ -91,7 +91,7 @@ describe('satici', () => {
   });
 
   it('olmayan satici reddedilir', async () => {
-    await expect(orderWith('00000000-0000-4000-8000-000000000000')).rejects.toThrow('Satici');
+    await expect(orderWith('00000000-0000-4000-8000-000000000000')).rejects.toThrow('Satıcı');
   });
 
   describe('isten ayrilan satici', () => {
@@ -103,7 +103,7 @@ describe('satici', () => {
 
       // Listeden dustu: yeni sipariste secilemez.
       expect((await listSalespeople(ctx.db)).some((p) => p.id === temp.id)).toBe(false);
-      await expect(orderWith(temp.id)).rejects.toThrow('aktif degil');
+      await expect(orderWith(temp.id)).rejects.toThrow('aktif değil');
 
       // Eski siparis ayni saticiyla duzenlenebiliyor; adi kaybolmuyor.
       await updateOrder(ctx.db, ctx.scope, order.id, {

@@ -76,7 +76,7 @@ export async function resolveLineColors(
     const choices = line.colors ?? [];
     if (choices.length === 0) return { colors: [], suffix: '' };
     if (line.itemType === 'custom') {
-      throw new DomainError('Serbest satirda renk secilemez.', 'INVALID_COLOR');
+      throw new DomainError('Serbest satırda renk seçilemez.', 'INVALID_COLOR');
     }
 
     const parts =
@@ -89,13 +89,13 @@ export async function resolveLineColors(
       const code = normalizeColorCode(choice.code);
       const base = baseById.get(choice.baseStockItemId);
       if (!base || !parts.includes(base.id)) {
-        throw new DomainError('Rengi secilen parca bu satirda yok.', 'INVALID_COLOR');
+        throw new DomainError('Rengi seçilen parça bu satırda yok.', 'INVALID_COLOR');
       }
       if (!(base.codes ?? []).includes(code) && !openedCards.has(`${base.id}|${code}`)) {
-        throw new DomainError(`${base.name} icin "${code}" rengi yok.`, 'INVALID_COLOR');
+        throw new DomainError(`${base.name} için "${code}" rengi yok.`, 'INVALID_COLOR');
       }
       if (colors.some((other) => other.baseStockItemId === base.id)) {
-        throw new DomainError(`${base.name} icin iki renk secilmis.`, 'INVALID_COLOR');
+        throw new DomainError(`${base.name} için iki renk seçilmiş.`, 'INVALID_COLOR');
       }
       colors.push({ baseStockItemId: base.id, code });
     }

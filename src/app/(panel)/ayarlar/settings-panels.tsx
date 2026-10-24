@@ -40,7 +40,7 @@ export function CompanyPanel({ initial }: { initial: CompanyValues }) {
   return (
     <Section
       title="Firma bilgileri"
-      description="Yazdirilan tum ciktilarin ustunde bu bilgiler gorunur."
+      description="Yazdırılan tüm çıktıların üstünde bu bilgiler görünür."
     >
       <form
         className="space-y-3"
@@ -57,7 +57,7 @@ export function CompanyPanel({ initial }: { initial: CompanyValues }) {
           });
         }}
       >
-        <Field id="companyName" label="Firma adi">
+        <Field id="companyName" label="Firma adı">
           <Input
             id="companyName"
             value={values.companyName}
@@ -116,8 +116,8 @@ export function PasswordPanel() {
 
   return (
     <Section
-      title="Giris parolasi"
-      description="Bu subenin giris parolasi. Stok ve rapor kilidini acmaz."
+      title="Giriş parolası"
+      description="Bu şubenin giriş parolası. Stok ve rapor kilidini açmaz."
     >
       <form
         className="space-y-3"
@@ -130,12 +130,12 @@ export function PasswordPanel() {
               confirmPassword,
             });
             if (result.ok) {
-              toast.success(result.message ?? 'Parola degistirildi.');
+              toast.success(result.message ?? 'Parola değiştirildi.');
               setCurrentPassword('');
               setNewPassword('');
               setConfirmPassword('');
             } else {
-              toast.error(result.error ?? 'Degistirilemedi.');
+              toast.error(result.error ?? 'Değiştirilemedi.');
             }
           });
         }}
@@ -176,7 +176,7 @@ export function PasswordPanel() {
           </Field>
         </div>
         <Button type="submit" disabled={pending} className="h-11">
-          {pending ? 'Degistiriliyor...' : 'Parolayi degistir'}
+          {pending ? 'Değiştiriliyor...' : 'Parolayı değiştir'}
         </Button>
       </form>
     </Section>
@@ -197,8 +197,8 @@ export function UnlockPasswordPanel() {
 
   return (
     <Section
-      title="Stok ve rapor parolasi"
-      description="Kilitli stok ve rapor ekranlarini acan parola. Sisteme giris icin kullanilmaz."
+      title="Stok ve rapor parolası"
+      description="Kilitli stok ve rapor ekranlarını açan parola. Sisteme giriş için kullanılmaz."
     >
       <form
         className="space-y-3"
@@ -207,11 +207,11 @@ export function UnlockPasswordPanel() {
           startTransition(async () => {
             const result = await setUnlockPasswordAction({ newPassword, confirmPassword });
             if (result.ok) {
-              toast.success(result.message ?? 'Parola degistirildi.');
+              toast.success(result.message ?? 'Parola değiştirildi.');
               setNewPassword('');
               setConfirmPassword('');
             } else {
-              toast.error(result.error ?? 'Degistirilemedi.');
+              toast.error(result.error ?? 'Değiştirilemedi.');
             }
           });
         }}
@@ -241,7 +241,7 @@ export function UnlockPasswordPanel() {
           </Field>
         </div>
         <Button type="submit" disabled={pending} className="h-11">
-          {pending ? 'Degistiriliyor...' : 'Kilit parolasini degistir'}
+          {pending ? 'Değiştiriliyor...' : 'Kilit parolasını değiştir'}
         </Button>
       </form>
     </Section>
@@ -264,8 +264,8 @@ export interface BranchRow {
 export function BranchPanel({ branches }: { branches: BranchRow[] }) {
   return (
     <Section
-      title="Subeler"
-      description="Her subenin kendi girisi ve kendi deposu var. Merkez butun siparisleri gorur, stoklar ayri kalir."
+      title="Şubeler"
+      description="Her şubenin kendi girişi ve kendi deposu var. Merkez bütün siparişleri görür, stoklar ayrı kalır."
     >
       <div className="space-y-4">
         {branches.map((branch) => (
@@ -290,13 +290,13 @@ function BranchRowForm({ branch }: { branch: BranchRow }) {
         </span>
         {branch.hasPassword ? null : (
           <span className="text-xs text-amber-700">
-            Parola belirlenmedi — bu subeye henuz giris yapilamaz.
+            Parola belirlenmedi — bu şubeye henüz giriş yapılamaz.
           </span>
         )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field id={`name-${branch.id}`} label="Sube adi">
+        <Field id={`name-${branch.id}`} label="Şube adı">
           <Input
             id={`name-${branch.id}`}
             value={name}
@@ -310,7 +310,7 @@ function BranchRowForm({ branch }: { branch: BranchRow }) {
             type="password"
             autoComplete="new-password"
             value={password}
-            placeholder={branch.hasPassword ? 'Degistirmek icin doldurun' : 'En az 6 karakter'}
+            placeholder={branch.hasPassword ? 'Değiştirmek için doldurun' : 'En az 6 karakter'}
             onChange={(event) => setPassword(event.target.value)}
             className="h-11"
           />
@@ -328,10 +328,10 @@ function BranchRowForm({ branch }: { branch: BranchRow }) {
             if (name.trim() !== branch.name) {
               const result = await renameBranchAction({ branchId: branch.id, name });
               if (!result.ok) {
-                toast.error(result.error ?? 'Sube adi guncellenemedi.');
+                toast.error(result.error ?? 'Şube adı güncellenemedi.');
                 return;
               }
-              messages.push('ad guncellendi');
+              messages.push('ad güncellendi');
             }
 
             if (password !== '') {
@@ -348,7 +348,7 @@ function BranchRowForm({ branch }: { branch: BranchRow }) {
             }
 
             if (messages.length === 0) {
-              toast.info('Degisiklik yok.');
+              toast.info('Değişiklik yok.');
               return;
             }
             toast.success(`${branch.name}: ${messages.join(', ')}.`);
@@ -365,22 +365,22 @@ function BranchRowForm({ branch }: { branch: BranchRow }) {
 export function ImportPanel() {
   return (
     <Section
-      title="Excel ile ice aktarma"
-      description="Once sablonu indirin, doldurun, sonra yukleyin. Hatali satir varsa hicbiri aktarilmaz."
+      title="Excel ile içe aktarma"
+      description="Önce şablonu indirin, doldurun, sonra yükleyin. Hatalı satır varsa hiçbiri aktarılmaz."
     >
       <div className="space-y-4">
         <ImportForm
           kind="musteri"
-          label="Musteri listesi"
+          label="Müşteri listesi"
           templateHref="/api/disa-aktar/sablon-musteri"
         />
-        <ImportForm kind="stok" label="Stok kartlari" templateHref="/api/disa-aktar/sablon-stok" />
+        <ImportForm kind="stok" label="Stok kartları" templateHref="/api/disa-aktar/sablon-stok" />
         <ImportForm
           kind="sayim"
-          label="Stok sayimi (adet guncelleme)"
+          label="Stok sayımı (adet güncelleme)"
           templateHref="/api/disa-aktar/sablon-sayim"
-          hint="Sablon mevcut kartlarla dolu iner. Yalnizca degistirmek istediginiz satirlarin
-                'Sayilan adet' sutununu doldurun; bos birakilan satira dokunulmaz."
+          hint="Şablon mevcut kartlarla dolu iner. Yalnızca değiştirmek istediğiniz satırların
+                'Sayılan adet' sütununu doldurun; boş bırakılan satıra dokunulmaz."
         />
       </div>
     </Section>
@@ -411,11 +411,11 @@ function ImportForm({
         startTransition(async () => {
           const result = await importExcelAction(kind, formData);
           if (result.ok) {
-            toast.success(result.message ?? 'Aktarildi.');
+            toast.success(result.message ?? 'Aktarıldı.');
             if (inputRef.current) inputRef.current.value = '';
             router.refresh();
           } else {
-            toast.error(result.error ?? 'Aktarilamadi.', { duration: 8000 });
+            toast.error(result.error ?? 'Aktarılamadı.', { duration: 8000 });
           }
         });
       }}
@@ -423,7 +423,7 @@ function ImportForm({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium">{label}</span>
         <a href={templateHref} className="text-xs text-neutral-500 underline">
-          Sablonu indir
+          Şablonu indir
         </a>
       </div>
       {hint ? <p className="text-xs text-neutral-500">{hint}</p> : null}
@@ -437,7 +437,7 @@ function ImportForm({
           className="h-11 flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-neutral-900 file:px-3 file:py-1 file:text-xs file:text-white"
         />
         <Button type="submit" disabled={pending} className="h-11">
-          {pending ? 'Aktariliyor...' : 'Yukle'}
+          {pending ? 'Aktarılıyor...' : 'Yükle'}
         </Button>
       </div>
     </form>
@@ -450,8 +450,8 @@ export function MaintenancePanel() {
 
   return (
     <Section
-      title="Bakim"
-      description="Bu subenin stok bakiyeleri hareket defteriyle karsilastirilir, kayma varsa duzeltilir."
+      title="Bakım"
+      description="Bu şubenin stok bakiyeleri hareket defteriyle karşılaştırılır, kayma varsa düzeltilir."
     >
       <Button
         variant="outline"
@@ -461,15 +461,15 @@ export function MaintenancePanel() {
           startTransition(async () => {
             const result = await recalculateStockAction();
             if (result.ok) {
-              toast.success(result.message ?? 'Tamamlandi.');
+              toast.success(result.message ?? 'Tamamlandı.');
               router.refresh();
             } else {
-              toast.error(result.error ?? 'Islem basarisiz.');
+              toast.error(result.error ?? 'İşlem başarısız.');
             }
           })
         }
       >
-        {pending ? 'Hesaplaniyor...' : 'Stok bakiyelerini yeniden hesapla'}
+        {pending ? 'Hesaplanıyor...' : 'Stok bakiyelerini yeniden hesapla'}
       </Button>
     </Section>
   );
@@ -501,15 +501,15 @@ export function ColorPalettesPanel({ palettes }: { palettes: PaletteView[] }) {
         done?.();
         router.refresh();
       } else {
-        toast.error(result.error ?? 'Islem basarisiz.');
+        toast.error(result.error ?? 'İşlem başarısız.');
       }
     });
   }
 
   return (
     <Section
-      title="Renk kodlari"
-      description="Baza ve basliklarin kumas kartelalari. Bir kalemin kartelasi stok kartindan secilir. Kod kaldirmak o renkteki stogu silmez; yalnizca yeni secimlerde cikmaz."
+      title="Renk kodları"
+      description="Baza ve başlıkların kumaş kartelaları. Bir kalemin kartelası stok kartından seçilir. Kod kaldırmak o renkteki stoğu silmez; yalnızca yeni seçimlerde çıkmaz."
     >
       <div className="space-y-4">
         {palettes.map((palette) => (
@@ -530,9 +530,9 @@ export function ColorPalettesPanel({ palettes }: { palettes: PaletteView[] }) {
                   <button
                     type="button"
                     disabled={pending}
-                    aria-label={`${code} kodunu kaldir`}
+                    aria-label={`${code} kodunu kaldır`}
                     onClick={() => {
-                      if (!window.confirm(`${code} kartelada kaldirilsin mi? Stoktaki adetler durur.`)) return;
+                      if (!window.confirm(`${code} kartelada kaldırılsın mı? Stoktaki adetler durur.`)) return;
                       run(() => removePaletteCodeAction({ paletteId: palette.id, code }));
                     }}
                     className="rounded p-0.5 text-neutral-500 hover:bg-neutral-200 hover:text-red-600"
@@ -558,8 +558,8 @@ export function ColorPalettesPanel({ palettes }: { palettes: PaletteView[] }) {
                 onChange={(event) =>
                   setDrafts((current) => ({ ...current, [palette.id]: event.target.value }))
                 }
-                placeholder="Yeni kod, ornek: BK-183"
-                aria-label={`${palette.name} icin yeni renk kodu`}
+                placeholder="Yeni kod, örnek: BK-183"
+                aria-label={`${palette.name} için yeni renk kodu`}
                 className="h-10 max-w-48"
               />
               <Button type="submit" variant="outline" className="h-10" disabled={pending}>
@@ -579,8 +579,8 @@ export function ColorPalettesPanel({ palettes }: { palettes: PaletteView[] }) {
           <Input
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
-            placeholder="Yeni kartela adi"
-            aria-label="Yeni kartela adi"
+            placeholder="Yeni kartela adı"
+            aria-label="Yeni kartela adı"
             className="h-10 max-w-64"
           />
           <Button type="submit" variant="outline" className="h-10" disabled={pending}>

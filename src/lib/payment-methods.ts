@@ -17,10 +17,10 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   nakit: 'Nakit',
-  kart: 'Kredi karti',
+  kart: 'Kredi kartı',
   kart_portal: 'Kart (portal)',
   havale: 'Havale / EFT',
-  cek: 'Cek',
+  cek: 'Çek',
 };
 
 /** Taksit yalnizca kartla; nakitte ya da havalede anlami yok. */
@@ -50,13 +50,13 @@ export function resolveInstallments(
   if (installments == null || installments === 1) return null;
   if (!Number.isInteger(installments) || installments < 1 || installments > MAX_INSTALLMENTS) {
     throw new DomainError(
-      `Taksit 1 ile ${MAX_INSTALLMENTS} arasinda olmali.`,
+      `Taksit 1 ile ${MAX_INSTALLMENTS} arasında olmalı.`,
       'INVALID_INSTALLMENTS',
     );
   }
   if (!allowsInstallments(method)) {
     throw new DomainError(
-      `${PAYMENT_METHOD_LABELS[method]} ile taksit yapilamaz; taksit yalnizca kartla.`,
+      `${PAYMENT_METHOD_LABELS[method]} ile taksit yapılamaz; taksit yalnızca kartla.`,
       'INVALID_INSTALLMENTS',
     );
   }

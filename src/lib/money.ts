@@ -21,7 +21,7 @@ export function parseTlInput(input: string): number {
   if (cleaned === '') return 0;
 
   if (!/^\d+(,\d{1,2})?$/.test(cleaned)) {
-    throw new Error(`Gecersiz tutar: ${input}`);
+    throw new Error(`Geçersiz tutar: ${input}`);
   }
 
   const [whole, fraction = ''] = cleaned.split(',');
@@ -42,7 +42,7 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
 };
 
 export const CURRENCY_LABELS: Record<Currency, string> = {
-  TRY: '₺ Turk Lirasi',
+  TRY: '₺ Türk Lirası',
   USD: '$ Dolar',
   EUR: '€ Euro',
 };
@@ -67,7 +67,7 @@ export function toTryKurus(amount: number, exchangeRate: number): number {
 export function parseRateInput(input: string): number {
   const cleaned = input.replace(/\s/g, '').replace(/\./g, '');
   if (!/^\d+(,\d{1,4})?$/.test(cleaned)) {
-    throw new Error(`Gecersiz kur: ${input}`);
+    throw new Error(`Geçersiz kur: ${input}`);
   }
   const [whole, fraction = ''] = cleaned.split(',');
   return Number(whole) * RATE_SCALE + Number(fraction.padEnd(4, '0'));

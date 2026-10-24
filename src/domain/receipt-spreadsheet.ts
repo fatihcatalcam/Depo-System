@@ -107,7 +107,7 @@ export function parseReceiptSpreadsheet(rows: string[][]): ParsedSpreadsheet {
 
   if (headerIndex < 0) {
     throw new SpreadsheetError(
-      'Excel dosyasinda "Stok Adi" ve "Irsaliye Miktari" sutunlari bulunamadi.',
+      'Excel dosyasında "Stok Adı" ve "İrsaliye Miktarı" sütunları bulunamadı.',
     );
   }
 

@@ -58,7 +58,7 @@ export async function applyMovements(
 
   for (const movement of movements) {
     if (movement.quantityChange === 0) {
-      throw new Error('Hareket miktari sifir olamaz.');
+      throw new Error('Hareket miktarı sıfır olamaz.');
     }
   }
 
@@ -122,7 +122,7 @@ async function lockBalance(tx: Tx, warehouseId: string, stockItemId: string): Pr
     .from(stockItems)
     .where(eq(stockItems.id, stockItemId));
 
-  if (!item) throw new NotFoundError(`Stok karti (${stockItemId})`);
+  if (!item) throw new NotFoundError(`Stok kartı (${stockItemId})`);
 
   await tx
     .insert(stockBalances)

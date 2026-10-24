@@ -78,7 +78,7 @@ describe('taksit', () => {
     const [payment] = await listPayments(ctx.db, ctx.scope, order.id);
     expect(payment.installments).toBe(6);
     expect(formatPaymentMethod(payment.method, payment.installments)).toBe(
-      'Kredi karti · 6 taksit',
+      'Kredi kartı · 6 taksit',
     );
   });
 
@@ -89,11 +89,11 @@ describe('taksit', () => {
   });
 
   it('nakitte taksit olmaz', () => {
-    expect(() => resolveInstallments('nakit', 3)).toThrow('taksit yalnizca kartla');
+    expect(() => resolveInstallments('nakit', 3)).toThrow('taksit yalnızca kartla');
   });
 
   it('9 taksitten fazlasi olmaz', () => {
-    expect(() => resolveInstallments('kart', 10)).toThrow('1 ile 9 arasinda');
+    expect(() => resolveInstallments('kart', 10)).toThrow('1 ile 9 arasında');
     expect(resolveInstallments('kart_portal', 9)).toBe(9);
   });
 
@@ -138,7 +138,7 @@ describe('siparis verilirken birden fazla odeme', () => {
         { amountKurus: 60_000, method: 'nakit' },
         { amountKurus: 60_000, method: 'kart' },
       ]),
-    ).rejects.toThrow('siparis tutarindan buyuk olamaz');
+    ).rejects.toThrow('sipariş tutarından büyük olamaz');
   });
 
   it('bos tutarli satirlar yok sayilir', async () => {
@@ -157,7 +157,7 @@ describe('siparis verilirken birden fazla odeme', () => {
         { amountKurus: 20_000, method: 'nakit' },
         { amountKurus: 20_000, method: 'havale', installments: 4 },
       ]),
-    ).rejects.toThrow('taksit yalnizca kartla');
+    ).rejects.toThrow('taksit yalnızca kartla');
     expect(await ctx.db.select().from(payments)).toHaveLength(before.length);
   });
 });

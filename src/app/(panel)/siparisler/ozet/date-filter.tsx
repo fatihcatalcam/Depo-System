@@ -25,7 +25,7 @@ export function DateFilter() {
       type="date"
       value={params.get('tarih') ?? ''}
       onChange={(event) => apply(event.target.value)}
-      aria-label="Siparis tarihi"
+      aria-label="Sipariş tarihi"
       className="h-11 w-auto"
     />
   );

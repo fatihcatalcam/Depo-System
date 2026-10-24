@@ -31,22 +31,22 @@ export interface QuickAdjustResult extends ActionResult {
  */
 async function assertStockUnlocked(): Promise<ActionResult | null> {
   if (await isStockLocked(await currentScope())) {
-    return { ok: false, error: 'Stok kilitli. Once kilidi acin.' };
+    return { ok: false, error: 'Stok kilitli. Önce kilidi açın.' };
   }
   return null;
 }
 
 function toResult(error: unknown): ActionResult {
   if (error instanceof DomainError) return { ok: false, error: error.message };
-  if (error instanceof Error && error.message.startsWith('Gecersiz tutar')) {
-    return { ok: false, error: 'Fiyat bicimi hatali. Ornek: 1.250,00' };
+  if (error instanceof Error && error.message.startsWith('Geçersiz tutar')) {
+    return { ok: false, error: 'Fiyat biçimi hatalı. Örnek: 1.250,00' };
   }
   console.error(error);
-  return { ok: false, error: 'Beklenmeyen bir hata olustu.' };
+  return { ok: false, error: 'Beklenmeyen bir hata oluştu.' };
 }
 
 const stockItemSchema = z.object({
-  name: z.string().min(1, 'Parca adi girin.'),
+  name: z.string().min(1, 'Parça adı girin.'),
   sizeLabel: z.string().optional(),
   variantLabel: z.string().optional(),
   categoryId: z.uuid().nullable().optional(),
@@ -99,7 +99,7 @@ export async function updateStockItemAction(id: string, input: unknown): Promise
 }
 
 const countSchema = z.object({
-  countedQuantity: z.coerce.number().int().min(0, 'Sayilan adet negatif olamaz.'),
+  countedQuantity: z.coerce.number().int().min(0, 'Sayılan adet negatif olamaz.'),
   notes: z.string().optional(),
 });
 
@@ -120,7 +120,7 @@ export async function quickAdjustStockAction(
   if (locked) return locked;
 
   if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 1000) {
-    return { ok: false, error: 'Gecersiz miktar.' };
+    return { ok: false, error: 'Geçersiz miktar.' };
   }
 
   try {
@@ -130,7 +130,7 @@ export async function quickAdjustStockAction(
         stockItemId,
         quantityChange: delta,
         movementType: 'manual',
-        notes: 'Stok listesinden hizli duzeltme',
+        notes: 'Stok listesinden hızlı düzeltme',
       },
     ]);
     revalidatePath('/stok');
@@ -156,7 +156,7 @@ export async function quickAdjustColorAction(
   if (locked) return locked;
 
   if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 1000) {
-    return { ok: false, error: 'Gecersiz miktar.' };
+    return { ok: false, error: 'Geçersiz miktar.' };
   }
 
   try {
@@ -165,7 +165,7 @@ export async function quickAdjustColorAction(
       baseStockItemId,
       code,
       delta,
-      notes: 'Stok listesinden hizli duzeltme',
+      notes: 'Stok listesinden hızlı düzeltme',
     });
     revalidatePath('/stok');
     revalidatePath(`/stok/${baseStockItemId}`);

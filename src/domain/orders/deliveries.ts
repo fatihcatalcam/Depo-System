@@ -53,13 +53,13 @@ export async function createDelivery(
   input: CreateDeliveryInput,
 ): Promise<Delivery> {
   if (input.lines.length === 0) {
-    throw new DomainError('Teslimat en az bir satir icermeli.', 'EMPTY_DELIVERY');
+    throw new DomainError('Teslimat en az bir satır içermeli.', 'EMPTY_DELIVERY');
   }
 
   const merged = new Map<string, number>();
   for (const line of input.lines) {
     if (!Number.isInteger(line.quantity) || line.quantity <= 0) {
-      throw new DomainError('Teslim adedi sifirdan buyuk tam sayi olmali.', 'INVALID_QUANTITY');
+      throw new DomainError('Teslim adedi sıfırdan büyük tam sayı olmalı.', 'INVALID_QUANTITY');
     }
     merged.set(
       line.orderLineComponentId,
@@ -77,14 +77,14 @@ export async function createDelivery(
       .from(orders)
       .innerJoin(branches, eq(branches.id, orders.branchId))
       .where(and(eq(orders.id, input.orderId), scopeFilter(scope, orders.branchId)));
-    if (!row) throw new NotFoundError('Siparis');
+    if (!row) throw new NotFoundError('Sipariş');
     const order = row.order;
 
     if (order.status === 'draft') {
-      throw new DomainError('Taslak siparis teslim edilemez, once onaylayin.', 'INVALID_STATUS');
+      throw new DomainError('Taslak sipariş teslim edilemez, önce onaylayın.', 'INVALID_STATUS');
     }
     if (order.status === 'cancelled') {
-      throw new DomainError('Iptal edilmis siparis teslim edilemez.', 'INVALID_STATUS');
+      throw new DomainError('İptal edilmiş sipariş teslim edilemez.', 'INVALID_STATUS');
     }
 
     if (input.idempotencyKey) {
@@ -113,18 +113,18 @@ export async function createDelivery(
       .where(inArray(orderLineComponents.id, componentIds));
 
     if (components.length !== componentIds.length) {
-      throw new NotFoundError('Siparis bileseni');
+      throw new NotFoundError('Sipariş bileşeni');
     }
 
     for (const entry of components) {
       if (entry.orderId !== input.orderId) {
-        throw new DomainError('Bilesen bu siparise ait degil.', 'INVALID_COMPONENT');
+        throw new DomainError('Bileşen bu siparişe ait değil.', 'INVALID_COMPONENT');
       }
       const requested = merged.get(entry.component.id) ?? 0;
       const remaining = entry.component.totalQuantity - entry.component.deliveredQuantity;
       if (requested > remaining) {
         throw new DomainError(
-          `${entry.stockItemName ?? entry.lineDescription} icin kalan ${remaining} adet, ` +
+          `${entry.stockItemName ?? entry.lineDescription} için kalan ${remaining} adet, ` +
             `${requested} adet teslim edilemez.`,
           'OVER_DELIVERY',
         );
@@ -230,7 +230,7 @@ export async function deliverRemaining(
       );
 
     if (rows.length === 0) {
-      throw new DomainError('Bu sipariste teslim edilecek parca kalmadi.', 'NOTHING_TO_DELIVER');
+      throw new DomainError('Bu siparişte teslim edilecek parça kalmadı.', 'NOTHING_TO_DELIVER');
     }
 
     return createDelivery(tx, scope, {

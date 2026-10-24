@@ -24,9 +24,9 @@ export default async function TedarikcilerPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold">Tedarikciler</h1>
+        <h1 className="text-lg font-semibold">Tedarikçiler</h1>
         <p className="text-sm text-neutral-500">
-          Mal kabul kaydederken hangi fabrikadan geldigini secebilmek icin.
+          Mal kabul kaydederken hangi fabrikadan geldiğini seçebilmek için.
         </p>
       </div>
 
@@ -37,7 +37,7 @@ export default async function TedarikcilerPage() {
         <input
           name="name"
           required
-          placeholder="Tedarikci adi"
+          placeholder="Tedarikçi adı"
           className="h-11 rounded-md border border-neutral-300 px-3 text-sm"
         />
         <input
@@ -59,7 +59,7 @@ export default async function TedarikcilerPage() {
       </form>
 
       {suppliers.length === 0 ? (
-        <p className="text-sm text-neutral-500">Henuz tedarikci yok.</p>
+        <p className="text-sm text-neutral-500">Henüz tedarikçi yok.</p>
       ) : (
         <ul className="space-y-2">
           {suppliers.map((supplier) => (

@@ -32,7 +32,7 @@ export async function createCustomer(
   input: CreateCustomerInput,
 ): Promise<Customer> {
   const name = input.name.trim();
-  if (name === '') throw new DomainError('Musteri adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Müşteri adı boş olamaz.', 'INVALID_INPUT');
 
   const branch = ownBranch(scope);
   const code = await nextDocumentNumber(db, 'customer', { branchCode: branch.code });
@@ -54,7 +54,7 @@ export async function updateCustomer(
   const existing = await getCustomer(db, scope, id);
 
   const name = input.name?.trim() ?? existing.name;
-  if (name === '') throw new DomainError('Musteri adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Müşteri adı boş olamaz.', 'INVALID_INPUT');
 
   const [row] = await db
     .update(customers)
@@ -69,7 +69,7 @@ export async function getCustomer(db: DbOrTx, scope: Scope, id: string): Promise
     .select()
     .from(customers)
     .where(and(eq(customers.id, id), scopeFilter(scope, customers.branchId)));
-  if (!row) throw new NotFoundError('Musteri');
+  if (!row) throw new NotFoundError('Müşteri');
   return row;
 }
 
@@ -115,7 +115,7 @@ export interface CreateSupplierInput {
 
 export async function createSupplier(db: DbOrTx, input: CreateSupplierInput): Promise<Supplier> {
   const name = input.name.trim();
-  if (name === '') throw new DomainError('Tedarikci adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Tedarikçi adı boş olamaz.', 'INVALID_INPUT');
 
   const code = await nextDocumentNumber(db, 'supplier');
   const [row] = await db
@@ -137,10 +137,10 @@ export async function updateSupplier(
   input: Partial<CreateSupplierInput> & { isActive?: boolean },
 ): Promise<Supplier> {
   const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, id));
-  if (!existing) throw new NotFoundError('Tedarikci');
+  if (!existing) throw new NotFoundError('Tedarikçi');
 
   const name = input.name?.trim() ?? existing.name;
-  if (name === '') throw new DomainError('Tedarikci adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Tedarikçi adı boş olamaz.', 'INVALID_INPUT');
 
   const [row] = await db
     .update(suppliers)

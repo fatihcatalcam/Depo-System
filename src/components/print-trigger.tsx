@@ -12,7 +12,7 @@ export function PrintTrigger() {
         onClick={() => window.print()}
         className="h-11 rounded-md bg-neutral-900 px-4 text-sm font-medium text-white"
       >
-        Yazdir / PDF kaydet
+        Yazdır / PDF kaydet
       </button>
       <button
         type="button"

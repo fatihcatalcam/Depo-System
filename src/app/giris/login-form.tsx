@@ -22,7 +22,7 @@ export function LoginForm() {
     >
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">Depo Sistemi</h1>
-        <p className="mt-1 text-sm text-neutral-500">Devam etmek icin parolanizi girin.</p>
+        <p className="mt-1 text-sm text-neutral-500">Devam etmek için parolanızı girin.</p>
       </div>
 
       <input
@@ -45,7 +45,7 @@ export function LoginForm() {
         disabled={pending}
         className="h-12 w-full rounded-lg bg-neutral-900 text-base font-medium text-white disabled:opacity-60"
       >
-        {pending ? 'Kontrol ediliyor...' : 'Giris yap'}
+        {pending ? 'Kontrol ediliyor...' : 'Giriş yap'}
       </button>
     </form>
   );

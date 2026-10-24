@@ -24,15 +24,15 @@ export default async function SoforKagidiPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <PrintHeader title="Sevkiyat Kagidi" subtitle={formatLongDate(date)} />
+      <PrintHeader title="Sevkiyat Kâğıdı" subtitle={formatLongDate(date)} />
 
       {shipment.stops.length === 0 ? (
-        <p className="text-sm">Bu tarihe planlanmis sevkiyat yok.</p>
+        <p className="text-sm">Bu tarihe planlanmış sevkiyat yok.</p>
       ) : (
         <>
           <p className="mb-4 text-sm">
-            {shipment.stops.length} durak · {shipment.totalPieces} parca · tahsil edilecek toplam{' '}
-            <strong>{formatKurus(shipment.totalCollectionKurus)}</strong> (TL karsiligi)
+            {shipment.stops.length} durak · {shipment.totalPieces} parça · tahsil edilecek toplam{' '}
+            <strong>{formatKurus(shipment.totalCollectionKurus)}</strong> (TL karşılığı)
           </p>
 
           {shipment.stops.map((stop, index) => (

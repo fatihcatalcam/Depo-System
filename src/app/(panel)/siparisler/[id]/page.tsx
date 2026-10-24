@@ -80,7 +80,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                 href={`/siparisler/${order.id}/duzenle`}
                 className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
               >
-                Duzenle
+                Düzenle
               </Link>
             ) : null}
             <OrderActions orderId={order.id} status={order.status} />
@@ -108,11 +108,11 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
             <dd>{order.deliveryPhone ?? '—'}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase text-neutral-500">Siparis tarihi</dt>
+            <dt className="text-xs uppercase text-neutral-500">Sipariş tarihi</dt>
             <dd>{formatDate(order.orderDate)}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase text-neutral-500">Satici</dt>
+            <dt className="text-xs uppercase text-neutral-500">Satıcı</dt>
             <dd>{order.salespersonName ?? '—'}</dd>
           </div>
           <div>
@@ -184,7 +184,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                   </div>
                   <div className="text-xs text-neutral-400">
                     {line.isGift
-                      ? `hediye · degeri ${formatKurus(line.unitPriceKurus * line.quantity, { currency: order.currency })}`
+                      ? `hediye · değeri ${formatKurus(line.unitPriceKurus * line.quantity, { currency: order.currency })}`
                       : `birim ${formatKurus(line.unitPriceKurus, { currency: order.currency })}`}
                   </div>
 
@@ -218,7 +218,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                     </ul>
                   ) : (
                     <p className="mt-2 text-xs text-neutral-400">
-                      Malzeme dokumu siparis onaylandiginda dondurulur.
+                      Malzeme dökümü sipariş onaylandığında döndürülür.
                     </p>
                   )}
                 </li>
@@ -232,7 +232,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
               </div>
               {order.discountKurus > 0 ? (
                 <div className="flex justify-between">
-                  <span className="text-neutral-600">Iskonto</span>
+                  <span className="text-neutral-600">İskonto</span>
                   <span className="tabular-nums">-{formatKurus(order.discountKurus, { currency: order.currency })}</span>
                 </div>
               ) : null}
@@ -243,7 +243,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                       yazmazsak oyle gorunur. */}
                   {order.manualTotalKurus != null ? (
                     <span className="ml-2 rounded bg-neutral-200 px-1.5 py-0.5 text-xs font-normal text-neutral-700">
-                      elle yazildi
+                      elle yazıldı
                     </span>
                   ) : null}
                 </span>
@@ -256,7 +256,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
                   bu rakam giriyor, dogrulugu buradan kontrol edilebilsin. */}
               {order.currency === 'TRY' ? null : (
                 <p className="text-right text-xs text-neutral-500">
-                  1 {order.currency} = {formatRate(order.exchangeRate)} ₺ · TL karsiligi{' '}
+                  1 {order.currency} = {formatRate(order.exchangeRate)} ₺ · TL karşılığı{' '}
                   {formatKurus(toTryKurus(order.totalKurus, order.exchangeRate))}
                 </p>
               )}
@@ -268,7 +268,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
           {deliveries.length > 0 ? (
             <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
               <h2 className="border-b border-neutral-200 p-3 text-sm font-semibold">
-                Teslimat gecmisi
+                Teslimat geçmişi
               </h2>
               <ul>
                 {deliveries.map((delivery) => (
@@ -317,7 +317,7 @@ export default async function SiparisDetayPage({ params }: { params: Promise<{ i
       </div>
 
       <Link href="/siparisler" className={cn('inline-block text-sm text-neutral-500 hover:underline')}>
-        Siparis listesine don
+        Sipariş listesine dön
       </Link>
     </div>
   );

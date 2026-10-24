@@ -41,9 +41,9 @@ export async function exportStockWorkbook(db: DbOrTx, scope: Scope): Promise<Buf
   const sheet = workbook.addWorksheet('Stok');
   sheet.columns = [
     { header: 'SKU', key: 'sku', width: 14 },
-    { header: 'Parca adi', key: 'name', width: 32 },
+    { header: 'Parça adı', key: 'name', width: 32 },
     { header: 'Boyut', key: 'size', width: 12 },
-    { header: 'Renk / kumas', key: 'variant', width: 16 },
+    { header: 'Renk / kumaş', key: 'variant', width: 16 },
     { header: 'Kategori', key: 'category', width: 20 },
     { header: 'Barkod', key: 'barcode', width: 16 },
     { header: 'Birim', key: 'unit', width: 10 },
@@ -51,7 +51,7 @@ export async function exportStockWorkbook(db: DbOrTx, scope: Scope): Promise<Buf
     { header: 'Rezerve', key: 'reserved', width: 10 },
     { header: 'Serbest', key: 'available', width: 10 },
     { header: 'Kritik seviye', key: 'min', width: 14 },
-    { header: 'Alis fiyati', key: 'price', width: 14, style: { numFmt: MONEY_FORMAT } },
+    { header: 'Alış fiyatı', key: 'price', width: 14, style: { numFmt: MONEY_FORMAT } },
     { header: 'Aktif', key: 'active', width: 8 },
   ];
 
@@ -69,7 +69,7 @@ export async function exportStockWorkbook(db: DbOrTx, scope: Scope): Promise<Buf
       available: item.available,
       min: item.minStockLevel,
       price: item.purchasePriceKurus ? kurusToTl(item.purchasePriceKurus) : null,
-      active: item.isActive ? 'Evet' : 'Hayir',
+      active: item.isActive ? 'Evet' : 'Hayır',
     });
   }
 
@@ -83,7 +83,7 @@ export async function exportCustomersWorkbook(db: DbOrTx, scope: Scope): Promise
   const rows = await searchCustomers(db, scope, { includeInactive: true, limit: 5000 });
 
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Musteriler');
+  const sheet = workbook.addWorksheet('Müşteriler');
   sheet.columns = [
     { header: 'Kod', key: 'code', width: 12 },
     { header: 'Ad soyad / firma', key: 'name', width: 32 },
@@ -91,8 +91,8 @@ export async function exportCustomersWorkbook(db: DbOrTx, scope: Scope): Promise
     { header: 'Telefon 2', key: 'phone2', width: 18 },
     { header: 'E-posta', key: 'email', width: 24 },
     { header: 'Adres', key: 'address', width: 40 },
-    { header: 'Il', key: 'city', width: 14 },
-    { header: 'Ilce', key: 'district', width: 14 },
+    { header: 'İl', key: 'city', width: 14 },
+    { header: 'İlçe', key: 'district', width: 14 },
     { header: 'Vergi dairesi', key: 'taxOffice', width: 18 },
     { header: 'Vergi / TC no', key: 'taxNumber', width: 18 },
     { header: 'Not', key: 'notes', width: 30 },
@@ -123,13 +123,13 @@ export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Bu
 
   const workbook = new ExcelJS.Workbook();
 
-  const sheet = workbook.addWorksheet('Siparisler');
+  const sheet = workbook.addWorksheet('Siparişler');
   sheet.columns = [
-    { header: 'Siparis no', key: 'no', width: 16 },
+    { header: 'Sipariş no', key: 'no', width: 16 },
     { header: 'Tarih', key: 'date', width: 12 },
-    { header: 'Musteri', key: 'customer', width: 30 },
+    { header: 'Müşteri', key: 'customer', width: 30 },
     // Prim hesabi bu sutunla yapiliyor: Excel'de saticiya gore suzulebilsin.
-    { header: 'Satici', key: 'salesperson', width: 22 },
+    { header: 'Satıcı', key: 'salesperson', width: 22 },
     { header: 'Planlanan teslimat', key: 'delivery', width: 18 },
     { header: 'Durum', key: 'status', width: 18 },
     // Tutarlar siparisin kendi para biriminden; muhasebeci hangi birim
@@ -137,7 +137,7 @@ export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Bu
     { header: 'Para birimi', key: 'currency', width: 12 },
     { header: 'Kur', key: 'rate', width: 12, style: { numFmt: '#,##0.0000' } },
     { header: 'Toplam', key: 'total', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
-    { header: 'Odenen', key: 'paid', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
+    { header: 'Ödenen', key: 'paid', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
     { header: 'Kalan', key: 'balance', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
     { header: 'Toplam (TL)', key: 'totalTry', width: 16, style: { numFmt: MONEY_FORMAT } },
   ];
@@ -164,8 +164,8 @@ export async function exportOrdersWorkbook(db: DbOrTx, scope: Scope): Promise<Bu
   const open = orders.filter((order) => order.status !== 'cancelled' && order.balanceKurus > 0);
   const debts = workbook.addWorksheet('Alacaklar');
   debts.columns = [
-    { header: 'Musteri', key: 'customer', width: 30 },
-    { header: 'Siparis no', key: 'no', width: 16 },
+    { header: 'Müşteri', key: 'customer', width: 30 },
+    { header: 'Sipariş no', key: 'no', width: 16 },
     { header: 'Tarih', key: 'date', width: 12 },
     { header: 'Para birimi', key: 'currency', width: 12 },
     { header: 'Kalan', key: 'balance', width: 14, style: { numFmt: PLAIN_MONEY_FORMAT } },
@@ -195,31 +195,31 @@ export async function exportReportWorkbook(
   const summary = await getPeriodSummary(db, scope, from, to);
 
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Ozet');
+  const sheet = workbook.addWorksheet('Özet');
   sheet.columns = [
     { header: 'Kalem', key: 'label', width: 40 },
-    { header: 'Deger', key: 'value', width: 20 },
+    { header: 'Değer', key: 'value', width: 20 },
   ];
 
-  sheet.addRow({ label: 'Donem baslangic', value: from });
-  sheet.addRow({ label: 'Donem bitis', value: to });
-  sheet.addRow({ label: 'Siparis adedi', value: summary.orderCount });
+  sheet.addRow({ label: 'Dönem başlangıç', value: from });
+  sheet.addRow({ label: 'Dönem bitiş', value: to });
+  sheet.addRow({ label: 'Sipariş adedi', value: summary.orderCount });
   sheet.addRow({ label: 'Ciro', value: kurusToTl(summary.revenueKurus) }).getCell(2).numFmt =
     MONEY_FORMAT;
   sheet.addRow({ label: 'Tahsilat', value: kurusToTl(summary.collectedKurus) }).getCell(2).numFmt =
     MONEY_FORMAT;
   sheet.addRow({ label: 'Teslimat adedi', value: summary.deliveryCount });
   sheet
-    .addRow({ label: 'Kalan alacak (guncel)', value: kurusToTl(summary.outstandingKurus) })
+    .addRow({ label: 'Kalan alacak (güncel)', value: kurusToTl(summary.outstandingKurus) })
     .getCell(2).numFmt = MONEY_FORMAT;
   sheet
-    .addRow({ label: 'Stok degeri (guncel)', value: kurusToTl(summary.stockValueKurus) })
+    .addRow({ label: 'Stok değeri (güncel)', value: kurusToTl(summary.stockValueKurus) })
     .getCell(2).numFmt = MONEY_FORMAT;
   styleHeader(sheet);
 
-  const top = workbook.addWorksheet('En cok satanlar');
+  const top = workbook.addWorksheet('En çok satanlar');
   top.columns = [
-    { header: 'Urun', key: 'name', width: 40 },
+    { header: 'Ürün', key: 'name', width: 40 },
     { header: 'Adet', key: 'quantity', width: 10 },
     { header: 'Tutar', key: 'revenue', width: 16, style: { numFmt: MONEY_FORMAT } },
   ];
@@ -263,7 +263,7 @@ export async function importCustomers(db: Db, scope: Scope, buffer: Buffer): Pro
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
 
   const sheet = workbook.worksheets[0];
-  if (!sheet) throw new DomainError('Excel dosyasinda sayfa bulunamadi.', 'EMPTY_WORKBOOK');
+  if (!sheet) throw new DomainError('Excel dosyasında sayfa bulunamadı.', 'EMPTY_WORKBOOK');
 
   const parsed: { name: string; phone: string; address: string; city: string; district: string; notes: string }[] =
     [];
@@ -290,7 +290,7 @@ export async function importCustomers(db: Db, scope: Scope, buffer: Buffer): Pro
   });
 
   if (parsed.length === 0) {
-    throw new DomainError('Dosyada aktarilacak satir bulunamadi.', 'NO_ROWS');
+    throw new DomainError('Dosyada aktarılacak satır bulunamadı.', 'NO_ROWS');
   }
 
   const existing = new Set(
@@ -328,7 +328,7 @@ export async function importStockItems(db: Db, buffer: Buffer): Promise<ImportRe
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
 
   const sheet = workbook.worksheets[0];
-  if (!sheet) throw new DomainError('Excel dosyasinda sayfa bulunamadi.', 'EMPTY_WORKBOOK');
+  if (!sheet) throw new DomainError('Excel dosyasında sayfa bulunamadı.', 'EMPTY_WORKBOOK');
 
   const parsed: {
     name: string;
@@ -353,7 +353,7 @@ export async function importStockItems(db: Db, buffer: Buffer): Promise<ImportRe
     const minText = cellText(row, 5);
     const min = minText === '' ? 0 : Number(minText.replace(',', '.'));
     if (!Number.isFinite(min) || min < 0) {
-      errors.push(`Satir ${rowNumber}: kritik seviye sayi olmali ("${minText}").`);
+      errors.push(`Satır ${rowNumber}: kritik seviye sayı olmalı ("${minText}").`);
       return;
     }
 
@@ -362,7 +362,7 @@ export async function importStockItems(db: Db, buffer: Buffer): Promise<ImportRe
     if (priceText !== '') {
       const numeric = Number(priceText.replace(/\./g, '').replace(',', '.'));
       if (!Number.isFinite(numeric) || numeric < 0) {
-        errors.push(`Satir ${rowNumber}: alis fiyati okunamadi ("${priceText}").`);
+        errors.push(`Satır ${rowNumber}: alış fiyatı okunamadı ("${priceText}").`);
         return;
       }
       priceKurus = Math.round(numeric * 100);
@@ -380,13 +380,13 @@ export async function importStockItems(db: Db, buffer: Buffer): Promise<ImportRe
 
   if (errors.length > 0) {
     throw new DomainError(
-      `Dosyada duzeltilmesi gereken satirlar var, hicbiri aktarilmadi:\n${errors.slice(0, 10).join('\n')}`,
+      `Dosyada düzeltilmesi gereken satırlar var, hiçbiri aktarılmadı:\n${errors.slice(0, 10).join('\n')}`,
       'INVALID_ROWS',
     );
   }
 
   if (parsed.length === 0) {
-    throw new DomainError('Dosyada aktarilacak satir bulunamadi.', 'NO_ROWS');
+    throw new DomainError('Dosyada aktarılacak satır bulunamadı.', 'NO_ROWS');
   }
 
   const existingRows = await db
@@ -436,14 +436,14 @@ export async function exportStockCountTemplate(db: DbOrTx, scope: Scope): Promis
   const items = await listStockItemsWithAvailability(db, scope.stockBranchId, {});
 
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Sayim');
+  const sheet = workbook.addWorksheet('Sayım');
   sheet.columns = [
     { header: 'SKU', key: 'sku', width: 12 },
-    { header: 'Parca adi', key: 'name', width: 32 },
+    { header: 'Parça adı', key: 'name', width: 32 },
     { header: 'Boyut', key: 'size', width: 14 },
-    { header: 'Renk / kumas', key: 'variant', width: 18 },
+    { header: 'Renk / kumaş', key: 'variant', width: 18 },
     { header: 'Mevcut adet', key: 'onHand', width: 14 },
-    { header: 'Sayilan adet', key: 'counted', width: 14 },
+    { header: 'Sayılan adet', key: 'counted', width: 14 },
   ];
 
   for (const item of items) {
@@ -480,7 +480,7 @@ export async function importStockCounts(
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
 
   const sheet = workbook.worksheets[0];
-  if (!sheet) throw new DomainError('Excel dosyasinda sayfa bulunamadi.', 'EMPTY_WORKBOOK');
+  if (!sheet) throw new DomainError('Excel dosyasında sayfa bulunamadı.', 'EMPTY_WORKBOOK');
 
   const parsed: { sku: string; counted: number; rowNumber: number }[] = [];
   const errors: string[] = [];
@@ -503,7 +503,7 @@ export async function importStockCounts(
 
     const counted = Number(countedText.replace(',', '.'));
     if (!Number.isFinite(counted) || counted < 0 || !Number.isInteger(counted)) {
-      errors.push(`Satir ${rowNumber}: sayilan adet sifir ya da pozitif tam sayi olmali ("${countedText}").`);
+      errors.push(`Satır ${rowNumber}: sayılan adet sıfır ya da pozitif tam sayı olmalı ("${countedText}").`);
       return;
     }
 
@@ -511,7 +511,7 @@ export async function importStockCounts(
   });
 
   if (parsed.length === 0 && errors.length === 0) {
-    throw new DomainError('Dosyada sayilan adet girilmis satir yok.', 'NO_ROWS');
+    throw new DomainError('Dosyada sayılan adet girilmiş satır yok.', 'NO_ROWS');
   }
 
   // Sayim sayanin deposuna yaziliyor. Bakiye satiri acilmamis kart sifir
@@ -539,11 +539,11 @@ export async function importStockCounts(
     const key = entry.sku.toLocaleUpperCase('tr-TR');
     const card = bySku.get(key);
     if (!card) {
-      errors.push(`Satir ${entry.rowNumber}: "${entry.sku}" kodlu stok karti yok.`);
+      errors.push(`Satır ${entry.rowNumber}: "${entry.sku}" kodlu stok kartı yok.`);
       continue;
     }
     if (seen.has(key)) {
-      errors.push(`Satir ${entry.rowNumber}: "${entry.sku}" dosyada birden fazla kez geciyor.`);
+      errors.push(`Satır ${entry.rowNumber}: "${entry.sku}" dosyada birden fazla kez geçiyor.`);
       continue;
     }
     seen.add(key);
@@ -553,7 +553,7 @@ export async function importStockCounts(
   // Ya hepsi ya hicbiri: yarim islenmis bir sayim, sayilmamis olmaktan kotudur.
   if (errors.length > 0) {
     throw new DomainError(
-      `Dosyada duzeltilmesi gereken satirlar var, hicbiri islenmedi:\n${errors.slice(0, 10).join('\n')}`,
+      `Dosyada düzeltilmesi gereken satırlar var, hiçbiri işlenmedi:\n${errors.slice(0, 10).join('\n')}`,
       'INVALID_ROWS',
     );
   }
@@ -566,7 +566,7 @@ export async function importStockCounts(
         await adjustStockCount(tx, scope.stockBranchId, {
           stockItemId: row.id,
           countedQuantity: row.counted,
-          notes: 'Excel sayim aktarimi',
+          notes: 'Excel sayım aktarımı',
         });
       }
     });
@@ -584,26 +584,26 @@ export async function buildImportTemplate(kind: 'musteri' | 'stok'): Promise<Buf
   const workbook = new ExcelJS.Workbook();
 
   if (kind === 'musteri') {
-    const sheet = workbook.addWorksheet('Musteriler');
+    const sheet = workbook.addWorksheet('Müşteriler');
     sheet.columns = [
       { header: 'Ad soyad / firma', width: 32 },
       { header: 'Telefon', width: 18 },
       { header: 'Adres', width: 40 },
-      { header: 'Il', width: 14 },
-      { header: 'Ilce', width: 14 },
+      { header: 'İl', width: 14 },
+      { header: 'İlçe', width: 14 },
       { header: 'Not', width: 24 },
     ];
-    sheet.addRow(['Ornek Musteri', '0555 000 00 00', 'Ornek Mah. 1. Sok. No:1', 'Istanbul', 'Basaksehir', '']);
+    sheet.addRow(['Örnek Müşteri', '0555 000 00 00', 'Örnek Mah. 1. Sok. No:1', 'İstanbul', 'Başakşehir', '']);
     styleHeader(sheet);
   } else {
     const sheet = workbook.addWorksheet('Stok');
     sheet.columns = [
-      { header: 'Parca adi', width: 32 },
+      { header: 'Parça adı', width: 32 },
       { header: 'Boyut', width: 14 },
-      { header: 'Renk / kumas', width: 18 },
+      { header: 'Renk / kumaş', width: 18 },
       { header: 'Birim', width: 10 },
       { header: 'Kritik seviye', width: 14 },
-      { header: 'Alis fiyati', width: 14 },
+      { header: 'Alış fiyatı', width: 14 },
     ];
     sheet.addRow(['MAGNASAND YATAK', '160x200', '', 'adet', 2, '1250,00']);
     sheet.addRow(['MAGNASAND BASLIK', '160 CM', '', 'adet', 2, '450,00']);

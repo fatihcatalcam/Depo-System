@@ -60,7 +60,7 @@ export function ProductForm({ initial, submitLabel, onSubmit }: Props) {
 
   function addComponent(item: SearchResult) {
     if (components.some((row) => row.stockItemId === item.id)) {
-      toast.error('Bu parca zaten recetede var.');
+      toast.error('Bu parça zaten reçetede var.');
       return;
     }
     setComponents((rows) => [
@@ -91,7 +91,7 @@ export function ProductForm({ initial, submitLabel, onSubmit }: Props) {
             })),
           });
           if (!result.ok) {
-            toast.error(result.error ?? 'Kayit basarisiz.');
+            toast.error(result.error ?? 'Kayıt başarısız.');
             return;
           }
           toast.success('Kaydedildi.');
@@ -101,12 +101,12 @@ export function ProductForm({ initial, submitLabel, onSubmit }: Props) {
       }}
     >
       <div className="space-y-1.5">
-        <Label htmlFor="product-name">Urun adi</Label>
+        <Label htmlFor="product-name">Ürün adı</Label>
         <Input
           id="product-name"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="Yatak A 90x190 Tek Kisilik"
+          placeholder="Yatak A 90x190 Tek Kişilik"
           className="h-11"
           required
         />
@@ -114,16 +114,16 @@ export function ProductForm({ initial, submitLabel, onSubmit }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="product-price">Liste fiyati</Label>
+          <Label htmlFor="product-price">Liste fiyatı</Label>
           <Input
             id="product-price"
             value={defaultPrice}
             onChange={(event) => setDefaultPrice(event.target.value)}
-            placeholder="Bos birakabilirsiniz"
+            placeholder="Boş bırakabilirsiniz"
             className="h-11"
           />
           <p className="text-xs text-neutral-500">
-            Siparise otomatik gelir, siparis sirasinda degistirilebilir.
+            Siparişe otomatik gelir, sipariş sırasında değiştirilebilir.
           </p>
         </div>
         <div className="space-y-1.5">
@@ -138,12 +138,12 @@ export function ProductForm({ initial, submitLabel, onSubmit }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="component-search">Recete</Label>
+        <Label htmlFor="component-search">Reçete</Label>
         <Input
           id="component-search"
           value={query}
           onChange={(event) => void search(event.target.value)}
-          placeholder="Parca ara ve ekle (en az 2 harf)"
+          placeholder="Parça ara ve ekle (en az 2 harf)"
           className="h-11"
         />
 
@@ -166,7 +166,7 @@ export function ProductForm({ initial, submitLabel, onSubmit }: Props) {
         ) : null}
 
         {components.length === 0 ? (
-          <p className="text-sm text-neutral-500">Henuz parca eklenmedi.</p>
+          <p className="text-sm text-neutral-500">Henüz parça eklenmedi.</p>
         ) : (
           <ul className="space-y-2">
             {components.map((row, index) => (
@@ -190,7 +190,7 @@ export function ProductForm({ initial, submitLabel, onSubmit }: Props) {
                   className="text-red-600"
                   onClick={() => setComponents((rows) => rows.filter((_, i) => i !== index))}
                 >
-                  Kaldir
+                  Kaldır
                 </Button>
               </li>
             ))}

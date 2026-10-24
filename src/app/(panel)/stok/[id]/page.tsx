@@ -53,7 +53,7 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
         </p>
         {parent ? (
           <p className="text-sm text-neutral-500">
-            Renk karti ·{' '}
+            Renk kartı ·{' '}
             <Link href={`/stok/${parent.id}`} className="underline">
               standart karta git
             </Link>
@@ -102,21 +102,21 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
 
       {item.purchasePriceKurus ? (
         <p className="text-sm text-neutral-500">
-          Alis fiyati: {formatKurus(item.purchasePriceKurus)}
+          Alış fiyatı: {formatKurus(item.purchasePriceKurus)}
         </p>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
           <h2 className="border-b border-neutral-200 p-3 text-sm font-semibold">
-            Hareket gecmisi
+            Hareket geçmişi
           </h2>
           <table className="w-full min-w-[520px] text-sm">
             <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-xs uppercase text-neutral-500">
               <tr>
                 <th className="p-3">Tarih</th>
                 <th className="p-3">Tip</th>
-                <th className="p-3 text-right">Degisim</th>
+                <th className="p-3 text-right">Değişim</th>
                 <th className="p-3 text-right">Bakiye</th>
                 <th className="p-3">Not</th>
               </tr>
@@ -143,7 +143,7 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
             </tbody>
           </table>
           {history.length === 0 ? (
-            <p className="p-6 text-center text-sm text-neutral-500">Henuz hareket yok.</p>
+            <p className="p-6 text-center text-sm text-neutral-500">Henüz hareket yok.</p>
           ) : null}
         </div>
 
@@ -151,7 +151,7 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
       </div>
 
       <details className="rounded-lg border border-neutral-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-semibold">Kart bilgilerini duzenle</summary>
+        <summary className="cursor-pointer text-sm font-semibold">Kart bilgilerini düzenle</summary>
         <div className="pt-4">
           <StockItemForm
             categories={categories}
@@ -161,7 +161,7 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
                 ? undefined
                 : palettes.map((palette) => ({ id: palette.id, name: palette.name }))
             }
-            submitLabel="Degisiklikleri kaydet"
+            submitLabel="Değişiklikleri kaydet"
             initial={{
               name: item.name,
               sizeLabel: item.sizeLabel ?? '',
@@ -181,7 +181,7 @@ export default async function StokDetayPage({ params }: { params: Promise<{ id: 
       </details>
 
       <Link href="/stok" className="inline-block text-sm text-neutral-500 hover:underline">
-        Stok listesine don
+        Stok listesine dön
       </Link>
     </div>
   );

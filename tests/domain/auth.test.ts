@@ -162,7 +162,7 @@ describe('giris ekrani', () => {
     const { ctx, s1 } = await setupAccounts();
 
     await expect(setBranchPassword(ctx.db, s1, 'kilitparola')).rejects.toThrow(
-      'stok ve rapor kilidini aciyor',
+      'stok ve rapor kilidini açıyor',
     );
 
     await ctx.close();
@@ -172,7 +172,7 @@ describe('giris ekrani', () => {
     const { ctx, s1 } = await setupAccounts();
 
     await expect(setBranchPassword(ctx.db, s1, 'sube2parola')).rejects.toThrow(
-      'subesinde kullaniliyor',
+      'şubesinde kullanılıyor',
     );
 
     await ctx.close();
@@ -233,7 +233,7 @@ describe('parola degistirme', () => {
   it('eski parola yanlissa reddeder', async () => {
     const { ctx, s1 } = await setupAccounts();
     await expect(changeOwnPassword(ctx.db, s1, 'hatali', 'yenisifre')).rejects.toThrow(
-      'Mevcut parola hatali',
+      'Mevcut parola hatalı',
     );
     await ctx.close();
   });
@@ -241,7 +241,7 @@ describe('parola degistirme', () => {
   it('kisa parola reddedilir', async () => {
     const { ctx, s1 } = await setupAccounts();
     await expect(changeOwnPassword(ctx.db, s1, 'sube1parola', '123')).rejects.toThrow(
-      'Parola en az 6 karakter olmali',
+      'Parola en az 6 karakter olmalı',
     );
     await ctx.close();
   });
@@ -249,7 +249,7 @@ describe('parola degistirme', () => {
   it('sube kendi parolasini kilit parolasiyla ayni yapamaz', async () => {
     const { ctx, s1 } = await setupAccounts();
     await expect(changeOwnPassword(ctx.db, s1, 'sube1parola', 'kilitparola')).rejects.toThrow(
-      'stok ve rapor kilidini aciyor',
+      'stok ve rapor kilidini açıyor',
     );
     await ctx.close();
   });
@@ -309,7 +309,7 @@ describe('sube yonetimi', () => {
 
   it('bos sube adi reddedilir', async () => {
     const { ctx, s1 } = await setupAccounts();
-    await expect(renameBranch(ctx.db, s1, '   ')).rejects.toThrow('Sube adi bos olamaz');
+    await expect(renameBranch(ctx.db, s1, '   ')).rejects.toThrow('Şube adı boş olamaz');
     await ctx.close();
   });
 
@@ -317,7 +317,7 @@ describe('sube yonetimi', () => {
     const { ctx, s1 } = await setupAccounts();
     await ctx.db.update(branches).set({ isActive: false }).where(eq(branches.id, s1));
 
-    await expect(authenticate(ctx.db, s1, 'sube1parola')).rejects.toThrow('Bu sube kapali');
+    await expect(authenticate(ctx.db, s1, 'sube1parola')).rejects.toThrow('Bu şube kapalı');
     await ctx.close();
   });
 });
@@ -356,7 +356,7 @@ describe('kilit parolasi', () => {
     const { ctx } = await setupAccounts();
 
     await expect(setUnlockPassword(ctx.db, 'sube2parola')).rejects.toThrow(
-      'giris parolasi',
+      'giriş parolası',
     );
 
     await ctx.close();
@@ -365,7 +365,7 @@ describe('kilit parolasi', () => {
   it('kisa kilit parolasi reddedilir', async () => {
     const { ctx } = await setupAccounts();
     await expect(setUnlockPassword(ctx.db, '123')).rejects.toThrow(
-      'Parola en az 6 karakter olmali',
+      'Parola en az 6 karakter olmalı',
     );
     await ctx.close();
   });

@@ -5,7 +5,7 @@ import { getPendingOverview, type PendingItem } from '@/domain/orders/pending';
 import { currentUser } from '@/lib/auth/current';
 import { formatDate } from '@/lib/dates';
 
-export const metadata = { title: 'Bekleyen urunler' };
+export const metadata = { title: 'Bekleyen ürünler' };
 
 function itemLabel(item: PendingItem): string {
   return [item.stockItemName, item.sizeLabel, item.variantLabel].filter(Boolean).join(' · ');
@@ -18,9 +18,9 @@ export default async function BekleyenPage() {
   if (pending.orders.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-lg font-semibold">Bekleyen urunler</h1>
+        <h1 className="text-lg font-semibold">Bekleyen ürünler</h1>
         <p className="rounded-lg border border-neutral-200 bg-white p-6 text-center text-sm text-neutral-500">
-          Bekleyen siparis yok. Onaylanan siparisler teslim edilene kadar burada gorunur.
+          Bekleyen sipariş yok. Onaylanan siparişler teslim edilene kadar burada görünür.
         </p>
       </div>
     );
@@ -34,20 +34,20 @@ export default async function BekleyenPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold">Bekleyen urunler</h1>
+          <h1 className="text-lg font-semibold">Bekleyen ürünler</h1>
           <p className="text-sm text-neutral-500">
-            {pending.orders.length} siparis · {pending.totalPieces} parca bekliyor
+            {pending.orders.length} sipariş · {pending.totalPieces} parça bekliyor
           </p>
         </div>
         <Link href="/siparisler" className="text-sm text-neutral-500 hover:underline">
-          Siparis listesi
+          Sipariş listesi
         </Link>
       </div>
 
       {shortages.length > 0 ? (
         <p className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-          {shortages.length} parcada depodaki adet yetmiyor. Asagidaki toplu listede kirmizi
-          isaretli.
+          {shortages.length} parçada depodaki adet yetmiyor. Aşağıdaki toplu listede kırmızı
+          işaretli.
         </p>
       ) : null}
 
@@ -55,13 +55,13 @@ export default async function BekleyenPage() {
           atolye "ne yaptiracagiz" sorusunu buradan cevapliyor. */}
       <details className="overflow-hidden rounded-lg border border-neutral-200 bg-white" open>
         <summary className="cursor-pointer list-none p-3 text-sm font-semibold hover:bg-neutral-50">
-          Tum bekleyen urunler ({pending.totals.length} kalem)
-          <span className="ml-2 font-normal text-neutral-500">butun siparisler toplanmis</span>
+          Tüm bekleyen ürünler ({pending.totals.length} kalem)
+          <span className="ml-2 font-normal text-neutral-500">bütün siparişler toplanmış</span>
         </summary>
         <table className="w-full border-t border-neutral-200 text-sm">
           <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
-              <th className="p-3">Parca</th>
+              <th className="p-3">Parça</th>
               {/* Birden fazla depo varsa ayni parca her depo icin ayri satir;
                   yoksa "Depoda" rakami hangi depoyu gosterdigi belirsiz kalir. */}
               {manyWarehouses ? <th className="w-28 p-3">Depo</th> : null}
@@ -85,7 +85,7 @@ export default async function BekleyenPage() {
                     <>
                       {itemLabel(item)}
                       <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-800">
-                        stok disi
+                        stok dışı
                       </span>
                     </>
                   )}
@@ -115,7 +115,7 @@ export default async function BekleyenPage() {
 
       {/* Madde 1: her musterinin yaninda kendi bekleyen urunlerini acan dugme. */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Musteriye gore</h2>
+        <h2 className="text-sm font-semibold">Müşteriye göre</h2>
         {pending.orders.map((order) => (
           <details
             key={order.orderId}
@@ -134,7 +134,7 @@ export default async function BekleyenPage() {
                   {formatDate(order.plannedDeliveryDate)} · {ORDER_STATUS_LABELS[order.status]}
                 </span>
                 <span className="rounded-full border border-neutral-300 px-2 py-1 font-medium text-neutral-700">
-                  {order.pendingPieces} parca bekliyor
+                  {order.pendingPieces} parça bekliyor
                 </span>
               </span>
             </summary>
@@ -154,7 +154,7 @@ export default async function BekleyenPage() {
                 href={`/siparisler/${order.orderId}`}
                 className="text-sm text-neutral-500 hover:underline"
               >
-                Siparisi ac
+                Siparişi aç
               </Link>
             </div>
           </details>

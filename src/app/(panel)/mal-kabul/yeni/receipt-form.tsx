@@ -178,17 +178,17 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
 
       if (result.notice) toast.warning(result.notice);
       if (result.lines.length === 0) {
-        toast.error('Belgede urun satiri bulunamadi.');
+        toast.error('Belgede ürün satırı bulunamadı.');
       } else {
         toast.success(
-          `${matched.length} satir forma eklendi` +
-            (missing.length > 0 ? `, ${missing.length} urun katalogda yok` : '') +
+          `${matched.length} satır forma eklendi` +
+            (missing.length > 0 ? `, ${missing.length} ürün katalogda yok` : '') +
             '. Kontrol edip kaydedin.',
         );
       }
     } catch (error) {
       console.error(error);
-      toast.error('Belge okunamadi.');
+      toast.error('Belge okunamadı.');
     } finally {
       setReading(false);
       if (fileInput.current) fileInput.current.value = '';
@@ -235,7 +235,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
       // Ayni parca ikinci kez okutulursa yeni satir acmak yerine adedi artir:
       // depoda barkod arka arkaya okutulur, bu en dogal davranis.
       if (existing >= 0) {
-        toast.success(`${item.name} adedi artirildi.`);
+        toast.success(`${item.name} adedi artırıldı.`);
         return rows.map((row, i) =>
           i === existing ? { ...row, quantity: row.quantity + quantity } : row,
         );
@@ -285,7 +285,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
     const found = await findStockItemsAction(text);
     const exact = found.find((item) => item.barcode === text || item.sku === text);
     if (exact) addItem(exact);
-    else toast.error(`Barkod eslesmedi: ${text}`);
+    else toast.error(`Barkod eşleşmedi: ${text}`);
   }
 
   const totalQuantity =
@@ -323,10 +323,10 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
               })),
             });
             if (!result.ok) {
-              toast.error(result.error ?? 'Kayit basarisiz.');
+              toast.error(result.error ?? 'Kayıt başarısız.');
               return;
             }
-            toast.success('Mal kabul kaydedildi, stok guncellendi.');
+            toast.success('Mal kabul kaydedildi, stok güncellendi.');
             router.push(result.id ? `/mal-kabul/${result.id}` : '/mal-kabul');
             router.refresh();
           });
@@ -352,18 +352,18 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
             onClick={() => fileInput.current?.click()}
           >
             <FileScan className="size-4" />
-            {reading ? 'Belge okunuyor...' : 'Belgeden oku (yapay zeka)'}
+            {reading ? 'Belge okunuyor...' : 'Belgeden oku (yapay zekâ)'}
           </Button>
           <p className="text-xs text-neutral-500">
             {aiEnabled
-              ? 'Irsaliyenin Excel\'ini, fotografini ya da PDF\'ini secin; satirlar forma dolar. Stoga girmez — kontrol edip kaydedince girer.'
-              : 'Yapay zeka ayarli degil: Vercel\'de OPENAI_API_KEY tanimlanmali.'}
+              ? 'İrsaliyenin Excel\'ini, fotoğrafını ya da PDF\'ini seçin; satırlar forma dolar. Stoğa girmez — kontrol edip kaydedince girer.'
+              : 'Yapay zekâ ayarlı değil: Vercel\'de OPENAI_API_KEY tanımlanmalı.'}
           </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="supplier">Tedarikci</Label>
+            <Label htmlFor="supplier">Tedarikçi</Label>
             <select
               id="supplier"
               value={supplierId}
@@ -379,7 +379,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="waybill">Irsaliye no</Label>
+            <Label htmlFor="waybill">İrsaliye no</Label>
             <Input
               id="waybill"
               value={waybillNo}
@@ -392,7 +392,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="received">Gelis tarihi</Label>
+            <Label htmlFor="received">Geliş tarihi</Label>
             <Input
               id="received"
               type="date"
@@ -414,13 +414,13 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="item-search">Gelen parcalar</Label>
+          <Label htmlFor="item-search">Gelen parçalar</Label>
           <div className="flex gap-2">
             <Input
               id="item-search"
               value={query}
               onChange={(event) => void search(event.target.value)}
-              placeholder="Parca ara (en az 2 harf)"
+              placeholder="Parça ara (en az 2 harf)"
               className="h-11"
             />
             <Button type="button" variant="outline" className="h-11" onClick={() => setScanning(true)}>
@@ -484,7 +484,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
                     }
                   />
                   <Button type="button" variant="ghost" onClick={() => undoNewItem(row.key)}>
-                    Vazgec
+                    Vazgeç
                   </Button>
                 </li>
               ))}
@@ -492,7 +492,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
           ) : null}
 
           {lineCount === 0 ? (
-            <p className="text-sm text-neutral-500">Henuz parca eklenmedi.</p>
+            <p className="text-sm text-neutral-500">Henüz parça eklenmedi.</p>
           ) : lines.length === 0 ? null : (
             <ul className="space-y-2">
               {lines.map((row, index) => (
@@ -515,13 +515,13 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
                           ),
                         );
                       }}
-                      aria-label={`${row.label} hangi takimin basligi`}
-                      title="Irsaliyede yazmiyor: hangi takimin basligi?"
+                      aria-label={`${row.label} hangi takımın başlığı`}
+                      title="İrsaliyede yazmıyor: hangi takımın başlığı?"
                       className="h-10 rounded-md border border-amber-400 bg-amber-50 px-2 text-sm"
                     >
                       {row.twins.map((twin) => (
                         <option key={twin.id} value={twin.id}>
-                          {twin.setSize} takimi
+                          {twin.setSize} takımı
                         </option>
                       ))}
                     </select>
@@ -567,9 +567,9 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
                         ),
                       )
                     }
-                    placeholder="Birim alis"
+                    placeholder="Birim alış"
                     className="h-10 w-28"
-                    aria-label="Birim alis fiyati"
+                    aria-label="Birim alış fiyatı"
                   />
                   <Button
                     type="button"
@@ -577,7 +577,7 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
                     className="text-red-600"
                     onClick={() => setLines((rows) => rows.filter((_, i) => i !== index))}
                   >
-                    Kaldir
+                    Kaldır
                   </Button>
                 </li>
               ))}
@@ -587,19 +587,19 @@ export function ReceiptForm({ suppliers, categories, aiEnabled }: Props) {
           {lineCount > 0 ? (
             <p className="text-sm text-neutral-600">
               {lineCount} kalem · toplam {totalQuantity} adet
-              {newLines.length > 0 ? ` · ${newLines.length} yeni kart acilacak` : ''}
+              {newLines.length > 0 ? ` · ${newLines.length} yeni kart açılacak` : ''}
             </p>
           ) : null}
           {/* Karar verilmemis satir sessizce kaybolmasin. */}
           {unmatched.length > 0 && lineCount > 0 ? (
             <p className="text-xs text-amber-800">
-              Katalogda olmayan {unmatched.length} satir icin karar vermediniz; bunlar kayda girmez.
+              Katalogda olmayan {unmatched.length} satır için karar vermediniz; bunlar kayda girmez.
             </p>
           ) : null}
         </div>
 
         <Button type="submit" disabled={pending || lineCount === 0} className="h-11 w-full sm:w-auto">
-          {pending ? 'Kaydediliyor...' : 'Mal kabulu kaydet ve stoga isle'}
+          {pending ? 'Kaydediliyor...' : 'Mal kabulü kaydet ve stoğa işle'}
         </Button>
       </form>
     </>

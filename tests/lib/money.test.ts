@@ -47,15 +47,15 @@ describe('parseTlInput', () => {
   });
 
   it('gecersiz girdi hata firlatir', () => {
-    expect(() => parseTlInput('abc')).toThrow('Gecersiz tutar');
+    expect(() => parseTlInput('abc')).toThrow('Geçersiz tutar');
   });
 
   it('negatif girdi hata firlatir', () => {
-    expect(() => parseTlInput('-100')).toThrow('Gecersiz tutar');
+    expect(() => parseTlInput('-100')).toThrow('Geçersiz tutar');
   });
 
   it('ikiden fazla kurus hanesi reddedilir', () => {
-    expect(() => parseTlInput('10,555')).toThrow('Gecersiz tutar');
+    expect(() => parseTlInput('10,555')).toThrow('Geçersiz tutar');
   });
 });
 
@@ -125,9 +125,9 @@ describe('kur', () => {
   });
 
   it('gecersiz kur reddedilir', () => {
-    expect(() => parseRateInput('abc')).toThrow('Gecersiz kur');
-    expect(() => parseRateInput('42,12345')).toThrow('Gecersiz kur');
-    expect(() => parseRateInput('-5')).toThrow('Gecersiz kur');
+    expect(() => parseRateInput('abc')).toThrow('Geçersiz kur');
+    expect(() => parseRateInput('42,12345')).toThrow('Geçersiz kur');
+    expect(() => parseRateInput('-5')).toThrow('Geçersiz kur');
   });
 
   it('TL karsiligi kurusa yuvarlanir', () => {

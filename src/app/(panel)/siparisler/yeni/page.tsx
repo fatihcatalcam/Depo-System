@@ -15,9 +15,9 @@ export default async function YeniSiparisPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold">Yeni siparis</h1>
+        <h1 className="text-lg font-semibold">Yeni sipariş</h1>
         <p className="text-sm text-neutral-500">
-          Musteri, satici, teslimat adresi ve satirlari girin. Siparis once taslak olarak olusur.
+          Müşteri, satıcı, teslimat adresi ve satırları girin. Sipariş önce taslak olarak oluşur.
         </p>
       </div>
       <OrderForm

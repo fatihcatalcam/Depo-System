@@ -49,10 +49,10 @@ export default async function SiparisDuzenlePage({
       <div className="space-y-4">
         <h1 className="text-lg font-semibold">{order.orderNo}</h1>
         <p className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
-          {ORDER_STATUS_LABELS[order.status]} durumundaki siparis duzenlenemez.
+          {ORDER_STATUS_LABELS[order.status]} durumundaki sipariş düzenlenemez.
         </p>
         <Link href={`/siparisler/${id}`} className="text-sm text-neutral-500 hover:underline">
-          Siparise don
+          Siparişe don
         </Link>
       </div>
     );
@@ -77,7 +77,7 @@ export default async function SiparisDuzenlePage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold">{order.orderNo} · duzenle</h1>
+        <h1 className="text-lg font-semibold">{order.orderNo} · düzenle</h1>
         <p className="text-sm text-neutral-500">
           {order.customerName} · {ORDER_STATUS_LABELS[order.status]}
         </p>
@@ -85,10 +85,10 @@ export default async function SiparisDuzenlePage({
 
       {deliveredAny ? (
         <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          Bu siparisin bir kismi teslim edildi. <strong>Teslim edilen satirlar
-          degistirilemez</strong>; teslim edilmeyenler degistirilebilir,
-          kaldirilabilir ve yeni satir eklenebilir. Bir takimin tek parcasi
-          gittiyse takimin tamami kilitli.
+          Bu siparişin bir kısmi teslim edildi. <strong>Teslim edilen satırlar
+          değiştirilemez</strong>; teslim edilmeyenler değiştirilebilir,
+          kaldırılabilir ve yeni satır eklenebilir. Bir takımın tek parçası
+          gittiyse takımın tamamı kilitli.
         </p>
       ) : null}
 
@@ -159,7 +159,7 @@ export default async function SiparisDuzenlePage({
       />
 
       <Link href={`/siparisler/${id}`} className="inline-block text-sm text-neutral-500 hover:underline">
-        Siparise don
+        Siparişe don
       </Link>
     </div>
   );

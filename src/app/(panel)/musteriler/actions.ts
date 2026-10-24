@@ -16,11 +16,11 @@ export interface ActionResult {
 function toResult(error: unknown): ActionResult {
   if (error instanceof DomainError) return { ok: false, error: error.message };
   console.error(error);
-  return { ok: false, error: 'Beklenmeyen bir hata olustu.' };
+  return { ok: false, error: 'Beklenmeyen bir hata oluştu.' };
 }
 
 const customerSchema = z.object({
-  name: z.string().min(1, 'Musteri adi girin.'),
+  name: z.string().min(1, 'Müşteri adı girin.'),
   phone: z.string().optional(),
   phone2: z.string().optional(),
   email: z.string().optional(),

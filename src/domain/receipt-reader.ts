@@ -292,7 +292,7 @@ async function callModel(
   options: Options,
 ): Promise<ModelReply> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return { ok: false, error: 'Yapay zeka ayarli degil (OPENAI_API_KEY yok).' };
+  if (!apiKey) return { ok: false, error: 'Yapay zekâ ayarlı değil (OPENAI_API_KEY yok).' };
 
   let response: Response;
   try {
@@ -313,7 +313,7 @@ async function callModel(
     });
   } catch (error) {
     console.error('receipt-reader: istek basarisiz', error);
-    return { ok: false, error: 'Yapay zeka servisine ulasilamadi. Birazdan tekrar deneyin.' };
+    return { ok: false, error: 'Yapay zekâ servisine ulaşılamadı. Birazdan tekrar deneyin.' };
   }
 
   if (!response.ok) {
@@ -322,13 +322,13 @@ async function callModel(
       ok: false,
       error:
         response.status === 401
-          ? 'Yapay zeka anahtari gecersiz.'
-          : 'Yapay zeka belgeyi okuyamadi. Birazdan tekrar deneyin.',
+          ? 'Yapay zekâ anahtarı geçersiz.'
+          : 'Yapay zekâ belgeyi okuyamadı. Birazdan tekrar deneyin.',
     };
   }
 
   const text = extractOutputText(await response.json().catch(() => null));
-  if (text === null) return { ok: false, error: 'Yapay zeka bu belgeyi okumayi reddetti.' };
+  if (text === null) return { ok: false, error: 'Yapay zekâ bu belgeyi okumayı reddetti.' };
   return { ok: true, text };
 }
 
@@ -409,7 +409,7 @@ export async function readReceiptDocument(
   options: Options = {},
 ): Promise<ReadResult> {
   if (!isReceiptReaderConfigured()) {
-    return { ok: false, error: 'Yapay zeka ayarli degil (OPENAI_API_KEY yok).' };
+    return { ok: false, error: 'Yapay zekâ ayarlı değil (OPENAI_API_KEY yok).' };
   }
 
   const catalog = await loadCatalog(db);
@@ -442,7 +442,7 @@ export async function readReceiptDocument(
     parsed = documentOutput.parse(JSON.parse(reply.text));
   } catch (error) {
     console.error('receipt-reader: gecersiz cikti', error);
-    return { ok: false, error: 'Yapay zekanin cevabi anlasilamadi. Tekrar deneyin.' };
+    return { ok: false, error: 'Yapay zekânın cevabı anlaşılamadı. Tekrar deneyin.' };
   }
 
   const lines: ReadLine[] = [];
@@ -531,10 +531,10 @@ export async function readReceiptSpreadsheet(
   options: Options = {},
 ): Promise<ReadResult> {
   if (!isReceiptReaderConfigured()) {
-    return { ok: false, error: 'Yapay zeka ayarli degil (OPENAI_API_KEY yok).' };
+    return { ok: false, error: 'Yapay zekâ ayarlı değil (OPENAI_API_KEY yok).' };
   }
   if (sheet.lines.length === 0) {
-    return { ok: false, error: 'Excel dosyasinda urun satiri bulunamadi.' };
+    return { ok: false, error: 'Excel dosyasında ürün satırı bulunamadı.' };
   }
 
   const names = [...new Set(sheet.lines.map((line) => line.text))];
@@ -561,7 +561,7 @@ export async function readReceiptSpreadsheet(
     parsed = namesOutput.parse(JSON.parse(reply.text));
   } catch (error) {
     console.error('receipt-reader: gecersiz eslestirme', error);
-    return { ok: false, error: 'Yapay zekanin cevabi anlasilamadi. Tekrar deneyin.' };
+    return { ok: false, error: 'Yapay zekânın cevabı anlaşılamadı. Tekrar deneyin.' };
   }
 
   // Ad -> karar. Modelin atladigi ya da uydurdugu satir numarasi eslesmemis sayilir.

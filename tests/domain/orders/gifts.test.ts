@@ -139,7 +139,7 @@ describe('hediye satir', () => {
     // Ara toplam 5.000.000; hediyenin 85.000'i buna dahil degil.
     await expect(
       updateOrder(ctx.db, ctx.scope, order.id, { discountKurus: 5_085_000 }),
-    ).rejects.toThrow('Iskonto ara toplamdan buyuk olamaz');
+    ).rejects.toThrow('İskonto ara toplamdan büyük olamaz');
 
     await updateOrder(ctx.db, ctx.scope, order.id, { discountKurus: 5_000_000 });
     const detail = await getOrder(ctx.db, ctx.scope, order.id);

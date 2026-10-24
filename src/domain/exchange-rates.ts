@@ -50,7 +50,7 @@ export async function getRate(db: Db, currency: Currency): Promise<RateInfo> {
 
 export class RateUnavailableError extends Error {
   constructor(currency: Currency) {
-    super(`${currency} kuru alinamadi. Kuru elle girin.`);
+    super(`${currency} kuru alınamadı. Kuru elle girin.`);
     this.name = 'RateUnavailableError';
   }
 }

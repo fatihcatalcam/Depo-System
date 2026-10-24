@@ -37,18 +37,18 @@ export type OrderStatus = Order['status'];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   draft: 'Taslak',
-  confirmed: 'Onaylandi',
-  partially_delivered: 'Kismen teslim',
+  confirmed: 'Onaylandı',
+  partially_delivered: 'Kısmen teslim',
   delivered: 'Teslim edildi',
-  cancelled: 'Iptal',
+  cancelled: 'İptal',
 };
 
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  unpaid: 'Odenmedi',
-  partial: 'Kismen odendi',
-  paid: 'Odendi',
+  unpaid: 'Ödenmedi',
+  partial: 'Kısmen ödendi',
+  paid: 'Ödendi',
 };
 
 export interface OrderLineInput {
@@ -182,7 +182,7 @@ export async function createOrder(
   validateLines(input.lines);
 
   const address = input.deliveryAddress.trim();
-  if (address === '') throw new DomainError('Teslimat adresi bos olamaz.', 'INVALID_INPUT');
+  if (address === '') throw new DomainError('Teslimat adresi boş olamaz.', 'INVALID_INPUT');
 
   const branch = ownBranch(scope);
 
@@ -233,14 +233,14 @@ export async function createOrder(
     let depositTotal = 0;
     for (const deposit of deposits) {
       if (!Number.isInteger(deposit.amountKurus) || deposit.amountKurus < 0) {
-        throw new DomainError('Kapora tutari sifirdan buyuk olmali.', 'INVALID_AMOUNT');
+        throw new DomainError('Kapora tutarı sıfırdan büyük olmalı.', 'INVALID_AMOUNT');
       }
       depositTotal += deposit.amountKurus;
     }
     // Toplam kontrolu tek tek degil birlikte: 30.000 nakit + 30.000 kart,
     // 50.000'lik sipariste ikisi de tek basina gecer ama birlikte gecmemeli.
     if (depositTotal > totals.total) {
-      throw new DomainError('Kapora siparis tutarindan buyuk olamaz.', 'INVALID_AMOUNT');
+      throw new DomainError('Kapora sipariş tutarından büyük olamaz.', 'INVALID_AMOUNT');
     }
     for (const deposit of deposits) {
       await tx.insert(payments).values({
@@ -336,7 +336,7 @@ export async function updateOrder(
 
     if (existing.status === 'cancelled' || existing.status === 'delivered') {
       throw new DomainError(
-        `${ORDER_STATUS_LABELS[existing.status]} durumundaki siparis duzenlenemez.`,
+        `${ORDER_STATUS_LABELS[existing.status]} durumundaki sipariş düzenlenemez.`,
         'IMMUTABLE_ORDER',
       );
     }
@@ -344,7 +344,7 @@ export async function updateOrder(
     if (input.lines) validateLines(input.lines);
 
     const address = input.deliveryAddress?.trim() ?? existing.deliveryAddress;
-    if (address === '') throw new DomainError('Teslimat adresi bos olamaz.', 'INVALID_INPUT');
+    if (address === '') throw new DomainError('Teslimat adresi boş olamaz.', 'INVALID_INPUT');
 
     const money = await resolveCurrencyUpdate(tx, id, existing, input);
 
@@ -367,7 +367,7 @@ export async function updateOrder(
       for (const lineId of keptIds) {
         if (input.lines.filter((line) => line.id === lineId).length !== 1) {
           throw new DomainError(
-            'Teslim edilen satir siparisten cikarilamaz.',
+            'Teslim edilen satır siparişten çıkarılamaz.',
             'ALREADY_DELIVERED',
           );
         }
@@ -476,12 +476,12 @@ export async function confirmOrder(db: DbOrTx, scope: Scope, id: string): Promis
   return runInTransaction(db, async (tx) => {
     const existing = await loadOrder(tx, scope, id);
     if (existing.status !== 'draft') {
-      throw new DomainError('Yalnizca taslak siparisler onaylanabilir.', 'INVALID_STATUS');
+      throw new DomainError('Yalnızca taslak siparişler onaylanabilir.', 'INVALID_STATUS');
     }
 
     const lineCount = await tx.select().from(orderLines).where(eq(orderLines.orderId, id));
     if (lineCount.length === 0) {
-      throw new DomainError('Bos siparis onaylanamaz.', 'EMPTY_ORDER');
+      throw new DomainError('Boş sipariş onaylanamaz.', 'EMPTY_ORDER');
     }
 
     await freezeComponents(tx, id);
@@ -533,7 +533,7 @@ export async function cancelOrder(db: DbOrTx, scope: Scope, id: string): Promise
                   movementType: 'return' as const,
                   referenceType: 'order',
                   referenceId: id,
-                  notes: `${existing.orderNo} iptal edildi, teslim edilen mal iade alindi.`,
+                  notes: `${existing.orderNo} iptal edildi, teslim edilen mal iade alındı.`,
                 },
               ],
         ),
@@ -569,7 +569,7 @@ export async function setFactoryOrdered(
 ): Promise<Order> {
   const existing = await loadOrder(db, scope, id);
   if (existing.status === 'cancelled') {
-    throw new DomainError('Iptal edilmis siparis isaretlenemez.', 'IMMUTABLE_ORDER');
+    throw new DomainError('İptal edilmiş sipariş işaretlenemez.', 'IMMUTABLE_ORDER');
   }
   const [order] = await db
     .update(orders)
@@ -658,7 +658,7 @@ export async function getOrder(db: DbOrTx, scope: Scope, id: string): Promise<Or
     .leftJoin(salespeople, eq(salespeople.id, orders.salespersonId))
     .where(and(eq(orders.id, id), scopeFilter(scope, orders.branchId)));
 
-  if (!row) throw new NotFoundError('Siparis');
+  if (!row) throw new NotFoundError('Sipariş');
 
   const warehouseId = await warehouseOf(db, row.order.branchId);
 
@@ -952,14 +952,14 @@ async function resolveCustomer(tx: Tx, scope: Scope, input: CreateOrderInput): P
       .select({ id: customers.id })
       .from(customers)
       .where(and(eq(customers.id, input.customerId), scopeFilter(scope, customers.branchId)));
-    if (!customer) throw new NotFoundError('Musteri');
+    if (!customer) throw new NotFoundError('Müşteri');
     return customer.id;
   }
 
   const name = input.newCustomer?.name?.trim() ?? '';
   if (name === '') {
     throw new DomainError(
-      'Kayitli bir musteri secin veya yeni musteri adi girin.',
+      'Kayıtlı bir müşteri seçin veya yeni müşteri adı girin.',
       'CUSTOMER_REQUIRED',
     );
   }
@@ -979,9 +979,9 @@ async function assertActiveSalesperson(tx: Tx, id: string) {
     .select({ isActive: salespeople.isActive })
     .from(salespeople)
     .where(eq(salespeople.id, id));
-  if (!row) throw new NotFoundError('Satici');
+  if (!row) throw new NotFoundError('Satıcı');
   if (!row.isActive) {
-    throw new DomainError('Bu satici artik aktif degil, siparise atanamaz.', 'INACTIVE_SALESPERSON');
+    throw new DomainError('Bu satıcı artık aktif değil, siparişe atanamaz.', 'INACTIVE_SALESPERSON');
   }
 }
 
@@ -1010,11 +1010,11 @@ async function resolveLines(tx: Tx, lines: OrderLineInput[]): Promise<ResolvedLi
       description = (line.description ?? '').trim();
     } else if (line.itemType === 'product') {
       const product = productRows.find((row) => row.id === line.productId);
-      if (!product) throw new NotFoundError('Urun');
+      if (!product) throw new NotFoundError('Ürün');
       description = product.name;
     } else {
       const item = stockRows.find((row) => row.id === line.stockItemId);
-      if (!item) throw new NotFoundError('Stok karti');
+      if (!item) throw new NotFoundError('Stok kartı');
       description = [item.name, item.sizeLabel, item.variantLabel].filter(Boolean).join(' · ');
     }
 
@@ -1131,7 +1131,7 @@ async function freezeComponents(tx: Tx, orderId: string, lineIds?: string[]) {
     const recipe = recipes.filter((row) => row.productId === line.productId);
     if (recipe.length === 0) {
       throw new DomainError(
-        `"${line.description}" urununun recetesi bos, siparis onaylanamaz.`,
+        `"${line.description}" ürününün reçetesi boş, sipariş onaylanamaz.`,
         'EMPTY_RECIPE',
       );
     }
@@ -1194,15 +1194,15 @@ function resolveCurrency(
   if (currency === 'TRY') return { currency, exchangeRate: TRY_RATE };
 
   if (exchangeRate == null) {
-    throw new DomainError('Doviz siparisinde kur girilmeli.', 'RATE_REQUIRED');
+    throw new DomainError('Döviz siparişinde kur girilmeli.', 'RATE_REQUIRED');
   }
   if (!Number.isInteger(exchangeRate) || exchangeRate <= 0) {
-    throw new DomainError('Kur sifirdan buyuk olmali.', 'INVALID_RATE');
+    throw new DomainError('Kur sıfırdan büyük olmalı.', 'INVALID_RATE');
   }
   // 10.000 = 1,0000. Dovizin kuru 1'in altinda olamaz: TL'nin daha degerli
   // oldugu bir para birimi satmiyoruz, boyle bir deger yazim hatasidir.
   if (exchangeRate < RATE_SCALE) {
-    throw new DomainError('Kur 1,0000 degerinden kucuk olamaz.', 'INVALID_RATE');
+    throw new DomainError('Kur 1,0000 değerinden küçük olamaz.', 'INVALID_RATE');
   }
 
   return { currency, exchangeRate };
@@ -1233,7 +1233,7 @@ async function resolveCurrencyUpdate(
   if (wantsCurrency) {
     if (existing.status !== 'draft') {
       throw new DomainError(
-        'Onaylanmis siparisin para birimi degistirilemez.',
+        'Onaylanmış siparişin para birimi değiştirilemez.',
         'CURRENCY_LOCKED',
       );
     }
@@ -1245,7 +1245,7 @@ async function resolveCurrencyUpdate(
 
     if (Number(paid?.count ?? 0) > 0) {
       throw new DomainError(
-        'Tahsilat girilmis siparisin para birimi degistirilemez. Once odemeleri silin.',
+        'Tahsilat girilmiş siparişin para birimi değiştirilemez. Önce ödemeleri silin.',
         'CURRENCY_LOCKED',
       );
     }
@@ -1269,9 +1269,9 @@ function resolveTotals(
     return { subtotal, discount: 0, manualTotal: manualTotalKurus, total: manualTotalKurus };
   }
 
-  if (discountKurus < 0) throw new DomainError('Iskonto negatif olamaz.', 'INVALID_DISCOUNT');
+  if (discountKurus < 0) throw new DomainError('İskonto negatif olamaz.', 'INVALID_DISCOUNT');
   if (discountKurus > subtotal) {
-    throw new DomainError('Iskonto ara toplamdan buyuk olamaz.', 'INVALID_DISCOUNT');
+    throw new DomainError('İskonto ara toplamdan büyük olamaz.', 'INVALID_DISCOUNT');
   }
   return {
     subtotal,
@@ -1282,23 +1282,23 @@ function resolveTotals(
 }
 
 function validateLines(lines: OrderLineInput[]) {
-  if (lines.length === 0) throw new DomainError('Siparis en az bir satir icermeli.', 'EMPTY_ORDER');
+  if (lines.length === 0) throw new DomainError('Sipariş en az bir satır içermeli.', 'EMPTY_ORDER');
 
   for (const line of lines) {
     if (!Number.isInteger(line.quantity) || line.quantity <= 0) {
-      throw new DomainError('Adet sifirdan buyuk tam sayi olmali.', 'INVALID_QUANTITY');
+      throw new DomainError('Adet sıfırdan büyük tam sayı olmalı.', 'INVALID_QUANTITY');
     }
     if (line.unitPriceKurus < 0) {
       throw new DomainError('Birim fiyat negatif olamaz.', 'INVALID_PRICE');
     }
     if (line.itemType === 'product' && !line.productId) {
-      throw new DomainError('Urun satirinda urun secilmeli.', 'INVALID_LINE');
+      throw new DomainError('Ürün satırında ürün seçilmeli.', 'INVALID_LINE');
     }
     if (line.itemType === 'stock_item' && !line.stockItemId) {
-      throw new DomainError('Parca satirinda parca secilmeli.', 'INVALID_LINE');
+      throw new DomainError('Parça satırında parça seçilmeli.', 'INVALID_LINE');
     }
     if (line.itemType === 'custom' && !line.description?.trim()) {
-      throw new DomainError('Serbest satirda urun adi yazilmali.', 'INVALID_LINE');
+      throw new DomainError('Serbest satırda ürün adı yazılmalı.', 'INVALID_LINE');
     }
   }
 }
@@ -1313,7 +1313,7 @@ async function loadOrder(tx: DbOrTx, scope: Scope, id: string): Promise<Order> {
     .select()
     .from(orders)
     .where(and(eq(orders.id, id), scopeFilter(scope, orders.branchId)));
-  if (!row) throw new NotFoundError('Siparis');
+  if (!row) throw new NotFoundError('Sipariş');
   return row;
 }
 

@@ -31,7 +31,7 @@ describe('musteriler', () => {
 
   it('bos isim reddedilir', async () => {
     await expect(createCustomer(ctx.db, ctx.scope, { name: '  ' })).rejects.toThrow(
-      'Musteri adi bos olamaz',
+      'Müşteri adı boş olamaz',
     );
   });
 
@@ -61,7 +61,7 @@ describe('musteriler', () => {
 
   it('olmayan musteri bulunamaz', async () => {
     await expect(getCustomer(ctx.db, ctx.scope, '99999999-9999-9999-9999-999999999999')).rejects.toThrow(
-      'bulunamadi',
+      'bulunamadı',
     );
   });
 });
@@ -77,7 +77,7 @@ describe('tedarikciler', () => {
 
   it('bos isim reddedilir', async () => {
     await expect(createSupplier(ctx.db, { name: '' })).rejects.toThrow(
-      'Tedarikci adi bos olamaz',
+      'Tedarikçi adı boş olamaz',
     );
   });
 

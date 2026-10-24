@@ -119,9 +119,9 @@ describe('renk karti', () => {
   it('renk kartinin rengi olmaz', async () => {
     const base = await coloredBase('DENEME BAZA 3');
     const card = await ensureColorCard(ctx.db, base.id, 'BK-149');
-    await expect(ensureColorCard(ctx.db, card.id, 'BK-51')).rejects.toThrow('ana karti secin');
+    await expect(ensureColorCard(ctx.db, card.id, 'BK-51')).rejects.toThrow('ana kartı seçin');
     await expect(updateStockItem(ctx.db, card.id, { colorPaletteId: paletteId })).rejects.toThrow(
-      'kartelasi olmaz',
+      'kartelası olmaz',
     );
   });
 

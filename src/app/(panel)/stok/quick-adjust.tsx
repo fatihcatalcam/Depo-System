@@ -86,7 +86,7 @@ export function QuickAdjust({ target, stockItemName, onHand, locked }: Props) {
         router.refresh();
       } else {
         setQueued((current) => current - amount);
-        toast.error(`${stockItemName}: ${result.error ?? 'Islem basarisiz.'}`);
+        toast.error(`${stockItemName}: ${result.error ?? 'İşlem başarısız.'}`);
       }
     } finally {
       inFlightRef.current = false;
@@ -134,7 +134,7 @@ export function QuickAdjust({ target, stockItemName, onHand, locked }: Props) {
     <div className="flex items-center justify-end gap-1">
       <button
         type="button"
-        aria-label={`${stockItemName} stogunu bir azalt`}
+        aria-label={`${stockItemName} stoğunu bir azalt`}
         disabled={locked || displayed <= 0}
         onClick={() => adjust(-1)}
         className="flex size-9 items-center justify-center rounded-md border border-neutral-300 text-neutral-700 hover:border-neutral-500 active:bg-neutral-100 disabled:opacity-40"
@@ -152,7 +152,7 @@ export function QuickAdjust({ target, stockItemName, onHand, locked }: Props) {
       </span>
       <button
         type="button"
-        aria-label={`${stockItemName} stogunu bir artir`}
+        aria-label={`${stockItemName} stoğunu bir artır`}
         disabled={locked}
         onClick={() => adjust(1)}
         className="flex size-9 items-center justify-center rounded-md border border-neutral-300 text-neutral-700 hover:border-neutral-500 active:bg-neutral-100"

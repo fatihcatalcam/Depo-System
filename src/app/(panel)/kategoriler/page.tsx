@@ -10,7 +10,7 @@ export default async function KategorilerPage() {
       <div>
         <h1 className="text-lg font-semibold">Kategoriler</h1>
         <p className="text-sm text-neutral-500">
-          Ana kategori ve altina istediginiz kadar alt kategori tanimlayabilirsiniz.
+          Ana kategori ve altına istediğiniz kadar alt kategori tanımlayabilirsiniz.
         </p>
       </div>
       <CategoryManager tree={tree} />

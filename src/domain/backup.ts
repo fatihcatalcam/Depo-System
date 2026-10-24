@@ -50,7 +50,7 @@ function orderTables(names: string[]): string[] {
 }
 
 export function createPool(): Pool {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL tanimli degil.');
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL tanımlı değil.');
   return new Pool({ connectionString: hardenSslMode(process.env.DATABASE_URL), max: 2 });
 }
 

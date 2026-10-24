@@ -12,18 +12,18 @@ export default async function UrunlerPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Urunler</h1>
+          <h1 className="text-lg font-semibold">Ürünler</h1>
           <p className="text-sm text-neutral-500">
-            Satilan setler ve icerdikleri parcalar (recete)
+            Satılan setler ve içerdikleri parçalar (reçete)
           </p>
         </div>
         <Link href="/urunler/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
-          Yeni urun
+          Yeni ürün
         </Link>
       </div>
 
       {products.length === 0 ? (
-        <p className="text-sm text-neutral-500">Henuz urun tanimlanmadi.</p>
+        <p className="text-sm text-neutral-500">Henüz ürün tanımlanmadı.</p>
       ) : (
         <ul className="space-y-2">
           {products.map((product) => (

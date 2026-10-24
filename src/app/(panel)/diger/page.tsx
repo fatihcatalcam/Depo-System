@@ -15,45 +15,45 @@ import { currentUser } from '@/lib/auth/current';
 const LINKS = [
   {
     href: '/siparisler/ozet',
-    label: 'Siparis ozeti',
-    description: 'Excel listesi gibi: kim, ne, ne zaman, nereye ve odeme',
+    label: 'Sipariş özeti',
+    description: 'Excel listesi gibi: kim, ne, ne zaman, nereye ve ödeme',
     icon: Sheet,
   },
   {
     href: '/mal-kabul',
     label: 'Mal kabul',
-    description: 'Fabrikadan gelen sevkiyati stoga isle',
+    description: 'Fabrikadan gelen sevkiyatı stoğa işle',
     icon: PackagePlus,
   },
   {
     href: '/raporlar',
     label: 'Raporlar',
-    description: 'Gunluk, haftalik ve aylik ozet',
+    description: 'Günlük, haftalık ve aylık özet',
     icon: BarChart3,
   },
-  { href: '/urunler', label: 'Urunler', description: 'Satilan setler ve receteleri', icon: Package },
+  { href: '/urunler', label: 'Ürünler', description: 'Satılan setler ve reçeteleri', icon: Package },
   {
     href: '/musteriler',
-    label: 'Musteriler',
-    description: 'Musteri kayitlari ve adresleri',
+    label: 'Müşteriler',
+    description: 'Müşteri kayıtları ve adresleri',
     icon: Users,
   },
   {
     href: '/tedarikciler',
-    label: 'Tedarikciler',
-    description: 'Mal kabulde secilen fabrikalar',
+    label: 'Tedarikçiler',
+    description: 'Mal kabulde seçilen fabrikalar',
     icon: Warehouse,
   },
   {
     href: '/kategoriler',
     label: 'Kategoriler',
-    description: 'Ana ve alt kategori agaci',
+    description: 'Ana ve alt kategori ağacı',
     icon: FolderTree,
   },
   {
     href: '/etiket',
     label: 'Barkod etiketi',
-    description: 'Parcalar icin yazdirilabilir etiket sayfasi',
+    description: 'Parçalar için yazdırılabilir etiket sayfası',
     icon: QrCode,
   },
   {
@@ -71,7 +71,7 @@ export default async function DigerPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Diger</h1>
+      <h1 className="text-lg font-semibold">Diğer</h1>
       <ul className="space-y-2">
         {links.map(({ href, label, description, icon: Icon }) => (
           <li key={href}>

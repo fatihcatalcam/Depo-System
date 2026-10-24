@@ -15,8 +15,8 @@ import {
 
 const EXPORTS = [
   { href: '/api/disa-aktar/stok', label: 'Stok listesi' },
-  { href: '/api/disa-aktar/musteriler', label: 'Musteri listesi' },
-  { href: '/api/disa-aktar/siparisler', label: 'Siparisler ve alacaklar' },
+  { href: '/api/disa-aktar/musteriler', label: 'Müşteri listesi' },
+  { href: '/api/disa-aktar/siparisler', label: 'Siparişler ve alacaklar' },
 ];
 
 export default async function AyarlarPage() {
@@ -34,7 +34,7 @@ export default async function AyarlarPage() {
       <div>
         <h1 className="text-lg font-semibold">Ayarlar</h1>
         <p className="text-sm text-neutral-500">
-          {user.label} olarak giris yapildi · firma bilgileri, parola ve veri aktarma
+          {user.label} olarak giriş yapıldı · firma bilgileri, parola ve veri aktarma
         </p>
       </div>
 
@@ -66,9 +66,9 @@ export default async function AyarlarPage() {
       ) : null}
 
       <section className="rounded-lg border border-neutral-200 bg-white p-4">
-        <h2 className="text-sm font-semibold">Excel&apos;e disa aktarma</h2>
+        <h2 className="text-sm font-semibold">Excel&apos;e dışa aktarma</h2>
         <p className="mb-3 text-xs text-neutral-500">
-          Muhasebeciye gondermek veya yedek almak icin.
+          Muhasebeciye göndermek veya yedek almak için.
         </p>
         <div className="flex flex-wrap gap-2">
           {EXPORTS.map((item) => (

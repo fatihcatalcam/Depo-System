@@ -14,11 +14,11 @@ export interface ActionResult {
 function toResult(error: unknown): ActionResult {
   if (error instanceof DomainError) return { ok: false, error: error.message };
   console.error(error);
-  return { ok: false, error: 'Beklenmeyen bir hata olustu.' };
+  return { ok: false, error: 'Beklenmeyen bir hata oluştu.' };
 }
 
 const createSchema = z.object({
-  name: z.string().min(1, 'Kategori adi girin.'),
+  name: z.string().min(1, 'Kategori adı girin.'),
   parentId: z.uuid().nullable(),
 });
 

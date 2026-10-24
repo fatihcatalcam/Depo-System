@@ -99,14 +99,14 @@ describe('sube izolasyonu', () => {
    */
   it('baska subenin siparisi bulunamadi doner', async () => {
     const { order } = await orderInBranch(merkez);
-    await expect(getOrder(ctx.db, s2, order.id)).rejects.toThrow('Siparis bulunamadi');
+    await expect(getOrder(ctx.db, s2, order.id)).rejects.toThrow('Sipariş bulunamadı');
   });
 
   it('baska subenin siparisi guncellenemez', async () => {
     const { order } = await orderInBranch(merkez);
     await expect(
       updateOrder(ctx.db, s2, order.id, { deliveryAddress: 'Baska adres' }),
-    ).rejects.toThrow('Siparis bulunamadi');
+    ).rejects.toThrow('Sipariş bulunamadı');
 
     // Gercekten degismemis olmali.
     const untouched = await getOrder(ctx.db, merkez, order.id);
@@ -115,7 +115,7 @@ describe('sube izolasyonu', () => {
 
   it('baska subenin siparisi iptal edilemez', async () => {
     const { order } = await orderInBranch(merkez);
-    await expect(cancelOrder(ctx.db, s2, order.id)).rejects.toThrow('Siparis bulunamadi');
+    await expect(cancelOrder(ctx.db, s2, order.id)).rejects.toThrow('Sipariş bulunamadı');
     expect((await getOrder(ctx.db, merkez, order.id)).status).toBe('confirmed');
   });
 
@@ -129,7 +129,7 @@ describe('sube izolasyonu', () => {
         orderId: order.id,
         lines: [{ orderLineComponentId: component.id, quantity: 1 }],
       }),
-    ).rejects.toThrow('Siparis bulunamadi');
+    ).rejects.toThrow('Sipariş bulunamadı');
   });
 
   it('baska subenin siparisine odeme eklenemez', async () => {
@@ -141,7 +141,7 @@ describe('sube izolasyonu', () => {
         method: 'nakit',
         paidAt: '2026-08-10',
       }),
-    ).rejects.toThrow('Siparis bulunamadi');
+    ).rejects.toThrow('Sipariş bulunamadı');
   });
 
   it('baska subenin odemesi ne listelenir ne silinir', async () => {
@@ -154,7 +154,7 @@ describe('sube izolasyonu', () => {
     });
 
     expect(await listPayments(ctx.db, s2, order.id)).toEqual([]);
-    await expect(deletePayment(ctx.db, s2, payment.id)).rejects.toThrow('Odeme bulunamadi');
+    await expect(deletePayment(ctx.db, s2, payment.id)).rejects.toThrow('Ödeme bulunamadı');
 
     // Merkez hala goruyor ve silebiliyor.
     expect(await listPayments(ctx.db, merkez, order.id)).toHaveLength(1);
@@ -214,9 +214,9 @@ describe('musteri izolasyonu', () => {
   it('baska subenin musterisi okunamaz ve guncellenemez', async () => {
     const theirs = await createCustomer(ctx.db, merkez, { name: 'Gizli Musteri' });
 
-    await expect(getCustomer(ctx.db, s2, theirs.id)).rejects.toThrow('Musteri bulunamadi');
+    await expect(getCustomer(ctx.db, s2, theirs.id)).rejects.toThrow('Müşteri bulunamadı');
     await expect(updateCustomer(ctx.db, s2, theirs.id, { name: 'Degistirildi' })).rejects.toThrow(
-      'Musteri bulunamadi',
+      'Müşteri bulunamadı',
     );
 
     expect((await getCustomer(ctx.db, merkez, theirs.id)).name).toBe('Gizli Musteri');
@@ -244,7 +244,7 @@ describe('musteri izolasyonu', () => {
           { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100_000 },
         ],
       }),
-    ).rejects.toThrow('Musteri bulunamadi');
+    ).rejects.toThrow('Müşteri bulunamadı');
   });
 });
 
@@ -313,7 +313,7 @@ describe('merkez', () => {
   it('yeni kayitlari kendi subesine acar', async () => {
     const customer = await createCustomer(ctx.db, merkez, { name: 'Merkezin Musterisi' });
     expect(customer.branchId).toBe(merkez.branchId);
-    await expect(getCustomer(ctx.db, s2, customer.id)).rejects.toThrow('Musteri bulunamadi');
+    await expect(getCustomer(ctx.db, s2, customer.id)).rejects.toThrow('Müşteri bulunamadı');
   });
 });
 
@@ -470,7 +470,7 @@ describe('ortak depo', () => {
 
     // Sube 2 adedi gorur, musteriyi ve siparis numarasini gormez.
     expect(await getReservationBreakdown(fresh.db, fresh.scopes.s2, set.yatak.id)).toEqual([
-      { orderId: null, orderNo: null, label: 'Diger sube', quantity: 2 },
+      { orderId: null, orderNo: null, label: 'Diğer şube', quantity: 2 },
     ]);
 
     await fresh.close();

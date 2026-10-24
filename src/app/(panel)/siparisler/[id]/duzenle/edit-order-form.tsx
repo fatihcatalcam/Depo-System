@@ -57,7 +57,7 @@ export function EditOrderForm({ orderId, initial, salespeople, catalog, rates }:
       catalog={catalog}
       rates={rates}
       initial={initial}
-      submitLabel="Degisiklikleri kaydet"
+      submitLabel="Değişiklikleri kaydet"
       onSubmit={submit}
     />
   );

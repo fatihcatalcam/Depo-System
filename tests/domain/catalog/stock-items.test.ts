@@ -43,12 +43,12 @@ describe('createStockItem', () => {
     await createStockItem(ctx.db, { name: 'Parca X', barcode: '8690000000024' });
     await expect(
       createStockItem(ctx.db, { name: 'Parca Y', barcode: '8690000000024' }),
-    ).rejects.toThrow('Bu barkod baska bir stok kartinda kullaniliyor');
+    ).rejects.toThrow('Bu barkod başka bir stok kartında kullanılıyor');
   });
 
   it('bos isim reddedilir', async () => {
     await expect(createStockItem(ctx.db, { name: '   ' })).rejects.toThrow(
-      'Stok karti adi bos olamaz',
+      'Stok kartı adı boş olamaz',
     );
   });
 
@@ -119,7 +119,7 @@ describe('updateStockItem', () => {
     const b = await createStockItem(ctx.db, { name: 'Kart B', barcode: '900000002' });
 
     await expect(updateStockItem(ctx.db, b.id, { barcode: '900000001' })).rejects.toThrow(
-      'Bu barkod baska bir stok kartinda kullaniliyor',
+      'Bu barkod başka bir stok kartında kullanılıyor',
     );
     expect(a.barcode).toBe('900000001');
   });
@@ -127,7 +127,7 @@ describe('updateStockItem', () => {
   it('olmayan kart guncellenemez', async () => {
     await expect(
       updateStockItem(ctx.db, '66666666-6666-6666-6666-666666666666', { name: 'X' }),
-    ).rejects.toThrow('bulunamadi');
+    ).rejects.toThrow('bulunamadı');
   });
 });
 

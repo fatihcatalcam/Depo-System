@@ -26,11 +26,11 @@ export default async function MusteriDetayPage({ params }: { params: Promise<{ i
       </div>
 
       <p className="text-sm text-neutral-500">
-        Bu musterinin siparisleri ve toplam borcu, siparis modulu geldiginde burada listelenecek.
+        Bu müşterinin siparişleri ve toplam borcu, sipariş modülü geldiğinde burada listelenecek.
       </p>
 
       <CustomerForm
-        submitLabel="Degisiklikleri kaydet"
+        submitLabel="Değişiklikleri kaydet"
         initial={{
           name: customer.name,
           phone: customer.phone ?? '',
@@ -47,7 +47,7 @@ export default async function MusteriDetayPage({ params }: { params: Promise<{ i
       />
 
       <Link href="/musteriler" className="inline-block text-sm text-neutral-500 hover:underline">
-        Musteri listesine don
+        Müşteri listesine dön
       </Link>
     </div>
   );

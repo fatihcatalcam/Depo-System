@@ -74,7 +74,7 @@ export function StockGridView({ grid, locked }: Props) {
           onChange={(event) => setOnlyInStock(event.target.checked)}
           className="size-5 accent-neutral-900"
         />
-        Sadece stogu olanlar
+        Sadece stoğu olanlar
       </label>
 
       {models.length > 0 ? (
@@ -87,7 +87,7 @@ export function StockGridView({ grid, locked }: Props) {
               'sticky top-0 z-10 rounded-t-lg border-b border-neutral-200 bg-neutral-50 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-neutral-600 sm:px-3 sm:text-sm',
             )}
           >
-            <span className="text-left">Olcu</span>
+            <span className="text-left">Ölçü</span>
             {PART_KINDS.map((kind) => (
               <span key={kind}>{PART_LABELS[kind]}</span>
             ))}
@@ -121,7 +121,7 @@ export function StockGridView({ grid, locked }: Props) {
       {others.length > 0 ? (
         <div className="rounded-lg border border-neutral-200 bg-white">
           <h2 className="rounded-t-lg border-b border-neutral-200 bg-neutral-50 px-3 py-2 text-lg font-bold text-neutral-900">
-            Diger urunler
+            Diğer ürünler
           </h2>
           <div className="divide-y divide-neutral-100">
             {others.map((item) => (
@@ -142,7 +142,7 @@ export function StockGridView({ grid, locked }: Props) {
 
       {models.length === 0 && others.length === 0 ? (
         <p className="rounded-lg border border-neutral-200 bg-white p-6 text-center text-base text-neutral-500">
-          {onlyInStock ? 'Stogu olan parca yok.' : 'Kayit bulunamadi.'}
+          {onlyInStock ? 'Stoğu olan parça yok.' : 'Kayıt bulunamadı.'}
         </p>
       ) : null}
     </div>

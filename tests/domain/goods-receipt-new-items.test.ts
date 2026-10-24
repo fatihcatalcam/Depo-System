@@ -123,6 +123,6 @@ describe('mal kabulle yeni kart', () => {
         lines: [],
         newItems: [{ name: '   ', quantity: 1 }],
       }),
-    ).rejects.toThrow('adi bos olamaz');
+    ).rejects.toThrow('adı boş olamaz');
   });
 });

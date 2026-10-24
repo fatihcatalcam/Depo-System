@@ -27,9 +27,9 @@ export async function unlockAction(area: LockArea, password: unknown): Promise<L
   if (!(await verifyUnlockPassword(db, parsed.data))) {
     return {
       ok: false,
-      error: `Parola hatali. ${
+      error: `Parola hatalı. ${
         area === 'raporlar' ? 'Raporlar' : 'Stok'
-      } yalnizca stok ve rapor parolasiyla acilir.`,
+      } yalnızca stok ve rapor parolasıyla açılır.`,
     };
   }
 

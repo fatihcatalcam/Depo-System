@@ -149,7 +149,7 @@ export async function getGoodsReceipt(
     .innerJoin(branches, eq(branches.id, goodsReceipts.branchId))
     .where(and(eq(goodsReceipts.id, id), eq(branches.stockBranchId, scope.stockBranchId)));
 
-  if (!row) throw new NotFoundError('Mal kabul kaydi');
+  if (!row) throw new NotFoundError('Mal kabul kaydı');
 
   const lines = await db
     .select({
@@ -222,12 +222,12 @@ export async function listGoodsReceipts(
  */
 function mergeLines(lines: ReceiptLineInput[]): ReceiptLineInput[] {
   if (lines.length === 0) {
-    throw new DomainError('Mal kabul en az bir satir icermeli.', 'EMPTY_RECEIPT');
+    throw new DomainError('Mal kabul en az bir satır içermeli.', 'EMPTY_RECEIPT');
   }
 
   for (const line of lines) {
     if (!Number.isInteger(line.quantity) || line.quantity <= 0) {
-      throw new DomainError('Adet sifirdan buyuk tam sayi olmali.', 'INVALID_QUANTITY');
+      throw new DomainError('Adet sıfırdan büyük tam sayı olmalı.', 'INVALID_QUANTITY');
     }
   }
 
@@ -264,9 +264,9 @@ async function openNewItems(tx: Tx, items: NewReceiptItemInput[]): Promise<Recei
   const grouped = new Map<string, NewReceiptItemInput>();
   for (const item of items) {
     const name = item.name.trim();
-    if (name === '') throw new DomainError('Yeni kartin adi bos olamaz.', 'INVALID_INPUT');
+    if (name === '') throw new DomainError('Yeni kartın adı boş olamaz.', 'INVALID_INPUT');
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-      throw new DomainError('Adet sifirdan buyuk tam sayi olmali.', 'INVALID_QUANTITY');
+      throw new DomainError('Adet sıfırdan büyük tam sayı olmalı.', 'INVALID_QUANTITY');
     }
     const key = stockCardKey(name, item.sizeLabel);
     const existing = grouped.get(key);

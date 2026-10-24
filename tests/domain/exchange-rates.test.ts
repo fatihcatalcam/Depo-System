@@ -109,7 +109,7 @@ describe('doviz kuru', () => {
     const fresh = await createTestDb();
     stubFetchFailure();
 
-    await expect(getRate(fresh.db, 'EUR')).rejects.toThrow('kuru alinamadi');
+    await expect(getRate(fresh.db, 'EUR')).rejects.toThrow('kuru alınamadı');
 
     await fresh.close();
   });

@@ -40,11 +40,11 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
  * parcasi degil. Taslaklar "Tumu" altinda gorunmeye devam ediyor.
  */
 const FILTERS: { value: string; label: string }[] = [
-  { value: '', label: 'Tumu' },
-  { value: 'confirmed', label: 'Onaylandi' },
-  { value: 'partially_delivered', label: 'Kismen teslim' },
+  { value: '', label: 'Tümü' },
+  { value: 'confirmed', label: 'Onaylandı' },
+  { value: 'partially_delivered', label: 'Kısmen teslim' },
   { value: 'delivered', label: 'Teslim edildi' },
-  { value: 'cancelled', label: 'Iptal' },
+  { value: 'cancelled', label: 'İptal' },
 ];
 
 interface PageProps {
@@ -83,9 +83,9 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Siparisler</h1>
+          <h1 className="text-lg font-semibold">Siparişler</h1>
           <p className="text-sm text-neutral-500">
-            {orders.length} kayit · toplam kalan alacak{' '}
+            {orders.length} kayıt · toplam kalan alacak{' '}
             <strong className="text-neutral-900">{formatKurus(openBalance)}</strong>
           </p>
         </div>
@@ -95,23 +95,23 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
               href="/siparisler/ozet"
               className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
             >
-              Ozet
+              Özet
             </Link>
           ) : null}
           <Link
             href="/siparisler/bekleyen"
             className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
           >
-            Bekleyen urunler
+            Bekleyen ürünler
           </Link>
           <Link href="/siparisler/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
-            Yeni siparis
+            Yeni sipariş
           </Link>
         </div>
       </div>
 
       <Suspense fallback={<div className="h-11" />}>
-        <SearchBox placeholder="Musteri adi, telefon, siparis no veya adres ara" />
+        <SearchBox placeholder="Müşteri adı, telefon, sipariş no veya adres ara" />
       </Suspense>
 
       <nav className="flex flex-wrap gap-2">
@@ -141,19 +141,19 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
 
       {orders.length === 0 ? (
         <p className="text-sm text-neutral-500">
-          {query ? `"${query}" icin siparis bulunamadi.` : 'Kayit bulunamadi.'}
+          {query ? `"${query}" için sipariş bulunamadı.` : 'Kayıt bulunamadı.'}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
           <table className="w-full min-w-[940px] text-sm">
             <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-xs uppercase text-neutral-500">
               <tr>
-                <th className="p-3">Siparis</th>
+                <th className="p-3">Sipariş</th>
                 {/* Sube kendi listesini goruyor; kendi adini her satirda
                     tekrarlamanin anlami yok. */}
-                {user.isCentral ? <th className="p-3">Sube</th> : null}
-                <th className="p-3">Musteri</th>
-                <th className="p-3">Satici</th>
+                {user.isCentral ? <th className="p-3">Şube</th> : null}
+                <th className="p-3">Müşteri</th>
+                <th className="p-3">Satıcı</th>
                 <th className="p-3">Teslimat</th>
                 <th className="p-3">Durum</th>
                 <th className="p-3 text-right">Toplam</th>

@@ -80,7 +80,7 @@ describe('siparis para birimi', () => {
   it('kur 1,0000 degerinden kucuk olamaz', async () => {
     await expect(
       newOrder({ currency: 'EUR', exchangeRate: parseRateInput('0,5000') }),
-    ).rejects.toThrow('kucuk olamaz');
+    ).rejects.toThrow('küçük olamaz');
   });
 
   /**
@@ -114,7 +114,7 @@ describe('siparis para birimi', () => {
 
     await expect(
       updateOrder(ctx.db, ctx.scope, order.id, { currency: 'USD', exchangeRate: USD_RATE }),
-    ).rejects.toThrow('Onaylanmis siparisin para birimi');
+    ).rejects.toThrow('Onaylanmış siparişin para birimi');
   });
 
   /**
@@ -134,7 +134,7 @@ describe('siparis para birimi', () => {
 
     await expect(
       updateOrder(ctx.db, ctx.scope, order.id, { currency: 'USD', exchangeRate: USD_RATE }),
-    ).rejects.toThrow('Tahsilat girilmis');
+    ).rejects.toThrow('Tahsilat girilmiş');
   });
 
   /** Yanlis girilmis bir kur duzeltilebilmeli; para birimi ayni kaliyor. */

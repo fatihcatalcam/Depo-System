@@ -33,8 +33,8 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   if (!result.ok) {
     return {
       error: result.lockedMinutes
-        ? `Cok fazla hatali deneme. ${result.lockedMinutes} dakika sonra tekrar deneyin.`
-        : 'Parola hatali.',
+        ? `Çok fazla hatalı deneme. ${result.lockedMinutes} dakika sonra tekrar deneyin.`
+        : 'Parola hatalı.',
     };
   }
 

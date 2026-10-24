@@ -9,7 +9,7 @@ export const SESSION_MAX_AGE_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 function secret(): Uint8Array {
   const value = process.env.SESSION_SECRET;
   if (!value || value.length < 32) {
-    throw new Error('SESSION_SECRET tanimli degil veya 32 karakterden kisa.');
+    throw new Error('SESSION_SECRET tanımlı değil veya 32 karakterden kısa.');
   }
   return new TextEncoder().encode(value);
 }

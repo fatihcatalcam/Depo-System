@@ -34,7 +34,7 @@ export function OrderNotes({ orderId, notes }: { orderId: string; notes: string 
   return (
     <div className="w-full space-y-1.5">
       <label htmlFor="order-notes" className="text-xs font-medium uppercase text-neutral-500">
-        Siparis notu
+        Sipariş notu
       </label>
       <textarea
         id="order-notes"
@@ -45,7 +45,7 @@ export function OrderNotes({ orderId, notes }: { orderId: string; notes: string 
         }}
         rows={3}
         maxLength={2000}
-        placeholder="Not alin: musteri aradi, odeme teslimatta..."
+        placeholder="Not alın: müşteri aradı, ödeme teslimatta..."
         className="w-full resize-y rounded-md border border-neutral-300 bg-white p-2 text-sm"
       />
       {dirty ? (
@@ -57,7 +57,7 @@ export function OrderNotes({ orderId, notes }: { orderId: string; notes: string 
             disabled={pending}
             onClick={() => setValue(saved)}
           >
-            Vazgec
+            Vazgeç
           </Button>
           <Button type="button" className="h-9" disabled={pending} onClick={save}>
             {pending ? 'Kaydediliyor...' : 'Notu kaydet'}

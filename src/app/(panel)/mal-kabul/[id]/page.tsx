@@ -39,7 +39,7 @@ export default async function MalKabulDetayPage({
         <p className="text-sm text-neutral-500">
           {dateFormatter.format(new Date(`${receipt.receivedAt}T00:00:00Z`))}
           {receipt.supplierName ? ` · ${receipt.supplierName}` : ''}
-          {receipt.waybillNo ? ` · Irsaliye: ${receipt.waybillNo}` : ''}
+          {receipt.waybillNo ? ` · İrsaliye: ${receipt.waybillNo}` : ''}
         </p>
         {receipt.notes ? <p className="mt-1 text-sm text-neutral-600">{receipt.notes}</p> : null}
       </div>
@@ -48,10 +48,10 @@ export default async function MalKabulDetayPage({
         <table className="w-full min-w-[560px] text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
-              <th className="p-3">Parca</th>
+              <th className="p-3">Parça</th>
               <th className="p-3">Boyut</th>
               <th className="p-3 text-right">Adet</th>
-              <th className="p-3 text-right">Birim alis</th>
+              <th className="p-3 text-right">Birim alış</th>
             </tr>
           </thead>
           <tbody>
@@ -88,7 +88,7 @@ export default async function MalKabulDetayPage({
       </div>
 
       <Link href="/mal-kabul" className="inline-block text-sm text-neutral-500 hover:underline">
-        Mal kabul listesine don
+        Mal kabul listesine dön
       </Link>
     </div>
   );

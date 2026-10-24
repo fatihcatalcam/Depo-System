@@ -38,7 +38,7 @@ export function DuplicateDialog({ productId, productName }: Props) {
     startTransition(async () => {
       const result = await previewDuplicateAction(productId, size);
       if (!result.ok || !result.rows) {
-        toast.error(result.error ?? 'Onizleme alinamadi.');
+        toast.error(result.error ?? 'Önizleme alınamadı.');
         return;
       }
       setRows(result.rows);
@@ -55,7 +55,7 @@ export function DuplicateDialog({ productId, productName }: Props) {
   if (!open) {
     return (
       <Button variant="outline" className="h-11" onClick={() => setOpen(true)}>
-        Baska boyuta kopyala
+        Başka boyuta kopyala
       </Button>
     );
   }
@@ -66,10 +66,10 @@ export function DuplicateDialog({ productId, productName }: Props) {
   return (
     <div className="w-full max-w-xl space-y-4 rounded-lg border border-neutral-300 bg-white p-4">
       <div>
-        <h2 className="text-sm font-semibold">Baska boyuta kopyala</h2>
+        <h2 className="text-sm font-semibold">Başka boyuta kopyala</h2>
         <p className="text-xs text-neutral-500">
-          {productName} recetesindeki her parcanin hedef boyuttaki karsiligi bulunur. Baslik
-          &ldquo;160 CM&rdquo;, yatak &ldquo;160x200&rdquo; yazsa bile genislikten eslesir.
+          {productName} reçetesindeki her parçanın hedef boyuttaki karşılığı bulunur. Başlık
+          &ldquo;160 CM&rdquo;, yatak &ldquo;160x200&rdquo; yazsa bile genişlikten eşleşir.
         </p>
       </div>
 
@@ -94,20 +94,20 @@ export function DuplicateDialog({ productId, productName }: Props) {
           disabled={pending || !size.trim()}
           onClick={loadPreview}
         >
-          {pending && rows === null ? 'Araniyor...' : 'Parcalari bul'}
+          {pending && rows === null ? 'Aranıyor...' : 'Parçaları bul'}
         </Button>
       </div>
 
       {rows !== null ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase text-neutral-500">Parca eslestirmesi</p>
+          <p className="text-xs font-medium uppercase text-neutral-500">Parça eşleştirmesi</p>
           <ul className="space-y-2">
             {rows.map((row) => (
               <li key={row.sourceId} className="rounded-lg border border-neutral-200 p-3">
                 <div className="text-sm">{row.sourceLabel}</div>
                 {row.candidates.length === 0 ? (
                   <p className="mt-1 text-xs text-red-600">
-                    Hedef boyutta karsiligi yok. Once bu parcanin stok kartini olusturun.
+                    Hedef boyutta karşılığı yok. Önce bu parçanın stok kartını oluşturun.
                   </p>
                 ) : (
                   <select
@@ -117,7 +117,7 @@ export function DuplicateDialog({ productId, productName }: Props) {
                     }
                     className="mt-2 h-10 w-full rounded-md border border-neutral-300 bg-white px-2 text-sm"
                   >
-                    <option value="">Secin...</option>
+                    <option value="">Seçin...</option>
                     {row.candidates.map((candidate) => (
                       <option key={candidate.id} value={candidate.id}>
                         {candidate.label}
@@ -131,14 +131,14 @@ export function DuplicateDialog({ productId, productName }: Props) {
 
           {unresolved.length > 0 ? (
             <p className="text-xs text-amber-700">
-              {unresolved.length} parca icin secim bekleniyor.
+              {unresolved.length} parça için seçim bekleniyor.
             </p>
           ) : null}
         </div>
       ) : null}
 
       <div className="space-y-1.5">
-        <Label htmlFor="dup-name">Yeni urun adi</Label>
+        <Label htmlFor="dup-name">Yeni ürün adı</Label>
         <Input
           id="dup-name"
           value={name}
@@ -160,20 +160,20 @@ export function DuplicateDialog({ productId, productName }: Props) {
                 replacements: choices,
               });
               if (result.ok && result.id) {
-                toast.success('Urun kopyalandi.');
+                toast.success('Ürün kopyalandı.');
                 reset();
                 router.push(`/urunler/${result.id}`);
                 router.refresh();
               } else {
-                toast.error(result.error ?? 'Kopyalama basarisiz.');
+                toast.error(result.error ?? 'Kopyalama başarısız.');
               }
             })
           }
         >
-          {pending && rows !== null ? 'Kopyalaniyor...' : 'Kopyala'}
+          {pending && rows !== null ? 'Kopyalanıyor...' : 'Kopyala'}
         </Button>
         <Button variant="ghost" className="h-11" onClick={reset}>
-          Vazgec
+          Vazgeç
         </Button>
       </div>
     </div>

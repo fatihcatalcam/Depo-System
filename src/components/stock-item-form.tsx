@@ -97,7 +97,7 @@ export function StockItemForm({
           });
 
           if (!result.ok) {
-            toast.error(result.error ?? 'Kayit basarisiz.');
+            toast.error(result.error ?? 'Kayıt başarısız.');
             return;
           }
           toast.success('Kaydedildi.');
@@ -109,7 +109,7 @@ export function StockItemForm({
       }}
     >
       <div className="space-y-1.5">
-        <Label htmlFor="name">Parca adi</Label>
+        <Label htmlFor="name">Parça adı</Label>
         <Input
           id="name"
           value={values.name}
@@ -119,8 +119,8 @@ export function StockItemForm({
           required
         />
         <p className="text-xs text-neutral-500">
-          Model + parca tipi yazin. Boyut ve renk kodunu <strong>ada yazmayin</strong>, asagidaki
-          alanlara girin — boyut kopyalama bunlara gore calisir.
+          Model + parça tipi yazın. Boyut ve renk kodunu <strong>ada yazmayin</strong>, aşağıdaki
+          alanlara girin — boyut kopyalama bunlara göre çalışır.
         </p>
       </div>
 
@@ -135,11 +135,11 @@ export function StockItemForm({
             className="h-11"
           />
           <p className="text-xs text-neutral-500">
-            Yatak ve baza icin 160x200, baslik icin 160 CM. Sistem ikisini genislikten eslestirir.
+            Yatak ve baza için 160x200, başlık için 160 CM. Sistem ikisini genişlikten eşleştirir.
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="variantLabel">Renk / kumas kodu</Label>
+          <Label htmlFor="variantLabel">Renk / kumaş kodu</Label>
           <Input
             id="variantLabel"
             value={values.variantLabel}
@@ -163,7 +163,7 @@ export function StockItemForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="purchasePrice">Alis fiyati</Label>
+          <Label htmlFor="purchasePrice">Alış fiyatı</Label>
           <Input
             id="purchasePrice"
             value={values.purchasePrice}
@@ -193,7 +193,7 @@ export function StockItemForm({
 
       {palettes && palettes.length > 0 ? (
         <div className="space-y-1.5">
-          <Label htmlFor="colorPaletteId">Renk kartelasi</Label>
+          <Label htmlFor="colorPaletteId">Renk kartelası</Label>
           <select
             id="colorPaletteId"
             value={values.colorPaletteId}
@@ -208,7 +208,7 @@ export function StockItemForm({
             ))}
           </select>
           <p className="text-xs text-neutral-500">
-            Secilirse stok listesinde bu kalemin renkleri acilir, sipariste renk secilir.
+            Seçilirse stok listesinde bu kalemin renkleri açılır, siparişte renk seçilir.
           </p>
         </div>
       ) : null}
@@ -219,7 +219,7 @@ export function StockItemForm({
           id="barcode"
           value={values.barcode}
           onChange={(event) => set('barcode', event.target.value)}
-          placeholder="Bos birakilirsa otomatik uretilir"
+          placeholder="Boş bırakılırsa otomatik üretilir"
           className="h-11"
         />
       </div>

@@ -28,7 +28,7 @@ export async function createStockItem(
   input: CreateStockItemInput,
 ): Promise<StockItem> {
   const name = input.name.trim();
-  if (name === '') throw new DomainError('Stok karti adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Stok kartı adı boş olamaz.', 'INVALID_INPUT');
 
   const sku = await nextDocumentNumber(db, 'stockItem');
   // Barkod verilmezse SKU'dan turetilir: "SK-00001" -> "SK00001". Tireyi
@@ -79,16 +79,16 @@ export async function updateStockItem(
   input: UpdateStockItemInput,
 ): Promise<StockItem> {
   const [existing] = await db.select().from(stockItems).where(eq(stockItems.id, id));
-  if (!existing) throw new NotFoundError('Stok karti');
+  if (!existing) throw new NotFoundError('Stok kartı');
 
   if (input.barcode) {
     await assertBarcodeAvailable(db, input.barcode.trim(), id);
   }
 
   const name = input.name?.trim() ?? existing.name;
-  if (name === '') throw new DomainError('Stok karti adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Stok kartı adı boş olamaz.', 'INVALID_INPUT');
   if (input.colorPaletteId && existing.parentStockItemId) {
-    throw new DomainError('Renk kartinin kendi kartelasi olmaz.', 'INVALID_INPUT');
+    throw new DomainError('Renk kartının kendi kartelası olmaz.', 'INVALID_INPUT');
   }
 
   // Adet bilincli olarak burada yok: stok yalnizca applyMovements ile degisir
@@ -286,6 +286,6 @@ async function assertBarcodeAvailable(db: DbOrTx, barcode: string, excludeId: st
     .where(eq(stockItems.barcode, barcode));
 
   if (rows.some((row) => row.id !== excludeId)) {
-    throw new DomainError('Bu barkod baska bir stok kartinda kullaniliyor.', 'DUPLICATE_BARCODE');
+    throw new DomainError('Bu barkod başka bir stok kartında kullanılıyor.', 'DUPLICATE_BARCODE');
   }
 }

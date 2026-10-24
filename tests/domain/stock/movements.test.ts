@@ -123,7 +123,7 @@ describe('applyMovements', () => {
     const item = await makeStockItem(ctx.db);
     await expect(
       applyMovements(ctx.db, ctx.branchId, [{ stockItemId: item.id, quantityChange: 0, movementType: 'manual' }]),
-    ).rejects.toThrow('Hareket miktari sifir olamaz');
+    ).rejects.toThrow('Hareket miktarı sıfır olamaz');
   });
 
   it('olmayan stok kartina hareket islenemez', async () => {
@@ -135,7 +135,7 @@ describe('applyMovements', () => {
           movementType: 'manual',
         },
       ]),
-    ).rejects.toThrow('bulunamadi');
+    ).rejects.toThrow('bulunamadı');
   });
 
   it('kaynak belge bilgisi harekete yazilir', async () => {

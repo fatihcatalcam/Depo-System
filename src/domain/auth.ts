@@ -48,8 +48,8 @@ async function readCredential(db: DbOrTx, branchId: string): Promise<Credential>
     .from(branches)
     .where(eq(branches.id, branchId));
 
-  if (!row) throw new NotFoundError('Sube');
-  if (!row.isActive) throw new DomainError('Bu sube kapali.', 'BRANCH_INACTIVE');
+  if (!row) throw new NotFoundError('Şube');
+  if (!row.isActive) throw new DomainError('Bu şube kapalı.', 'BRANCH_INACTIVE');
   return {
     ...row,
     scope: branchScope(branchId, row.code, row.isCentral, row.stockBranchId),
@@ -127,7 +127,7 @@ export async function login(db: DbOrTx, password: string): Promise<LoginResult> 
     .from(appSettings)
     .where(eq(appSettings.id, 1));
 
-  if (!gate) throw new DomainError('Sistem ayarlari kurulmamis.', 'NOT_INITIALIZED');
+  if (!gate) throw new DomainError('Sistem ayarları kurulmamış.', 'NOT_INITIALIZED');
 
   if (gate.lockedUntil && gate.lockedUntil > new Date()) {
     const remaining = Math.max(1, Math.ceil((gate.lockedUntil.getTime() - Date.now()) / 60_000));
@@ -203,7 +203,7 @@ export async function verifyUnlockPassword(db: DbOrTx, password: string): Promis
  */
 export async function setUnlockPassword(db: DbOrTx, newPassword: string): Promise<void> {
   if (newPassword.length < 6) {
-    throw new DomainError('Parola en az 6 karakter olmali.', 'WEAK_PASSWORD');
+    throw new DomainError('Parola en az 6 karakter olmalı.', 'WEAK_PASSWORD');
   }
 
   const rows = await db
@@ -213,7 +213,7 @@ export async function setUnlockPassword(db: DbOrTx, newPassword: string): Promis
   for (const row of rows) {
     if (row.passwordHash && (await verifyPassword(newPassword, row.passwordHash))) {
       throw new DomainError(
-        `Bu parola "${row.name}" subesinin giris parolasi; o subenin calisani kilidi kendi parolasiyla acabilir hale gelir.`,
+        `Bu parola "${row.name}" şubesinin giriş parolası; o şubenin çalışanı kilidi kendi parolasıyla açabilir hale gelir.`,
         'PASSWORD_COLLIDES_WITH_BRANCH',
       );
     }
@@ -225,7 +225,7 @@ export async function setUnlockPassword(db: DbOrTx, newPassword: string): Promis
     .where(eq(appSettings.id, 1))
     .returning({ id: appSettings.id });
 
-  if (result.length === 0) throw new DomainError('Sistem ayarlari kurulmamis.', 'NOT_INITIALIZED');
+  if (result.length === 0) throw new DomainError('Sistem ayarları kurulmamış.', 'NOT_INITIALIZED');
 }
 
 /** Subenin kendi parolasini degistirmesi — mevcut parola sorulur. */
@@ -236,7 +236,7 @@ export async function changeOwnPassword(
   newPassword: string,
 ): Promise<void> {
   if (newPassword.length < 6) {
-    throw new DomainError('Parola en az 6 karakter olmali.', 'WEAK_PASSWORD');
+    throw new DomainError('Parola en az 6 karakter olmalı.', 'WEAK_PASSWORD');
   }
 
   const credential = await readCredential(db, branchId);
@@ -244,7 +244,7 @@ export async function changeOwnPassword(
     ? await verifyPassword(currentPassword, credential.passwordHash)
     : false;
 
-  if (!valid) throw new DomainError('Mevcut parola hatali.', 'INVALID_PASSWORD');
+  if (!valid) throw new DomainError('Mevcut parola hatalı.', 'INVALID_PASSWORD');
 
   await assertPasswordFree(db, branchId, newPassword);
 
@@ -274,7 +274,7 @@ export async function assertPasswordFree(
 
   if (settings?.hash && (await verifyPassword(password, settings.hash))) {
     throw new DomainError(
-      'Bu parola stok ve rapor kilidini aciyor; giris parolasi olarak kullanilamaz.',
+      'Bu parola stok ve rapor kilidini açıyor; giriş parolası olarak kullanılamaz.',
       'PASSWORD_COLLIDES_WITH_UNLOCK',
     );
   }
@@ -287,7 +287,7 @@ export async function assertPasswordFree(
   for (const other of others) {
     if (other.passwordHash && (await verifyPassword(password, other.passwordHash))) {
       throw new DomainError(
-        `Bu parola "${other.name}" subesinde kullaniliyor; giriste subeler ayirt edilemez hale gelir.`,
+        `Bu parola "${other.name}" şubesinde kullanılıyor; girişte şubeler ayırt edilemez hale gelir.`,
         'PASSWORD_COLLIDES_WITH_BRANCH',
       );
     }

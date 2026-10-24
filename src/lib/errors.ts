@@ -22,7 +22,7 @@ export class NegativeStockError extends DomainError {
 
 export class NotFoundError extends DomainError {
   constructor(what: string) {
-    super(`${what} bulunamadi.`, 'NOT_FOUND');
+    super(`${what} bulunamadı.`, 'NOT_FOUND');
     this.name = 'NotFoundError';
   }
 }

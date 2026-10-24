@@ -68,18 +68,18 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">
-            {date ? `${formatLongDate(date)} siparisleri` : 'Siparis ozeti'}
+            {date ? `${formatLongDate(date)} siparişleri` : 'Sipariş özeti'}
           </h1>
           <p className="text-sm text-neutral-500">
-            {rows.length} siparis · satira tiklayinca siparis acilir · teslim tarihine tiklayinca
-            degisir
+            {rows.length} sipariş · satıra tıklayınca sipariş açılır · teslim tarihine tıklayınca
+            değişir
           </p>
           <p className="text-sm">
             <span className="font-medium text-blue-700">Mavi: teslim edilmedi</span>
             <span className="text-neutral-400"> · </span>
-            <span className="font-medium text-red-600">Kirmizi: teslim edildi</span>
+            <span className="font-medium text-red-600">Kırmızı: teslim edildi</span>
             <span className="text-neutral-400"> · </span>
-            <span className="text-neutral-600">Tik: fabrikaya siparis gecildi</span>
+            <span className="text-neutral-600">Tık: fabrikaya sipariş geçildi</span>
           </p>
         </div>
         <div className="flex gap-2">
@@ -87,13 +87,13 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
             href="/siparisler"
             className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
           >
-            Siparis listesi
+            Sipariş listesi
           </Link>
           <Link
             href={href('/siparisler/ozet/yazdir', view, query, date, branch?.code)}
             className={cn(buttonVariants(), 'h-11 px-4')}
           >
-            Yazdir
+            Yazdır
           </Link>
         </div>
       </div>
@@ -101,7 +101,7 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
       <div className="flex flex-wrap gap-2">
         <div className="min-w-0 flex-1">
           <Suspense fallback={<div className="h-11" />}>
-            <SearchBox placeholder="Musteri, telefon, siparis no, adres veya ilce ara" />
+            <SearchBox placeholder="Müşteri, telefon, sipariş no, adres veya ilçe ara" />
           </Suspense>
         </div>
         <Suspense fallback={<div className="h-11 w-40" />}>
@@ -145,10 +145,10 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
       {rows.length === 0 ? (
         <p className="rounded-lg border border-neutral-200 bg-white p-6 text-center text-sm text-neutral-500">
           {query
-            ? `"${query}" icin siparis bulunamadi.`
+            ? `"${query}" için sipariş bulunamadı.`
             : date
-              ? 'Bu gun alinan siparis yok.'
-              : 'Kayit yok.'}
+              ? 'Bu gün alınan sipariş yok.'
+              : 'Kayıt yok.'}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">

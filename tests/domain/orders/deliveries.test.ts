@@ -173,7 +173,7 @@ describe('createDelivery', () => {
         orderId: order.id,
         lines: [{ orderLineComponentId: '11111111-1111-1111-1111-111111111111', quantity: 1 }],
       }),
-    ).rejects.toThrow('Taslak siparis teslim edilemez');
+    ).rejects.toThrow('Taslak sipariş teslim edilemez');
   });
 
   it('iptal edilmis siparis teslim edilemez', async () => {
@@ -186,7 +186,7 @@ describe('createDelivery', () => {
         orderId: order.id,
         lines: [{ orderLineComponentId: componentId, quantity: 1 }],
       }),
-    ).rejects.toThrow('Iptal edilmis siparis teslim edilemez');
+    ).rejects.toThrow('İptal edilmiş sipariş teslim edilemez');
   });
 
   it('baska siparisin bileseni teslim edilemez', async () => {
@@ -200,7 +200,7 @@ describe('createDelivery', () => {
           { orderLineComponentId: first.component(first.set.yatak.id).id, quantity: 1 },
         ],
       }),
-    ).rejects.toThrow('Bilesen bu siparise ait degil');
+    ).rejects.toThrow('Bileşen bu siparişe ait değil');
   });
 
   it('ayni idempotency anahtari ikinci kez stok dusmez', async () => {

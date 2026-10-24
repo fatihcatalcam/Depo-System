@@ -29,7 +29,7 @@ export function DeliverStopButton({ orderId, customerName, pieces }: Props) {
       const result = await deliverStopAction(orderId, { allowNegativeStock });
 
       if (result.ok) {
-        toast.success(`${customerName} teslim edildi, stoktan dusuldu.`);
+        toast.success(`${customerName} teslim edildi, stoktan düşüldü.`);
         router.refresh();
         return;
       }
@@ -37,7 +37,7 @@ export function DeliverStopButton({ orderId, customerName, pieces }: Props) {
       // Stok yetmiyor: kullaniciya acikca soruyoruz. Sessizce eksiye dusurmek
       // depo sayimini aciklanamaz hale getirirdi.
       if (result.needsStockOverride) {
-        if (window.confirm(`${result.error}\n\nStok eksiye dusecek. Yine de teslim edilsin mi?`)) {
+        if (window.confirm(`${result.error}\n\nStok eksiye düşecek. Yine de teslim edilsin mi?`)) {
           run(true);
         }
         return;
@@ -54,7 +54,7 @@ export function DeliverStopButton({ orderId, customerName, pieces }: Props) {
       className="h-10 whitespace-nowrap"
       disabled={pending}
       onClick={() => {
-        if (window.confirm(`${customerName} · ${pieces} parca teslim edildi olarak isaretlensin mi?`)) {
+        if (window.confirm(`${customerName} · ${pieces} parça teslim edildi olarak işaretlensin mi?`)) {
           run(false);
         }
       }}

@@ -96,7 +96,7 @@ describe('createOrder', () => {
           },
         ],
       }),
-    ).rejects.toThrow('Iskonto ara toplamdan buyuk olamaz');
+    ).rejects.toThrow('İskonto ara toplamdan büyük olamaz');
   });
 
   it('tek parca satisi da kabul edilir', async () => {
@@ -155,7 +155,7 @@ describe('createOrder', () => {
           { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100 },
         ],
       }),
-    ).rejects.toThrow('Kayitli bir musteri secin veya yeni musteri adi girin');
+    ).rejects.toThrow('Kayıtlı bir müşteri seçin veya yeni müşteri adı girin');
   });
 
   it('olmayan musteri id ile siparis olusturulamaz', async () => {
@@ -170,7 +170,7 @@ describe('createOrder', () => {
           { itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100 },
         ],
       }),
-    ).rejects.toThrow('bulunamadi');
+    ).rejects.toThrow('bulunamadı');
   });
 
   it('siparis basarisiz olursa yeni musteri de olusmaz', async () => {
@@ -214,7 +214,7 @@ describe('createOrder', () => {
           },
         ],
       }),
-    ).rejects.toThrow('Teslimat adresi bos olamaz');
+    ).rejects.toThrow('Teslimat adresi boş olamaz');
   });
 
   it('satirsiz siparis reddedilir', async () => {
@@ -226,7 +226,7 @@ describe('createOrder', () => {
         deliveryAddress: 'Adres',
         lines: [],
       }),
-    ).rejects.toThrow('Siparis en az bir satir icermeli');
+    ).rejects.toThrow('Sipariş en az bir satır içermeli');
   });
 });
 
@@ -286,7 +286,7 @@ describe('confirmOrder', () => {
     const { order } = await newDraft();
     await confirmOrder(ctx.db, ctx.scope, order.id);
     await expect(confirmOrder(ctx.db, ctx.scope, order.id)).rejects.toThrow(
-      'Yalnizca taslak siparisler onaylanabilir',
+      'Yalnızca taslak siparişler onaylanabilir',
     );
   });
 
@@ -384,7 +384,7 @@ describe('updateOrder', () => {
     const { order } = await newDraft();
     await cancelOrder(ctx.db, ctx.scope, order.id);
     await expect(updateOrder(ctx.db, ctx.scope, order.id, { notes: 'x' })).rejects.toThrow(
-      'durumundaki siparis duzenlenemez',
+      'durumundaki sipariş düzenlenemez',
     );
   });
 });
@@ -432,7 +432,7 @@ describe('getOrder / listOrders', () => {
 
   it('olmayan siparis hata firlatir', async () => {
     await expect(getOrder(ctx.db, ctx.scope, '11111111-2222-3333-4444-555555555555')).rejects.toThrow(
-      'bulunamadi',
+      'bulunamadı',
     );
   });
 

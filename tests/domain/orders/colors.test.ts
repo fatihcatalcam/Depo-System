@@ -229,7 +229,7 @@ describe('sipariste renk', () => {
     const other = await coloredSet();
     await expect(
       orderWith(set, [{ baseStockItemId: other.baza.id, code: 'BK-149' }]),
-    ).rejects.toThrow('bu satirda yok');
+    ).rejects.toThrow('bu satırda yok');
   });
 
   it('katalog renkli parcalari ve kodlari verir, renk kartlarini listelemez', async () => {

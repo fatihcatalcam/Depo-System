@@ -62,7 +62,7 @@ describe('fabrikaya siparis gecildi tiki', () => {
   it('iptal edilmis siparis isaretlenemez', async () => {
     const order = await newOrder();
     await cancelOrder(ctx.db, ctx.scope, order.id);
-    await expect(setFactoryOrdered(ctx.db, ctx.scope, order.id, true)).rejects.toThrow('Iptal');
+    await expect(setFactoryOrdered(ctx.db, ctx.scope, order.id, true)).rejects.toThrow('İptal');
   });
 
   it('baska subenin siparisi isaretlenemez', async () => {

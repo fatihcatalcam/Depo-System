@@ -77,7 +77,7 @@ describe('createGoodsReceipt', () => {
   it('bos satir listesi reddedilir', async () => {
     await expect(
       createGoodsReceipt(ctx.db, ctx.scope, { receivedAt: '2026-08-08', lines: [] }),
-    ).rejects.toThrow('Mal kabul en az bir satir icermeli');
+    ).rejects.toThrow('Mal kabul en az bir satır içermeli');
   });
 
   // Gercek e-irsaliyelerde ayni urun birden fazla satirda geliyor
@@ -143,7 +143,7 @@ describe('createGoodsReceipt', () => {
         receivedAt: '2026-08-08',
         lines: [{ stockItemId: item.id, quantity: 0 }],
       }),
-    ).rejects.toThrow('Adet sifirdan buyuk tam sayi olmali');
+    ).rejects.toThrow('Adet sıfırdan büyük tam sayı olmalı');
   });
 
   it('bir satir hatali olursa hicbiri kaydedilmez', async () => {
@@ -217,6 +217,6 @@ describe('getGoodsReceipt / listGoodsReceipts', () => {
   it('olmayan kayit icin hata firlatir', async () => {
     await expect(
       getGoodsReceipt(ctx.db, ctx.scope, '88888888-8888-8888-8888-888888888888'),
-    ).rejects.toThrow('bulunamadi');
+    ).rejects.toThrow('bulunamadı');
   });
 });

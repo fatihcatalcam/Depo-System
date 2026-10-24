@@ -47,13 +47,13 @@ export async function listLoginableBranches(db: DbOrTx): Promise<BranchSummary[]
 
 export async function getBranch(db: DbOrTx, id: string): Promise<Branch> {
   const [row] = await db.select().from(branches).where(eq(branches.id, id));
-  if (!row) throw new NotFoundError('Sube');
+  if (!row) throw new NotFoundError('Şube');
   return row;
 }
 
 export async function renameBranch(db: DbOrTx, id: string, name: string): Promise<void> {
   const trimmed = name.trim();
-  if (trimmed === '') throw new DomainError('Sube adi bos olamaz.', 'INVALID_NAME');
+  if (trimmed === '') throw new DomainError('Şube adı boş olamaz.', 'INVALID_NAME');
 
   const result = await db
     .update(branches)
@@ -61,7 +61,7 @@ export async function renameBranch(db: DbOrTx, id: string, name: string): Promis
     .where(eq(branches.id, id))
     .returning({ id: branches.id });
 
-  if (result.length === 0) throw new NotFoundError('Sube');
+  if (result.length === 0) throw new NotFoundError('Şube');
 }
 
 /**
@@ -77,7 +77,7 @@ export async function setBranchPassword(
   newPassword: string,
 ): Promise<void> {
   if (newPassword.length < 6) {
-    throw new DomainError('Parola en az 6 karakter olmali.', 'WEAK_PASSWORD');
+    throw new DomainError('Parola en az 6 karakter olmalı.', 'WEAK_PASSWORD');
   }
 
   await assertPasswordFree(db, id, newPassword);
@@ -93,5 +93,5 @@ export async function setBranchPassword(
     .where(eq(branches.id, id))
     .returning({ id: branches.id });
 
-  if (result.length === 0) throw new NotFoundError('Sube');
+  if (result.length === 0) throw new NotFoundError('Şube');
 }

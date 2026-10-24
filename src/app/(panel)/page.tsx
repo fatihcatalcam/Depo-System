@@ -45,19 +45,19 @@ export default async function AnaSayfa() {
       <div>
         <h1 className="text-lg font-semibold">Ana sayfa</h1>
         <p className="text-sm text-neutral-500">
-          {dateFormatter.format(new Date(`${today}T00:00:00Z`))} · gunun ozeti
+          {dateFormatter.format(new Date(`${today}T00:00:00Z`))} · günün özeti
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card label="Bugun teslimat" value={String(todaysDeliveries.length)} href="/siparisler" />
+        <Card label="Bugün teslimat" value={String(todaysDeliveries.length)} href="/siparisler" />
         <Card
-          label="Bekleyen siparis"
+          label="Bekleyen sipariş"
           value={String(active.length)}
           href="/siparisler/bekleyen"
         />
         <Card
-          label="Kalan alacak (TL karsiligi)"
+          label="Kalan alacak (TL karşılığı)"
           value={formatKurus(openBalance)}
           href="/siparisler"
           danger={openBalance > 0}
@@ -71,7 +71,7 @@ export default async function AnaSayfa() {
       </div>
 
       {overdue.length > 0 ? (
-        <Panel title="Teslimat tarihi gecmis siparisler">
+        <Panel title="Teslimat tarihi geçmiş siparişler">
           {overdue.map((order) => (
             <Row
               key={order.id}
@@ -85,7 +85,7 @@ export default async function AnaSayfa() {
       ) : null}
 
       {todaysDeliveries.length > 0 ? (
-        <Panel title="Bugun teslim edilecekler">
+        <Panel title="Bugün teslim edilecekler">
           {todaysDeliveries.map((order) => (
             <Row
               key={order.id}
@@ -98,7 +98,7 @@ export default async function AnaSayfa() {
       ) : null}
 
       {critical.length > 0 ? (
-        <Panel title="Kritik seviyedeki parcalar">
+        <Panel title="Kritik seviyedeki parçalar">
           {critical.map((item) => (
             <Row
               key={item.id}

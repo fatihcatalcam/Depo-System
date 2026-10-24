@@ -142,7 +142,7 @@ describe('siparis duzenleme', () => {
           },
         ],
       }),
-    ).rejects.toThrow('Teslim edilen satir');
+    ).rejects.toThrow('Teslim edilen satır');
 
     // Ama tarih ve adres yine duzeltilebilir olmali.
     await updateOrder(ctx.db, ctx.scope, order.id, {

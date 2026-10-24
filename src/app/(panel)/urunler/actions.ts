@@ -22,21 +22,21 @@ export interface ActionResult {
 
 function toResult(error: unknown): ActionResult {
   if (error instanceof DomainError) return { ok: false, error: error.message };
-  if (error instanceof Error && error.message.startsWith('Gecersiz tutar')) {
-    return { ok: false, error: 'Fiyat bicimi hatali. Ornek: 15.000,00' };
+  if (error instanceof Error && error.message.startsWith('Geçersiz tutar')) {
+    return { ok: false, error: 'Fiyat biçimi hatalı. Örnek: 15.000,00' };
   }
   console.error(error);
-  return { ok: false, error: 'Beklenmeyen bir hata olustu.' };
+  return { ok: false, error: 'Beklenmeyen bir hata oluştu.' };
 }
 
 const productSchema = z.object({
-  name: z.string().min(1, 'Urun adi girin.'),
+  name: z.string().min(1, 'Ürün adı girin.'),
   categoryId: z.uuid().nullable().optional(),
   defaultPrice: z.string().optional(),
   notes: z.string().optional(),
   components: z
     .array(z.object({ stockItemId: z.uuid(), quantity: z.coerce.number().int().min(1) }))
-    .min(1, 'Urun en az bir parca icermeli.'),
+    .min(1, 'Ürün en az bir parça içermeli.'),
 });
 
 export async function createProductAction(input: unknown): Promise<ActionResult> {
@@ -79,7 +79,7 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
 }
 
 const duplicateSchema = z.object({
-  name: z.string().min(1, 'Yeni urun adi girin.'),
+  name: z.string().min(1, 'Yeni ürün adı girin.'),
   targetSizeLabel: z.string().min(1, 'Hedef boyut girin.'),
   replacements: z.record(z.uuid(), z.uuid()).optional(),
 });

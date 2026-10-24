@@ -32,7 +32,7 @@ describe('kategori servisi', () => {
 
   it('bos isim reddedilir', async () => {
     await expect(createCategory(ctx.db, { name: '   ' })).rejects.toThrow(
-      'Kategori adi bos olamaz',
+      'Kategori adı boş olamaz',
     );
   });
 
@@ -67,14 +67,14 @@ describe('kategori servisi', () => {
     const child = await createCategory(ctx.db, { name: 'Vida', parentId: root.id });
 
     await expect(updateCategory(ctx.db, root.id, { parentId: child.id })).rejects.toThrow(
-      'Kategori kendi alt kategorisine tasinamaz',
+      'Kategori kendi alt kategorisine taşınamaz',
     );
   });
 
   it('kategori kendisine ust olarak atanamaz', async () => {
     const root = await createCategory(ctx.db, { name: 'Kilif' });
     await expect(updateCategory(ctx.db, root.id, { parentId: root.id })).rejects.toThrow(
-      'Kategori kendi alt kategorisine tasinamaz',
+      'Kategori kendi alt kategorisine taşınamaz',
     );
   });
 
@@ -98,7 +98,7 @@ describe('kategori servisi', () => {
     await makeStockItem(ctx.db, { categoryId: category.id });
 
     await expect(deleteCategory(ctx.db, category.id)).rejects.toThrow(
-      'Bu kategoriye bagli kayitlar var',
+      'Bu kategoriye bağlı kayıtlar var',
     );
   });
 
@@ -113,6 +113,6 @@ describe('kategori servisi', () => {
   it('olmayan kategori guncellenemez', async () => {
     await expect(
       updateCategory(ctx.db, '55555555-5555-5555-5555-555555555555', { name: 'X' }),
-    ).rejects.toThrow('bulunamadi');
+    ).rejects.toThrow('bulunamadı');
   });
 });

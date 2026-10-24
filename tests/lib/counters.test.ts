@@ -53,7 +53,7 @@ describe('nextDocumentNumber', () => {
     // Kod unutulursa iki sube ayni diziyi paylasir ve numaralar karisir;
     // sessizce ortak sayaca dusmektense hata vermesi dogru.
     await expect(nextDocumentNumber(ctx.db, 'order', { year: 2026 })).rejects.toThrow(
-      /sube kodu gerekli/i,
+      /şube kodu gerekli/i,
     );
   });
 

@@ -27,7 +27,7 @@ export async function ensureSettings(db: DbOrTx, initialPassword: string): Promi
 
 export async function getSettings(db: DbOrTx): Promise<AppSettings> {
   const [row] = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-  if (!row) throw new DomainError('Sistem ayarlari kurulmamis.', 'NOT_INITIALIZED');
+  if (!row) throw new DomainError('Sistem ayarları kurulmamış.', 'NOT_INITIALIZED');
   return row;
 }
 

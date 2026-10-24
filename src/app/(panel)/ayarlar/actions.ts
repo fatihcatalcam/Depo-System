@@ -23,11 +23,11 @@ export interface ActionResult {
 function toResult(error: unknown): ActionResult {
   if (error instanceof DomainError) return { ok: false, error: error.message };
   console.error(error);
-  return { ok: false, error: 'Beklenmeyen bir hata olustu.' };
+  return { ok: false, error: 'Beklenmeyen bir hata oluştu.' };
 }
 
 const companySchema = z.object({
-  companyName: z.string().min(1, 'Firma adi girin.'),
+  companyName: z.string().min(1, 'Firma adı girin.'),
   address: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().optional(),
@@ -49,12 +49,12 @@ export async function updateCompanyAction(input: unknown): Promise<ActionResult>
 
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(1, 'Mevcut parolayi girin.'),
-    newPassword: z.string().min(6, 'Yeni parola en az 6 karakter olmali.'),
+    currentPassword: z.string().min(1, 'Mevcut parolayı girin.'),
+    newPassword: z.string().min(6, 'Yeni parola en az 6 karakter olmalı.'),
     confirmPassword: z.string(),
   })
   .refine((value) => value.newPassword === value.confirmPassword, {
-    message: 'Yeni parolalar birbiriyle ayni degil.',
+    message: 'Yeni parolalar birbiriyle aynı değil.',
     path: ['confirmPassword'],
   });
 
@@ -71,7 +71,7 @@ export async function changePasswordAction(input: unknown): Promise<ActionResult
       parsed.data.currentPassword,
       parsed.data.newPassword,
     );
-    return { ok: true, message: 'Parola degistirildi.' };
+    return { ok: true, message: 'Parola değiştirildi.' };
   } catch (error) {
     return toResult(error);
   }
@@ -79,11 +79,11 @@ export async function changePasswordAction(input: unknown): Promise<ActionResult
 
 const unlockPasswordSchema = z
   .object({
-    newPassword: z.string().min(6, 'Parola en az 6 karakter olmali.'),
+    newPassword: z.string().min(6, 'Parola en az 6 karakter olmalı.'),
     confirmPassword: z.string(),
   })
   .refine((value) => value.newPassword === value.confirmPassword, {
-    message: 'Parolalar birbiriyle ayni degil.',
+    message: 'Parolalar birbiriyle aynı değil.',
     path: ['confirmPassword'],
   });
 
@@ -100,7 +100,7 @@ export async function setUnlockPasswordAction(input: unknown): Promise<ActionRes
   try {
     await assertCentral();
     await setUnlockPassword(db, parsed.data.newPassword);
-    return { ok: true, message: 'Stok ve rapor parolasi degistirildi.' };
+    return { ok: true, message: 'Stok ve rapor parolası değiştirildi.' };
   } catch (error) {
     return toResult(error);
   }
@@ -116,13 +116,13 @@ export async function setUnlockPasswordAction(input: unknown): Promise<ActionRes
 async function assertCentral(): Promise<void> {
   const user = await currentUser();
   if (!user.isCentral) {
-    throw new DomainError('Bu islem yalnizca merkez hesabiyla yapilabilir.', 'FORBIDDEN');
+    throw new DomainError('Bu işlem yalnızca merkez hesabıyla yapılabilir.', 'FORBIDDEN');
   }
 }
 
 const branchNameSchema = z.object({
   branchId: z.uuid(),
-  name: z.string().min(1, 'Sube adi girin.'),
+  name: z.string().min(1, 'Şube adı girin.'),
 });
 
 export async function renameBranchAction(input: unknown): Promise<ActionResult> {
@@ -134,7 +134,7 @@ export async function renameBranchAction(input: unknown): Promise<ActionResult> 
     await renameBranch(db, parsed.data.branchId, parsed.data.name);
     revalidatePath('/ayarlar');
     revalidatePath('/', 'layout');
-    return { ok: true, message: 'Sube adi guncellendi.' };
+    return { ok: true, message: 'Şube adı güncellendi.' };
   } catch (error) {
     return toResult(error);
   }
@@ -142,7 +142,7 @@ export async function renameBranchAction(input: unknown): Promise<ActionResult> 
 
 const branchPasswordSchema = z.object({
   branchId: z.uuid(),
-  newPassword: z.string().min(6, 'Parola en az 6 karakter olmali.'),
+  newPassword: z.string().min(6, 'Parola en az 6 karakter olmalı.'),
 });
 
 export async function setBranchPasswordAction(input: unknown): Promise<ActionResult> {
@@ -153,7 +153,7 @@ export async function setBranchPasswordAction(input: unknown): Promise<ActionRes
     await assertCentral();
     await setBranchPassword(db, parsed.data.branchId, parsed.data.newPassword);
     revalidatePath('/ayarlar');
-    return { ok: true, message: 'Sube parolasi belirlendi.' };
+    return { ok: true, message: 'Şube parolası belirlendi.' };
   } catch (error) {
     return toResult(error);
   }
@@ -167,7 +167,7 @@ export async function recalculateStockAction(): Promise<ActionResult> {
     revalidatePath('/');
 
     if (fixed === 0) {
-      return { ok: true, message: 'Tum stok bakiyeleri hareket defteriyle uyumlu.' };
+      return { ok: true, message: 'Tüm stok bakiyeleri hareket defteriyle uyumlu.' };
     }
 
     // Ne degistigini acikca soyluyoruz: bakim islemi sessizce stok
@@ -179,7 +179,7 @@ export async function recalculateStockAction(): Promise<ActionResult> {
 
     return {
       ok: true,
-      message: `${fixed} kartin bakiyesi duzeltildi. ${detail}${changes.length > 5 ? ' ...' : ''}`,
+      message: `${fixed} kartın bakiyesi düzeltildi. ${detail}${changes.length > 5 ? ' ...' : ''}`,
     };
   } catch (error) {
     return toResult(error);
@@ -196,10 +196,10 @@ export async function importExcelAction(
 ): Promise<ImportActionResult> {
   const file = formData.get('file');
   if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: 'Bir Excel dosyasi secin.' };
+    return { ok: false, error: 'Bir Excel dosyası seçin.' };
   }
   if (file.size > 5 * 1024 * 1024) {
-    return { ok: false, error: 'Dosya 5 MB sinirini asiyor.' };
+    return { ok: false, error: 'Dosya 5 MB sınırını aşıyor.' };
   }
 
   try {
@@ -211,16 +211,16 @@ export async function importExcelAction(
       // kilidin bir anlami kalmazdi.
       const scope = await currentScope();
       if (await isStockLocked(scope)) {
-        return { ok: false, error: 'Stok kilitli. Once stok sayfasindan kilidi acin.' };
+        return { ok: false, error: 'Stok kilitli. Önce stok sayfasından kilidi açın.' };
       }
 
       const counts = await importStockCounts(db, scope, buffer);
       revalidatePath('/stok');
       revalidatePath('/');
 
-      const parts = [`${counts.updated} kartin adedi guncellendi`];
-      if (counts.unchanged > 0) parts.push(`${counts.unchanged} kart zaten ayniydi`);
-      if (counts.skipped > 0) parts.push(`${counts.skipped} satir bos birakilmisti`);
+      const parts = [`${counts.updated} kartın adedi güncellendi`];
+      if (counts.unchanged > 0) parts.push(`${counts.unchanged} kart zaten aynıydı`);
+      if (counts.skipped > 0) parts.push(`${counts.skipped} satır boş bırakılmıştı`);
       return { ok: true, message: `${parts.join(', ')}.` };
     }
 
@@ -234,7 +234,7 @@ export async function importExcelAction(
 
     return {
       ok: true,
-      message: `${result.imported} kayit aktarildi${result.skipped > 0 ? `, ${result.skipped} satir atlandi (bos veya zaten mevcut)` : ''}.`,
+      message: `${result.imported} kayıt aktarıldı${result.skipped > 0 ? `, ${result.skipped} satır atlandı (boş veya zaten mevcut)` : ''}.`,
       result,
     };
   } catch (error) {
@@ -248,7 +248,7 @@ export async function importExcelAction(
  */
 const paletteCodeSchema = z.object({
   paletteId: z.uuid(),
-  code: z.string().trim().min(1, 'Renk kodunu yazin.').max(40),
+  code: z.string().trim().min(1, 'Renk kodunu yazın.').max(40),
 });
 
 function refreshPalettes() {
@@ -276,13 +276,13 @@ export async function removePaletteCodeAction(input: unknown): Promise<ActionRes
     await assertCentral();
     await removePaletteCode(db, parsed.data.paletteId, parsed.data.code);
     refreshPalettes();
-    return { ok: true, message: `${parsed.data.code} kartelada kaldirildi.` };
+    return { ok: true, message: `${parsed.data.code} kartelada kaldırıldı.` };
   } catch (error) {
     return toResult(error);
   }
 }
 
-const paletteNameSchema = z.string().trim().min(1, 'Kartela adini yazin.').max(80);
+const paletteNameSchema = z.string().trim().min(1, 'Kartela adını yazın.').max(80);
 
 export async function createPaletteAction(name: unknown): Promise<ActionResult> {
   const parsed = paletteNameSchema.safeParse(name);
@@ -291,7 +291,7 @@ export async function createPaletteAction(name: unknown): Promise<ActionResult> 
     await assertCentral();
     await createPalette(db, parsed.data);
     refreshPalettes();
-    return { ok: true, message: 'Kartela olusturuldu.' };
+    return { ok: true, message: 'Kartela oluşturuldu.' };
   } catch (error) {
     return toResult(error);
   }

@@ -137,7 +137,7 @@ describe('getAvailability', () => {
   it('olmayan stok karti icin hata firlatir', async () => {
     await expect(
       getAvailability(ctx.db, ctx.branchId, '33333333-3333-3333-3333-333333333333'),
-    ).rejects.toThrow('bulunamadi');
+    ).rejects.toThrow('bulunamadı');
   });
 });
 

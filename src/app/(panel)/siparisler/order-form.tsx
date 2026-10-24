@@ -356,9 +356,9 @@ export function OrderForm({
   const rateSource = currency === 'TRY' ? undefined : rates?.[currency];
   const rateNote = rateSource
     ? rateSource.stale
-      ? `Guncel kur alinamadi. ${rateSource.date} tarihli kur getirildi, gerekirse duzeltin.`
-      : `${rateSource.date} tarihli TCMB satis kuru. Gerekirse duzeltin.`
-    : 'Kur otomatik alinamadi, elle girin.';
+      ? `Güncel kur alınamadı. ${rateSource.date} tarihli kur getirildi, gerekirse düzeltin.`
+      : `${rateSource.date} tarihli TCMB satış kuru. Gerekirse düzeltin.`
+    : 'Kur otomatik alınamadı, elle girin.';
 
   return (
     <form
@@ -368,17 +368,17 @@ export function OrderForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (!customer) {
-          toast.error('Musteri secin.');
+          toast.error('Müşteri seçin.');
           return;
         }
         // Yeni sipariste satici zorunlu: prim buna gore hesaplaniyor.
         // Duzenlemede eski siparislerin saticisi bos olabiliyor.
         if (!initial && !salespersonId) {
-          toast.error('Satici secin.');
+          toast.error('Satıcı seçin.');
           return;
         }
         if (currency !== 'TRY' && exchangeRate.trim() === '') {
-          toast.error('Kur girin. Raporlarda TL karsiligi buradan hesaplaniyor.');
+          toast.error('Kur girin. Raporlarda TL karşılığı buradan hesaplanıyor.');
           return;
         }
         startTransition(async () => {
@@ -439,10 +439,10 @@ export function OrderForm({
           const result = onSubmit ? await onSubmit(input) : await createOrderAction(input);
 
           if (!result.ok) {
-            toast.error(result.error ?? 'Siparis kaydedilemedi.');
+            toast.error(result.error ?? 'Sipariş kaydedilemedi.');
             return;
           }
-          toast.success(initial ? 'Siparis guncellendi.' : 'Siparis taslak olarak olusturuldu.');
+          toast.success(initial ? 'Sipariş güncellendi.' : 'Sipariş taslak olarak oluşturuldu.');
           router.push(`/siparisler/${result.id}`);
           router.refresh();
         });
@@ -450,7 +450,7 @@ export function OrderForm({
     >
       <div className="space-y-6">
         <section className="space-y-2">
-          <Label htmlFor="customer-search">Musteri</Label>
+          <Label htmlFor="customer-search">Müşteri</Label>
           {customer ? (
             <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3">
               <span className="text-sm">
@@ -460,12 +460,12 @@ export function OrderForm({
                 ) : null}
                 {customer.kind === 'new' ? (
                   <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
-                    yeni musteri — siparisle birlikte kaydedilecek
+                    yeni müşteri — siparişle birlikte kaydedilecek
                   </span>
                 ) : null}
               </span>
               <Button type="button" variant="ghost" onClick={() => setCustomer(null)}>
-                Degistir
+                Değiştir
               </Button>
             </div>
           ) : (
@@ -482,7 +482,7 @@ export function OrderForm({
                     else pickNewCustomer(customerQuery);
                   }
                 }}
-                placeholder="Musteri adini yazin (kayitli olmasi gerekmez)"
+                placeholder="Müşteri adını yazın (kayıtlı olması gerekmez)"
                 className="h-11"
               />
 
@@ -509,12 +509,12 @@ export function OrderForm({
                       className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
                     >
                       <span className="font-medium">
-                        &ldquo;{customerQuery.trim()}&rdquo; adiyla yeni musteri
+                        &ldquo;{customerQuery.trim()}&rdquo; adıyla yeni müşteri
                       </span>
                       <span className="ml-2 text-xs text-neutral-500">
                         {customerHits.length > 0
                           ? 'listedekilerden biri degilse'
-                          : 'kayit acmadan devam et'}
+                          : 'kayıt açmadan devam et'}
                       </span>
                     </button>
                   </li>
@@ -522,15 +522,15 @@ export function OrderForm({
               ) : null}
 
               <p className="text-xs text-neutral-500">
-                Kayitli musteriden secebilir ya da sadece ismi yazip devam edebilirsiniz. Yeni
-                musteri, girdiginiz teslimat adresi ve telefonuyla birlikte kaydedilir.
+                Kayıtlı müşteriden seçebilir ya da sadece ismi yazip devam edebilirsiniz. Yeni
+                müşteri, girdiğiniz teslimat adresi ve telefonuyla birlikte kaydedilir.
               </p>
             </>
           )}
         </section>
 
         <section className="space-y-1.5">
-          <Label htmlFor="salesperson">Satici</Label>
+          <Label htmlFor="salesperson">Satıcı</Label>
           <select
             id="salesperson"
             value={salespersonId}
@@ -538,19 +538,19 @@ export function OrderForm({
             required={!initial}
             className="h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm sm:w-80"
           >
-            <option value="">{initial ? '— secilmedi —' : 'Satici secin'}</option>
+            <option value="">{initial ? '— seçilmedi —' : 'Satıcı seçin'}</option>
             {salespeople.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.name}
               </option>
             ))}
           </select>
-          <p className="text-xs text-neutral-500">Prim bu isme yazilir.</p>
+          <p className="text-xs text-neutral-500">Prim bu isme yazılır.</p>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="order-date">Siparis tarihi</Label>
+            <Label htmlFor="order-date">Sipariş tarihi</Label>
             <Input
               id="order-date"
               type="date"
@@ -588,13 +588,13 @@ export function OrderForm({
               bakiyor. Istanbul'da hazir liste cikiyor ama serbest yazim da olur. */}
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
-              <Label htmlFor="delivery-district">Ilce</Label>
+              <Label htmlFor="delivery-district">İlçe</Label>
               <Input
                 id="delivery-district"
                 value={district}
                 onChange={(event) => setDistrict(event.target.value)}
                 list={city === DEFAULT_CITY ? 'istanbul-districts' : undefined}
-                placeholder={city === DEFAULT_CITY ? 'Ornek: Başakşehir' : ''}
+                placeholder={city === DEFAULT_CITY ? 'Örnek: Başakşehir' : ''}
                 className="h-11"
               />
               <datalist id="istanbul-districts">
@@ -604,7 +604,7 @@ export function OrderForm({
               </datalist>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="delivery-city">Il</Label>
+              <Label htmlFor="delivery-city">İl</Label>
               <Input
                 id="delivery-city"
                 value={city}
@@ -613,7 +613,7 @@ export function OrderForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="delivery-country">Ulke</Label>
+              <Label htmlFor="delivery-country">Ülke</Label>
               <Input
                 id="delivery-country"
                 value={country}
@@ -633,16 +633,16 @@ export function OrderForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="delivery-phone2">Ikinci telefon</Label>
+              <Label htmlFor="delivery-phone2">İkinci telefon</Label>
               <Input
                 id="delivery-phone2"
                 value={phone2}
                 onChange={(event) => setPhone2(event.target.value)}
-                placeholder="Es, ev ya da is numarasi"
+                placeholder="Eş, ev ya da iş numarası"
                 className="h-11"
               />
               <p className="text-xs text-neutral-500">
-                Sofor birine ulasamazsa digerini arar.
+                Şoför birine ulaşamazsa diğerini arar.
               </p>
             </div>
           </div>
@@ -653,7 +653,7 @@ export function OrderForm({
                 id="delivery-notes"
                 value={deliveryNotes}
                 onChange={(event) => setDeliveryNotes(event.target.value)}
-                placeholder="3. kat, asansor yok"
+                placeholder="3. kat, asansör yok"
                 className="h-11"
               />
             </div>
@@ -669,18 +669,18 @@ export function OrderForm({
           <summary className="cursor-pointer list-none text-sm font-semibold">
             Fatura bilgisi
             <span className="ml-2 font-normal text-neutral-500">
-              {hasInvoice(invoice) ? 'dolu' : 'istege bagli'}
+              {hasInvoice(invoice) ? 'dolu' : 'isteğe bağlı'}
             </span>
           </summary>
 
           <div className="mt-3 space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="invoice-title">Fatura unvani</Label>
+              <Label htmlFor="invoice-title">Fatura unvanı</Label>
               <Input
                 id="invoice-title"
                 value={invoice.title}
                 onChange={(event) => setInvoice((v) => ({ ...v, title: event.target.value }))}
-                placeholder="Sahis adi ya da sirket unvani"
+                placeholder="Şahıs adı ya da şirket unvanı"
                 className="h-11"
               />
             </div>
@@ -711,7 +711,7 @@ export function OrderForm({
                 id="invoice-address"
                 value={invoice.address}
                 onChange={(event) => setInvoice((v) => ({ ...v, address: event.target.value }))}
-                placeholder="Teslimat adresinden farkliysa"
+                placeholder="Teslimat adresinden farklıysa"
                 className="h-11"
               />
             </div>
@@ -741,7 +741,7 @@ export function OrderForm({
         </details>
 
         <div className="space-y-1.5">
-          <Label htmlFor="order-notes">Siparis notu</Label>
+          <Label htmlFor="order-notes">Sipariş notu</Label>
           <Input
             id="order-notes"
             value={notes}
@@ -754,7 +754,7 @@ export function OrderForm({
 
       <div className="space-y-6">
         <section className="space-y-2">
-          <Label htmlFor="item-search">Satirlar</Label>
+          <Label htmlFor="item-search">Satırlar</Label>
           <Input
             id="item-search"
             value={itemQuery}
@@ -766,7 +766,7 @@ export function OrderForm({
             onKeyDown={(event) => {
               if (event.key === 'Escape') setItemsOpen(false);
             }}
-            placeholder="Urun seti veya tek parca ara"
+            placeholder="Ürün seti veya tek parça ara"
             className="h-11"
           />
 
@@ -782,8 +782,8 @@ export function OrderForm({
                   addCustomLine();
                 }
               }}
-              placeholder="Stokta olmayan urun (disaridan yaptirilacak)"
-              aria-label="Stokta olmayan urun adi"
+              placeholder="Stokta olmayan ürün (dışarıdan yaptırılacak)"
+              aria-label="Stokta olmayan ürün adı"
               className="h-11 flex-1"
             />
             <Button
@@ -793,7 +793,7 @@ export function OrderForm({
               disabled={customName.trim() === ''}
               onClick={addCustomLine}
             >
-              Satir ekle
+              Satır ekle
             </Button>
           </div>
 
@@ -802,7 +802,7 @@ export function OrderForm({
               {productHits.length > 0 ? (
                 <>
                   <p className="border-b border-neutral-100 bg-neutral-50 px-3 py-1 text-xs uppercase text-neutral-500">
-                    Urun setleri
+                    Ürün setleri
                   </p>
                   {productHits.map((product) => (
                     <button
@@ -835,7 +835,7 @@ export function OrderForm({
               {stockHits.length > 0 ? (
                 <>
                   <p className="border-b border-t border-neutral-100 bg-neutral-50 px-3 py-1 text-xs uppercase text-neutral-500">
-                    Tek parcalar
+                    Tek parçalar
                   </p>
                   {stockHits.map((item) => (
                     <button
@@ -866,7 +866,7 @@ export function OrderForm({
           ) : null}
 
           {lines.length === 0 ? (
-            <p className="text-sm text-neutral-500">Henuz satir eklenmedi.</p>
+            <p className="text-sm text-neutral-500">Henüz satır eklenmedi.</p>
           ) : (
             <ul className="space-y-2">
               {lines.map((line, index) => (
@@ -878,7 +878,7 @@ export function OrderForm({
                     {line.label}
                     {line.itemType === 'custom' ? (
                       <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-800">
-                        stok disi
+                        stok dışı
                       </span>
                     ) : (
                       <span className="ml-2 text-xs text-neutral-400">
@@ -887,7 +887,7 @@ export function OrderForm({
                     )}
                     {line.delivered ? (
                       <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
-                        teslim edildi · degistirilemez
+                        teslim edildi · değiştirilemez
                       </span>
                     ) : null}
                   </span>
@@ -957,7 +957,7 @@ export function OrderForm({
                         className="text-red-600"
                         onClick={() => setLines((rows) => rows.filter((_, i) => i !== index))}
                       >
-                        Kaldir
+                        Kaldır
                       </Button>
                       <ColorSelects
                         parts={colorPartsOf(line)}
@@ -1039,7 +1039,7 @@ export function OrderForm({
           ) : null}
           <div className="flex items-center justify-between gap-3 text-sm">
             <Label htmlFor="discount" className="text-neutral-600">
-              Iskonto
+              İskonto
             </Label>
             <Input
               id="discount"
@@ -1068,7 +1068,7 @@ export function OrderForm({
                   className="h-8 px-2 text-xs"
                   onClick={() => setManualTotal('')}
                 >
-                  Otomatige don
+                  Otomatiğe don
                 </Button>
               ) : null}
               <Input
@@ -1083,8 +1083,8 @@ export function OrderForm({
           </div>
           <p className="text-right text-xs text-neutral-500">
             {manualTotalKurus !== null
-              ? `Elle yazildi - satir toplami ${formatKurus(subtotal, { currency })}`
-              : 'Bos birakirsaniz satirlardan hesaplanir.'}
+              ? `Elle yazıldı - satır toplamı ${formatKurus(subtotal, { currency })}`
+              : 'Boş bırakırsanız satırlardan hesaplanır.'}
           </p>
         </section>
 
@@ -1092,7 +1092,7 @@ export function OrderForm({
             anda kaydediliyor ki "aldik mi almadik mi" sorusu hic dogmasin. */}
         {initial ? null : (
           <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-4">
-            <h2 className="text-sm font-semibold">Alinan ucret (kapora)</h2>
+            <h2 className="text-sm font-semibold">Alınan ücret (kapora)</h2>
             <DepositRows
               rows={deposits}
               onChange={setDeposits}
@@ -1108,10 +1108,10 @@ export function OrderForm({
           disabled={pending || lines.length === 0 || !customer || (!initial && !salespersonId)}
           className="h-11 w-full sm:w-auto"
         >
-          {pending ? 'Kaydediliyor...' : (submitLabel ?? 'Taslak siparisi olustur')}
+          {pending ? 'Kaydediliyor...' : (submitLabel ?? 'Taslak siparişi oluştur')}
         </Button>
         <p className="text-xs text-neutral-500">
-          Taslak siparis stogu etkilemez. Onayladiginizda malzemeler rezerve edilir.
+          Taslak sipariş stoğu etkilemez. Onayladığınızda malzemeler rezerve edilir.
         </p>
       </div>
     </form>

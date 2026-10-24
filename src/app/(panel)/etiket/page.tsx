@@ -51,7 +51,7 @@ export default async function EtiketPage({ searchParams }: PageProps) {
       <div className="print:hidden">
         <h1 className="text-lg font-semibold">Barkod etiketleri</h1>
         <p className="text-sm text-neutral-500">
-          Filtreleyip yazdirin. A4 sayfada 3 sutun halinde cikar.
+          Filtreleyip yazdırın. A4 sayfada 3 sütun halinde çıkar.
         </p>
       </div>
 
@@ -59,7 +59,7 @@ export default async function EtiketPage({ searchParams }: PageProps) {
         <input
           name="q"
           defaultValue={params.q ?? ''}
-          placeholder="Parca ara"
+          placeholder="Parça ara"
           className="h-11 flex-1 rounded-md border border-neutral-300 bg-white px-3 text-sm"
         />
         <select
@@ -67,7 +67,7 @@ export default async function EtiketPage({ searchParams }: PageProps) {
           defaultValue={params.kategori ?? ''}
           className="h-11 rounded-md border border-neutral-300 bg-white px-3 text-sm sm:w-64"
         >
-          <option value="">Tum kategoriler</option>
+          <option value="">Tüm kategoriler</option>
           {flattenCategories(categories).map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}
@@ -81,7 +81,7 @@ export default async function EtiketPage({ searchParams }: PageProps) {
       </form>
 
       {labels.length === 0 ? (
-        <p className="text-sm text-neutral-500 print:hidden">Yazdirilacak etiket yok.</p>
+        <p className="text-sm text-neutral-500 print:hidden">Yazdırılacak etiket yok.</p>
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {labels.map((label) => (
@@ -95,7 +95,7 @@ export default async function EtiketPage({ searchParams }: PageProps) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={label.image} alt={label.barcode} className="mx-auto h-10 w-full object-contain" />
               ) : (
-                <div className="py-3 text-[10px] text-red-600">Barkod uretilemedi</div>
+                <div className="py-3 text-[10px] text-red-600">Barkod üretilemedi</div>
               )}
               <div className="text-[10px] tracking-wider text-neutral-600">{label.barcode}</div>
             </div>

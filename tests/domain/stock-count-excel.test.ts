@@ -62,11 +62,11 @@ describe('Excel ile stok sayimi', () => {
     const header = [1, 2, 3, 4, 5, 6].map((i) => String(sheet.getRow(1).getCell(i).value));
     expect(header).toEqual([
       'SKU',
-      'Parca adi',
+      'Parça adı',
       'Boyut',
-      'Renk / kumas',
+      'Renk / kumaş',
       'Mevcut adet',
-      'Sayilan adet',
+      'Sayılan adet',
     ]);
 
     let found: ExcelJS.Row | undefined;
@@ -97,7 +97,7 @@ describe('Excel ile stok sayimi', () => {
     const movements = await listStockHistory(ctx.db, ctx.branchId, card.id);
     const count = movements.find((row) => row.movementType === 'stock_count');
     expect(count?.quantityChange).toBe(6);
-    expect(count?.notes).toBe('Excel sayim aktarimi');
+    expect(count?.notes).toBe('Excel sayım aktarımı');
   });
 
   it('bos birakilan satira dokunulmuyor', async () => {
@@ -140,11 +140,11 @@ describe('Excel ile stok sayimi', () => {
 
     await expect(
       importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map([[card.sku, -2]]))),
-    ).rejects.toThrow('sifir ya da pozitif tam sayi');
+    ).rejects.toThrow('sıfır ya da pozitif tam sayı');
 
     await expect(
       importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map([[card.sku, '2,5']]))),
-    ).rejects.toThrow('sifir ya da pozitif tam sayi');
+    ).rejects.toThrow('sıfır ya da pozitif tam sayı');
 
     expect(await currentQuantity(card.id)).toBe(3);
   });
@@ -164,14 +164,14 @@ describe('Excel ile stok sayimi', () => {
     sheet.addRow(['SK-YOK-99', 'Olmayan parca', '', '', 0, 5]);
     const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
 
-    await expect(importStockCounts(ctx.db, ctx.scope, buffer)).rejects.toThrow('kodlu stok karti yok');
+    await expect(importStockCounts(ctx.db, ctx.scope, buffer)).rejects.toThrow('kodlu stok kartı yok');
     expect(await currentQuantity(card.id)).toBe(4);
   });
 
   it('hicbir satir doldurulmamissa acikca soyluyor', async () => {
     await makeCard(1);
     await expect(importStockCounts(ctx.db, ctx.scope, await fillTemplate(new Map()))).rejects.toThrow(
-      'sayilan adet girilmis satir yok',
+      'sayılan adet girilmiş satır yok',
     );
   });
 

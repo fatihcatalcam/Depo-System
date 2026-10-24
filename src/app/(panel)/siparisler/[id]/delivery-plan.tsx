@@ -51,7 +51,7 @@ export function DeliveryPlan({
   if (!open) {
     return (
       <Button variant="ghost" className="h-9 px-2 text-xs" onClick={() => setOpen(true)}>
-        Teslimat planini duzenle
+        Teslimat planını düzenle
       </Button>
     );
   }
@@ -73,11 +73,11 @@ export function DeliveryPlan({
             deliveryNotes: notes || undefined,
           });
           if (result.ok) {
-            toast.success('Teslimat plani guncellendi.');
+            toast.success('Teslimat planı güncellendi.');
             setOpen(false);
             router.refresh();
           } else {
-            toast.error(result.error ?? 'Guncellenemedi.');
+            toast.error(result.error ?? 'Güncellenemedi.');
           }
         });
       }}
@@ -103,12 +103,12 @@ export function DeliveryPlan({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="plan-phone2">Ikinci telefon</Label>
+          <Label htmlFor="plan-phone2">İkinci telefon</Label>
           <Input
             id="plan-phone2"
             value={phone2}
             onChange={(event) => setPhone2(event.target.value)}
-            placeholder="Es, ev ya da is numarasi"
+            placeholder="Eş, ev ya da iş numarası"
             className="h-11"
           />
         </div>
@@ -127,7 +127,7 @@ export function DeliveryPlan({
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="space-y-1.5">
-          <Label htmlFor="plan-district">Ilce</Label>
+          <Label htmlFor="plan-district">İlçe</Label>
           <Input
             id="plan-district"
             value={district}
@@ -142,7 +142,7 @@ export function DeliveryPlan({
           </datalist>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="plan-city">Il</Label>
+          <Label htmlFor="plan-city">İl</Label>
           <Input
             id="plan-city"
             value={city}
@@ -151,7 +151,7 @@ export function DeliveryPlan({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="plan-country">Ulke</Label>
+          <Label htmlFor="plan-country">Ülke</Label>
           <Input
             id="plan-country"
             value={country}
@@ -167,7 +167,7 @@ export function DeliveryPlan({
           id="plan-notes"
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
-          placeholder="3. kat, asansor yok"
+          placeholder="3. kat, asansör yok"
           className="h-11"
         />
       </div>
@@ -177,7 +177,7 @@ export function DeliveryPlan({
           {pending ? 'Kaydediliyor...' : 'Kaydet'}
         </Button>
         <Button type="button" variant="ghost" className="h-11" onClick={() => setOpen(false)}>
-          Vazgec
+          Vazgeç
         </Button>
       </div>
     </form>

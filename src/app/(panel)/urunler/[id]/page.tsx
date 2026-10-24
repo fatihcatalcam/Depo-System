@@ -33,7 +33,7 @@ export default async function UrunDetayPage({ params }: { params: Promise<{ id: 
       </div>
 
       <ProductForm
-        submitLabel="Degisiklikleri kaydet"
+        submitLabel="Değişiklikleri kaydet"
         initial={{
           name: product.name,
           defaultPrice: product.defaultPriceKurus
@@ -52,7 +52,7 @@ export default async function UrunDetayPage({ params }: { params: Promise<{ id: 
       />
 
       <Link href="/urunler" className="inline-block text-sm text-neutral-500 hover:underline">
-        Urun listesine don
+        Ürün listesine dön
       </Link>
     </div>
   );

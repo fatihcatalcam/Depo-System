@@ -25,13 +25,13 @@ export default async function HaftalikSevkiyatYazdirPage({ searchParams }: PageP
   return (
     <>
       <PrintHeader
-        title="Haftalik Sevkiyat"
+        title="Haftalık Sevkiyat"
         subtitle={`${formatLongDate(week.weekStart)} – ${formatLongDate(week.weekEnd)}`}
       />
 
       <p className="mb-4 text-sm">
         {week.totalStops} durak · tahsil edilecek toplam{' '}
-        <strong>{formatKurus(week.totalCollectionKurus)}</strong> (TL karsiligi)
+        <strong>{formatKurus(week.totalCollectionKurus)}</strong> (TL karşılığı)
       </p>
 
       {week.days.map((day) => (

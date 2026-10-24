@@ -28,10 +28,10 @@ export default async function SiparisOzetiYazdirPage({ searchParams }: PageProps
     branchId: branch?.id,
   });
   const title = date
-    ? `${formatLongDate(date)} siparisleri`
+    ? `${formatLongDate(date)} siparişleri`
     : view === 'teslim'
-      ? 'Teslim edilen siparisler'
-      : 'Teslim bekleyen siparisler';
+      ? 'Teslim edilen siparişler'
+      : 'Teslim bekleyen siparişler';
 
   return (
     <>
@@ -45,7 +45,7 @@ export default async function SiparisOzetiYazdirPage({ searchParams }: PageProps
         subtitle={`${formatLongDate(todayInIstanbul())}${branch ? ` · ${branch.name}` : ''}${query ? ` · arama: ${query}` : ''}`}
       />
       {rows.length === 0 ? (
-        <p className="text-sm">Kayit yok.</p>
+        <p className="text-sm">Kayıt yok.</p>
       ) : (
         <div className="overflow-x-auto print:overflow-visible">
           <OrderSummaryTable rows={rows} print />

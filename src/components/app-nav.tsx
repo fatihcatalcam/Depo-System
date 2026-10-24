@@ -30,7 +30,7 @@ interface NavItem {
 const PRIMARY = [
   { href: '/', label: 'Ana sayfa', icon: Home },
   { href: '/stok', label: 'Stok', icon: Boxes },
-  { href: '/siparisler', label: 'Siparis', icon: ClipboardList },
+  { href: '/siparisler', label: 'Sipariş', icon: ClipboardList },
   { href: '/sevkiyat', label: 'Sevkiyat', icon: Truck },
 ] as const;
 
@@ -38,9 +38,9 @@ const PRIMARY = [
 const SECONDARY = [
   { href: '/mal-kabul', label: 'Mal kabul', icon: PackagePlus },
   { href: '/raporlar', label: 'Raporlar', icon: BarChart3 },
-  { href: '/urunler', label: 'Urunler', icon: Package },
-  { href: '/musteriler', label: 'Musteriler', icon: Users },
-  { href: '/tedarikciler', label: 'Tedarikciler', icon: Warehouse },
+  { href: '/urunler', label: 'Ürünler', icon: Package },
+  { href: '/musteriler', label: 'Müşteriler', icon: Users },
+  { href: '/tedarikciler', label: 'Tedarikçiler', icon: Warehouse },
   { href: '/kategoriler', label: 'Kategoriler', icon: FolderTree },
   { href: '/etiket', label: 'Barkod etiketi', icon: QrCode },
   { href: '/ayarlar', label: 'Ayarlar', icon: Settings },
@@ -54,7 +54,7 @@ export const SECONDARY_LINKS = SECONDARY;
  * orada "Diger" sayfasinda. Yalnizca merkezde: sube kendi siparislerini
  * siparis listesinden izliyor.
  */
-const ORDER_SUMMARY: NavItem = { href: '/siparisler/ozet', label: 'Siparis ozeti', icon: Sheet };
+const ORDER_SUMMARY: NavItem = { href: '/siparisler/ozet', label: 'Sipariş özeti', icon: Sheet };
 
 function isActive(pathname: string, href: string) {
   return href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -111,7 +111,7 @@ export function DesktopNav({ isCentral }: { isCentral: boolean }) {
 
 export function MobileNav() {
   const pathname = usePathname();
-  const items = [...PRIMARY, { href: '/diger', label: 'Diger', icon: MoreHorizontal }] as const;
+  const items = [...PRIMARY, { href: '/diger', label: 'Diğer', icon: MoreHorizontal }] as const;
 
   return (
     // 64 piksel yukseklik bilincli: depo personeli telefonu ayakta,

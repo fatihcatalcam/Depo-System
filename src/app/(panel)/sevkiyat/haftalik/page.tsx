@@ -30,17 +30,17 @@ export default async function HaftalikSevkiyatPage({ searchParams }: PageProps) 
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Haftalik sevkiyat</h1>
+          <h1 className="text-lg font-semibold">Haftalık sevkiyat</h1>
           <p className="text-sm text-neutral-500">
             {formatLongDate(week.weekStart)} – {formatLongDate(week.weekEnd)}
-            {user.isCentral ? ' · iki sube birlikte' : ` · ${user.label}`}
+            {user.isCentral ? ' · iki şube birlikte' : ` · ${user.label}`}
           </p>
         </div>
         <Link
           href={`/sevkiyat/yazdir/haftalik?hafta=${week.weekStart}`}
           className={cn(buttonVariants(), 'h-11 px-4')}
         >
-          Yazdir
+          Yazdır
         </Link>
       </div>
 
@@ -49,7 +49,7 @@ export default async function HaftalikSevkiyatPage({ searchParams }: PageProps) 
           href={weekLink(addDays(week.weekStart, -7))}
           className={cn(buttonVariants({ variant: 'outline' }), 'h-10 px-3')}
         >
-          ← Onceki hafta
+          ← Önceki hafta
         </Link>
         <Link
           href={weekLink(todayInIstanbul())}
@@ -68,7 +68,7 @@ export default async function HaftalikSevkiyatPage({ searchParams }: PageProps) 
       <div className="grid gap-3 sm:grid-cols-2">
         <Stat label="Durak" value={String(week.totalStops)} />
         <Stat
-          label="Tahsil edilecek (TL karsiligi)"
+          label="Tahsil edilecek (TL karşılığı)"
           value={formatKurus(week.totalCollectionKurus)}
           danger={week.totalCollectionKurus > 0}
         />

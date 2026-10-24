@@ -54,7 +54,7 @@ export async function nextDocumentNumber(
   const counterYear = config.useYear ? (options.year ?? new Date().getFullYear()) : 0;
 
   if (config.perBranch && !options.branchCode) {
-    throw new Error(`${docType} belgesi icin sube kodu gerekli.`);
+    throw new Error(`${docType} belgesi için şube kodu gerekli.`);
   }
   const branchCode = config.perBranch ? options.branchCode! : '';
 

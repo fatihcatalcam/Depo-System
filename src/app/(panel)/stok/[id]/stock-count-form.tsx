@@ -30,22 +30,22 @@ export function StockCountForm({ stockItemId, currentQuantity }: Props) {
             notes: notes || undefined,
           });
           if (result.ok) {
-            toast.success('Sayim kaydedildi.');
+            toast.success('Sayım kaydedildi.');
             setNotes('');
             router.refresh();
           } else {
-            toast.error(result.error ?? 'Islem basarisiz.');
+            toast.error(result.error ?? 'İşlem başarısız.');
           }
         });
       }}
     >
-      <h2 className="text-sm font-semibold">Sayim duzeltme</h2>
+      <h2 className="text-sm font-semibold">Sayım düzeltme</h2>
       <p className="text-xs text-neutral-500">
-        Depoda fiilen saydiginiz adedi girin. Fark hareket defterine yazilir.
+        Depoda fiilen saydığınız adedi girin. Fark hareket defterine yazılır.
       </p>
 
       <div className="space-y-1.5">
-        <Label htmlFor="counted">Sayilan adet</Label>
+        <Label htmlFor="counted">Sayılan adet</Label>
         <Input
           id="counted"
           type="number"
@@ -62,13 +62,13 @@ export function StockCountForm({ stockItemId, currentQuantity }: Props) {
           id="count-notes"
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
-          placeholder="Yil sonu sayimi"
+          placeholder="Yıl sonu sayımı"
           className="h-11"
         />
       </div>
 
       <Button type="submit" disabled={pending} className="h-11 w-full">
-        {pending ? 'Kaydediliyor...' : 'Sayimi kaydet'}
+        {pending ? 'Kaydediliyor...' : 'Sayımı kaydet'}
       </Button>
     </form>
   );

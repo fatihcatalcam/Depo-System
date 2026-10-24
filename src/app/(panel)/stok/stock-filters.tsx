@@ -29,7 +29,7 @@ export function StockFilters({ categories }: { categories: CategoryNode[] }) {
           if (event.key === 'Enter') apply({ q: query });
         }}
         onBlur={() => apply({ q: query })}
-        placeholder="Parca adi, SKU veya barkod ara"
+        placeholder="Parça adı, SKU veya barkod ara"
         className="h-11"
       />
       <select
@@ -37,7 +37,7 @@ export function StockFilters({ categories }: { categories: CategoryNode[] }) {
         onChange={(event) => apply({ kategori: event.target.value })}
         className="h-11 rounded-md border border-neutral-300 bg-white px-3 text-sm sm:w-64"
       >
-        <option value="">Tum kategoriler</option>
+        <option value="">Tüm kategoriler</option>
         {flattenCategories(categories).map((option) => (
           <option key={option.id} value={option.id}>
             {option.label}

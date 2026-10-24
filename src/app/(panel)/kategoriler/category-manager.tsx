@@ -20,7 +20,7 @@ export function CategoryManager({ tree }: { tree: CategoryNode[] }) {
     startTransition(async () => {
       const result = await action();
       if (result.ok) toast.success(success);
-      else toast.error(result.error ?? 'Islem basarisiz.');
+      else toast.error(result.error ?? 'İşlem başarısız.');
     });
   };
 
@@ -30,7 +30,7 @@ export function CategoryManager({ tree }: { tree: CategoryNode[] }) {
         <Input
           value={newRootName}
           onChange={(event) => setNewRootName(event.target.value)}
-          placeholder="Yeni ana kategori (orn. Yatak)"
+          placeholder="Yeni ana kategori (örn. Yatak)"
           className="h-11"
         />
         <Button
@@ -49,7 +49,7 @@ export function CategoryManager({ tree }: { tree: CategoryNode[] }) {
       </div>
 
       {tree.length === 0 ? (
-        <p className="text-sm text-neutral-500">Henuz kategori yok.</p>
+        <p className="text-sm text-neutral-500">Henüz kategori yok.</p>
       ) : (
         <ul className="space-y-2">
           {tree.map((node) => (
@@ -90,11 +90,11 @@ function CategoryRow({ node, depth, pending, run }: RowProps) {
           onClick={() => {
             const name = window.prompt('Yeni ad', node.name);
             if (name && name !== node.name) {
-              run(() => renameCategoryAction(node.id, name), 'Kategori guncellendi.');
+              run(() => renameCategoryAction(node.id, name), 'Kategori güncellendi.');
             }
           }}
         >
-          Yeniden adlandir
+          Yeniden adlandır
         </Button>
         <Button
           size="sm"
@@ -116,7 +116,7 @@ function CategoryRow({ node, depth, pending, run }: RowProps) {
           <Input
             value={childName}
             onChange={(event) => setChildName(event.target.value)}
-            placeholder="Alt kategori adi"
+            placeholder="Alt kategori adı"
             className="h-10"
           />
           <Button

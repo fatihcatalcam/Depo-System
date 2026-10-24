@@ -34,7 +34,7 @@ export function PlannedDateCell({ orderId, date, overdue }: Props) {
         toast.error(result.error ?? 'Tarih kaydedilemedi.');
         return;
       }
-      toast.success(value ? `Teslim tarihi ${formatDate(value)} oldu.` : 'Teslim tarihi kaldirildi.');
+      toast.success(value ? `Teslim tarihi ${formatDate(value)} oldu.` : 'Teslim tarihi kaldırıldı.');
       router.refresh();
     });
   }
@@ -61,7 +61,7 @@ export function PlannedDateCell({ orderId, date, overdue }: Props) {
   return (
     <button
       type="button"
-      title="Teslim tarihini degistir"
+      title="Teslim tarihini değiştir"
       disabled={pending}
       onClick={(event) => {
         event.stopPropagation();

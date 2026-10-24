@@ -14,10 +14,10 @@ interface Props {
  * zaten yalnizca kendi siparislerini gordugu icin ona gosterilmez.
  */
 export function BranchFilter({ branches, current, hrefFor }: Props) {
-  const options = [{ code: undefined, name: 'Tum subeler' }, ...branches];
+  const options = [{ code: undefined, name: 'Tüm şubeler' }, ...branches];
   return (
-    <nav className="flex flex-wrap items-center gap-2" aria-label="Sube">
-      <span className="text-xs font-medium uppercase text-neutral-500">Sube</span>
+    <nav className="flex flex-wrap items-center gap-2" aria-label="Şube">
+      <span className="text-xs font-medium uppercase text-neutral-500">Şube</span>
       {options.map((option) => (
         <Link
           key={option.code ?? 'hepsi'}

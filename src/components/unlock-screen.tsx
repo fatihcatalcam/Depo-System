@@ -39,7 +39,7 @@ export function UnlockScreen({ area, title, description }: Props) {
           startTransition(async () => {
             const result = await unlockAction(area, password);
             if (!result.ok) {
-              toast.error(result.error ?? 'Kilit acilamadi.');
+              toast.error(result.error ?? 'Kilit açılamadı.');
               return;
             }
             setPassword('');
@@ -54,11 +54,11 @@ export function UnlockScreen({ area, title, description }: Props) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="Parola"
-          aria-label={`${title} parolasi`}
+          aria-label={`${title} parolası`}
           className="h-12 text-center"
         />
         <Button type="submit" disabled={pending} className="h-12 w-full">
-          {pending ? 'Kontrol ediliyor...' : 'Ac'}
+          {pending ? 'Kontrol ediliyor...' : 'Aç'}
         </Button>
       </form>
     </div>

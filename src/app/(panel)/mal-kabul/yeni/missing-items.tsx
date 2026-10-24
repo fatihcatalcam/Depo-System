@@ -52,16 +52,16 @@ export function MissingItems({ rows, categories, resolving, onChange, onAdd, onS
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-amber-900">
-            Bu urunler katalogda yok. Stoklara eklensin mi?
+            Bu ürünler katalogda yok. Stoklara eklensin mi?
           </p>
           <p className="text-xs text-amber-800">
-            Eklediginiz urun icin yeni stok karti acilir; kart, mal kabulu kaydettiginizde
-            olusur. Katalogda varsa ama farkli yazildiysa &quot;Mevcut karti ara&quot; ile secin.
+            Eklediğiniz ürün için yeni stok kartı açılır; kart, mal kabulü kaydettiğinizde
+            oluşur. Katalogda varsa ama farklı yazıldıysa &quot;Mevcut kartı ara&quot; ile seçin.
           </p>
         </div>
         {ready.length > 1 ? (
           <Button type="button" variant="outline" className="h-9" onClick={() => onAdd(ready)}>
-            Onerilenlerin hepsini ekle ({ready.length})
+            Önerilenlerin hepsini ekle ({ready.length})
           </Button>
         ) : null}
       </div>
@@ -77,24 +77,24 @@ export function MissingItems({ rows, categories, resolving, onChange, onAdd, onS
               <Input
                 value={row.name}
                 onChange={(event) => update(row.key, { name: event.target.value })}
-                placeholder="Yeni kartin adi"
-                aria-label={`${row.text} icin yeni kart adi`}
+                placeholder="Yeni kartın adı"
+                aria-label={`${row.text} için yeni kart adı`}
                 className="h-10"
               />
               <Input
                 value={row.sizeLabel}
                 onChange={(event) => update(row.key, { sizeLabel: event.target.value })}
-                placeholder="Olcu (ornek: 160x200)"
-                aria-label={`${row.text} icin olcu`}
+                placeholder="Ölçü (örnek: 160x200)"
+                aria-label={`${row.text} için ölçü`}
                 className="h-10"
               />
               <select
                 value={row.categoryId}
                 onChange={(event) => update(row.key, { categoryId: event.target.value })}
-                aria-label={`${row.text} icin kategori`}
+                aria-label={`${row.text} için kategori`}
                 className="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm"
               >
-                <option value="">Kategori secin</option>
+                <option value="">Kategori seçin</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.label}
@@ -112,7 +112,7 @@ export function MissingItems({ rows, categories, resolving, onChange, onAdd, onS
                 Stoklara ekle
               </Button>
               <Button type="button" variant="outline" className="h-9" onClick={() => onSearch(row)}>
-                {resolving === row.key ? 'Asagidan secin' : 'Mevcut karti ara'}
+                {resolving === row.key ? 'Aşağıdan seçin' : 'Mevcut kartı ara'}
               </Button>
               <Button
                 type="button"
@@ -120,7 +120,7 @@ export function MissingItems({ rows, categories, resolving, onChange, onAdd, onS
                 className="h-9 text-red-600"
                 onClick={() => onChange(rows.filter((other) => other.key !== row.key))}
               >
-                Kaldir
+                Kaldır
               </Button>
             </div>
           </li>

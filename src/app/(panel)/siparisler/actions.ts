@@ -32,11 +32,11 @@ function toResult(error: unknown): ActionResult {
     return { ok: false, error: error.message, needsStockOverride: true };
   }
   if (error instanceof DomainError) return { ok: false, error: error.message };
-  if (error instanceof Error && error.message.startsWith('Gecersiz tutar')) {
-    return { ok: false, error: 'Tutar bicimi hatali. Ornek: 15.000,00' };
+  if (error instanceof Error && error.message.startsWith('Geçersiz tutar')) {
+    return { ok: false, error: 'Tutar biçimi hatalı. Örnek: 15.000,00' };
   }
   console.error(error);
-  return { ok: false, error: 'Beklenmeyen bir hata olustu.' };
+  return { ok: false, error: 'Beklenmeyen bir hata oluştu.' };
 }
 
 function refresh(orderId?: string) {
@@ -78,7 +78,7 @@ const invoiceShape = {
   invoiceNo: z.string().optional(),
   invoiceDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fatura tarihi gecersiz.')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fatura tarihi geçersiz.')
     .or(z.literal(''))
     .optional(),
 };
@@ -117,11 +117,11 @@ const orderSchema = z.object({
   ...invoiceShape,
   // Yeni sipariste zorunlu: prim buna gore hesaplaniyor, sonradan "bunu kim
   // satmisti" diye hatirlamak mumkun olmuyor.
-  salespersonId: z.uuid({ error: 'Satici secin.' }),
+  salespersonId: z.uuid({ error: 'Satıcı seçin.' }),
   // Ikisinden biri: kayitli musteri ya da yeni musteri adi.
   customerId: z.uuid().optional(),
   newCustomerName: z.string().optional(),
-  orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.'),
+  orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih geçersiz.'),
   currency: z.enum(['TRY', 'USD', 'EUR']).optional(),
   exchangeRate: z.string().optional(),
   plannedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
@@ -145,7 +145,7 @@ const orderSchema = z.object({
     )
     .optional(),
   notes: z.string().optional(),
-  lines: z.array(lineSchema).min(1, 'En az bir satir ekleyin.'),
+  lines: z.array(lineSchema).min(1, 'En az bir satır ekleyin.'),
 });
 
 export async function createOrderAction(input: unknown): Promise<ActionResult> {
@@ -154,7 +154,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
 
   const newCustomerName = parsed.data.newCustomerName?.trim();
   if (!parsed.data.customerId && !newCustomerName) {
-    return { ok: false, error: 'Kayitli bir musteri secin veya yeni musteri adi girin.' };
+    return { ok: false, error: 'Kayıtlı bir müşteri seçin veya yeni müşteri adı girin.' };
   }
 
   try {
@@ -230,7 +230,7 @@ const orderPatchSchema = z.object({
   salespersonId: z.uuid().or(z.literal('')).optional(),
   orderDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih geçersiz.')
     .optional(),
   plannedDeliveryDate: z
     .string()
@@ -249,7 +249,7 @@ const orderPatchSchema = z.object({
   discount: z.string().optional(),
   manualTotal: z.string().optional(),
   notes: z.string().optional(),
-  lines: z.array(lineSchema).min(1, 'En az bir satir ekleyin.').optional(),
+  lines: z.array(lineSchema).min(1, 'En az bir satır ekleyin.').optional(),
 });
 
 export async function updateOrderAction(id: string, input: unknown): Promise<ActionResult> {
@@ -327,7 +327,7 @@ const deliverySchema = z.object({
   allowNegativeStock: z.boolean().optional(),
   lines: z
     .array(z.object({ orderLineComponentId: z.uuid(), quantity: z.coerce.number().int().min(1) }))
-    .min(1, 'Teslim edilecek en az bir parca secin.'),
+    .min(1, 'Teslim edilecek en az bir parça seçin.'),
 });
 
 export async function createDeliveryAction(
@@ -372,7 +372,7 @@ const paymentSchema = z.object({
   method: z.enum(PAYMENT_METHODS),
   installments: installmentsSchema,
   isDeposit: z.boolean().optional(),
-  paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih gecersiz.'),
+  paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih geçersiz.'),
   notes: z.string().optional(),
 });
 
@@ -425,7 +425,7 @@ export async function searchCustomersAction(query: string) {
 /** Siparis kodunun basindaki tik: butun urunler fabrikaya siparis gecildi. */
 export async function setFactoryOrderedAction(id: string, ordered: boolean): Promise<ActionResult> {
   if (!z.uuid().safeParse(id).success || typeof ordered !== 'boolean') {
-    return { ok: false, error: 'Gecersiz istek.' };
+    return { ok: false, error: 'Geçersiz istek.' };
   }
   try {
     await setFactoryOrdered(db, await currentScope(), id, ordered);
@@ -441,7 +441,7 @@ const notesSchema = z.string().max(2000, 'Not en fazla 2000 karakter olabilir.')
 export async function updateOrderNotesAction(id: string, notes: unknown): Promise<ActionResult> {
   const parsed = notesSchema.safeParse(notes);
   if (!z.uuid().safeParse(id).success || !parsed.success) {
-    return { ok: false, error: parsed.success ? 'Gecersiz istek.' : parsed.error.issues[0].message };
+    return { ok: false, error: parsed.success ? 'Geçersiz istek.' : parsed.error.issues[0].message };
   }
   try {
     await updateOrderNotes(db, await currentScope(), id, parsed.data);

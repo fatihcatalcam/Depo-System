@@ -17,11 +17,11 @@ export default async function MusterilerPage({ searchParams }: PageProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Musteriler</h1>
-          <p className="text-sm text-neutral-500">{customers.length} kayit</p>
+          <h1 className="text-lg font-semibold">Müşteriler</h1>
+          <p className="text-sm text-neutral-500">{customers.length} kayıt</p>
         </div>
         <Link href="/musteriler/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
-          Yeni musteri
+          Yeni müşteri
         </Link>
       </div>
 
@@ -29,7 +29,7 @@ export default async function MusterilerPage({ searchParams }: PageProps) {
         <input
           name="q"
           defaultValue={q ?? ''}
-          placeholder="Isim veya telefon ara"
+          placeholder="İsim veya telefon ara"
           className="h-11 flex-1 rounded-md border border-neutral-300 bg-white px-3 text-sm"
         />
         <button type="submit" className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}>
@@ -38,7 +38,7 @@ export default async function MusterilerPage({ searchParams }: PageProps) {
       </form>
 
       {customers.length === 0 ? (
-        <p className="text-sm text-neutral-500">Kayit bulunamadi.</p>
+        <p className="text-sm text-neutral-500">Kayıt bulunamadı.</p>
       ) : (
         <ul className="space-y-2">
           {customers.map((customer) => (

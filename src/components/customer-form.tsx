@@ -56,7 +56,7 @@ export function CustomerForm({ initial, submitLabel, onSubmit }: Props) {
         startTransition(async () => {
           const result = await onSubmit(values);
           if (!result.ok) {
-            toast.error(result.error ?? 'Kayit basarisiz.');
+            toast.error(result.error ?? 'Kayıt başarısız.');
             return;
           }
           toast.success('Kaydedildi.');
@@ -88,7 +88,7 @@ export function CustomerForm({ initial, submitLabel, onSubmit }: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="c-phone2">Ikinci telefon</Label>
+          <Label htmlFor="c-phone2">İkinci telefon</Label>
           <Input
             id="c-phone2"
             value={values.phone2}
@@ -107,13 +107,13 @@ export function CustomerForm({ initial, submitLabel, onSubmit }: Props) {
           className="h-11"
         />
         <p className="text-xs text-neutral-500">
-          Siparis olustururken teslimat adresi buradan on-doldurulur, orada degistirilebilir.
+          Sipariş oluştururken teslimat adresi buradan on-doldurulur, orada değiştirilebilir.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="c-city">Il</Label>
+          <Label htmlFor="c-city">İl</Label>
           <Input
             id="c-city"
             value={values.city}
@@ -122,7 +122,7 @@ export function CustomerForm({ initial, submitLabel, onSubmit }: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="c-district">Ilce</Label>
+          <Label htmlFor="c-district">İlçe</Label>
           <Input
             id="c-district"
             value={values.district}

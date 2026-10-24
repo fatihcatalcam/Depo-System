@@ -61,7 +61,7 @@ describe('irsaliye okuma', () => {
 
     const result = await readReceiptDocument(ctx.db, DOCUMENT, { fetchImpl });
 
-    expect(result).toEqual({ ok: false, error: expect.stringContaining('ayarli degil') });
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('ayarlı değil') });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -187,7 +187,7 @@ describe('irsaliye okuma', () => {
 
     const result = await readReceiptDocument(ctx.db, DOCUMENT, { fetchImpl });
 
-    expect(result).toEqual({ ok: false, error: 'Yapay zeka anahtari gecersiz.' });
+    expect(result).toEqual({ ok: false, error: 'Yapay zekâ anahtarı geçersiz.' });
     spy.mockRestore();
   });
 
@@ -211,7 +211,7 @@ describe('irsaliye okuma', () => {
 
     const result = await readReceiptDocument(ctx.db, DOCUMENT, { fetchImpl });
 
-    expect(result).toEqual({ ok: false, error: expect.stringContaining('ulasilamadi') });
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('ulaşılamadı') });
     spy.mockRestore();
   });
 });
@@ -279,7 +279,7 @@ describe('Excel eslestirme', () => {
 
     const result = await readReceiptSpreadsheet(ctx.db, { date: null, lines: [] }, { fetchImpl });
 
-    expect(result).toEqual({ ok: false, error: expect.stringContaining('urun satiri bulunamadi') });
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('ürün satırı bulunamadı') });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

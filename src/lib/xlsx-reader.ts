@@ -64,11 +64,11 @@ export function readFirstSheet(data: Uint8Array): string[][] {
   try {
     files = unzipSync(data);
   } catch {
-    throw new XlsxError('Dosya bir Excel (.xlsx) dosyasi degil.');
+    throw new XlsxError('Dosya bir Excel (.xlsx) dosyası değil.');
   }
 
   const workbook = readEntry(files, 'xl/workbook.xml');
-  if (!workbook) throw new XlsxError('Excel dosyasinda calisma kitabi bulunamadi.');
+  if (!workbook) throw new XlsxError('Excel dosyasında çalışma kitabı bulunamadı.');
 
   const firstSheet = workbook.match(new RegExp(`<${tag('sheet')}\\b([^>]*)/?>`));
   const relId = firstSheet?.[1].match(/\br:id="([^"]+)"/)?.[1];
@@ -79,7 +79,7 @@ export function readFirstSheet(data: Uint8Array): string[][] {
     ?.match(/\bTarget="([^"]+)"/)?.[1];
 
   const sheet = readEntry(files, target ? resolveTarget(target) : 'xl/worksheets/sheet1.xml');
-  if (!sheet) throw new XlsxError('Excel dosyasinda sayfa bulunamadi.');
+  if (!sheet) throw new XlsxError('Excel dosyasında sayfa bulunamadı.');
 
   const sharedXml = readEntry(files, 'xl/sharedStrings.xml') ?? '';
   const shared = [...sharedXml.matchAll(new RegExp(`<${tag('si')}\\b[^>]*>([\\s\\S]*?)</${tag('si')}>`, 'g'))].map(

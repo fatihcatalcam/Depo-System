@@ -23,7 +23,7 @@ export function FactoryTick({ orderId, ordered, readOnly = false }: Props) {
   const [value, setValue] = useState(ordered);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
-  const label = value ? 'Fabrikaya siparis gecildi' : 'Fabrikaya siparis gecilmedi';
+  const label = value ? 'Fabrikaya sipariş geçildi' : 'Fabrikaya sipariş geçilmedi';
 
   const box = (
     <span
@@ -47,7 +47,7 @@ export function FactoryTick({ orderId, ordered, readOnly = false }: Props) {
   return (
     <button
       type="button"
-      title={`${label} — degistirmek icin dokunun`}
+      title={`${label} — değiştirmek için dokunun`}
       aria-label={label}
       aria-pressed={value}
       disabled={pending}

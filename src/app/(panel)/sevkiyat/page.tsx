@@ -27,19 +27,19 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Gunluk sevkiyat</h1>
+          <h1 className="text-lg font-semibold">Günlük sevkiyat</h1>
           <p className="text-sm text-neutral-500">
             {formatLongDate(date)}
             {/* Merkez iki subenin sevkiyatini birlikte goruyor; kagit
                 ciktisini yanlis subeye vermemesi icin acikca yaziyoruz. */}
-            {user.isCentral ? ' · iki sube birlikte' : ` · ${user.label}`}
+            {user.isCentral ? ' · iki şube birlikte' : ` · ${user.label}`}
           </p>
         </div>
         <Link
           href={`/sevkiyat/haftalik?hafta=${date}`}
           className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
         >
-          Haftalik ozet
+          Haftalık özet
         </Link>
       </div>
 
@@ -47,14 +47,14 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
 
       {shipment.stops.length === 0 ? (
         <p className="rounded-lg border border-neutral-200 bg-white p-6 text-center text-sm text-neutral-500">
-          Bu tarihe planlanmis sevkiyat yok. Siparislere teslimat tarihi girildiginde burada
-          gorunur.
+          Bu tarihe planlanmış sevkiyat yok. Siparişlere teslimat tarihi girildiğinde burada
+          görünür.
         </p>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <Stat label="Durak" value={String(shipment.stops.length)} />
-            <Stat label="Toplam parca" value={String(shipment.totalPieces)} />
+            <Stat label="Toplam parça" value={String(shipment.totalPieces)} />
             <Stat
               label="Tahsil edilecek"
               value={formatKurus(shipment.totalCollectionKurus)}
@@ -73,13 +73,13 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
               href={`/sevkiyat/yazdir/sofor?tarih=${date}`}
               className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-4')}
             >
-              Sofor sevkiyat kagidi
+              Şoför sevkiyat kâğıdı
             </Link>
           </div>
 
           <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
             <h2 className="border-b border-neutral-200 p-3 text-sm font-semibold">
-              Toplanacak parcalar
+              Toplanacak parçalar
             </h2>
             <ul>
               {shipment.pickingList.map((item) => (
@@ -154,7 +154,7 @@ export default async function SevkiyatPage({ searchParams }: PageProps) {
                     {formatKurus(stop.balanceKurus, { currency: stop.currency })}
                   </p>
                 ) : (
-                  <p className="mt-2 text-xs text-green-700">Odemesi tamamlanmis</p>
+                  <p className="mt-2 text-xs text-green-700">Ödemesi tamamlanmış</p>
                 )}
               </div>
             ))}

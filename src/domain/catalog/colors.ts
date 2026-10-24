@@ -36,9 +36,9 @@ export async function ensureColorCard(
 ): Promise<StockItem> {
   const code = normalizeColorCode(rawCode);
   const [base] = await db.select().from(stockItems).where(eq(stockItems.id, baseStockItemId));
-  if (!base) throw new NotFoundError('Stok karti');
+  if (!base) throw new NotFoundError('Stok kartı');
   if (base.parentStockItemId) {
-    throw new DomainError('Renk kartinin baska rengi olmaz; ana karti secin.', 'INVALID_INPUT');
+    throw new DomainError('Renk kartının başka rengi olmaz; ana kartı seçin.', 'INVALID_INPUT');
   }
 
   const [existing] = await db
@@ -50,7 +50,7 @@ export async function ensureColorCard(
   const codes = base.colorPaletteId ? await paletteCodes(db, base.colorPaletteId) : [];
   if (!codes.includes(code)) {
     throw new DomainError(
-      `${base.name}${base.sizeLabel ? ` ${base.sizeLabel}` : ''} icin "${code}" rengi yok.`,
+      `${base.name}${base.sizeLabel ? ` ${base.sizeLabel}` : ''} için "${code}" rengi yok.`,
       'INVALID_COLOR',
     );
   }
@@ -120,7 +120,7 @@ export async function countPaletteItems(db: DbOrTx): Promise<Map<string, number>
 
 export async function createPalette(db: DbOrTx, name: string): Promise<ColorPalette> {
   const trimmed = name.trim();
-  if (trimmed === '') throw new DomainError('Kartela adi bos olamaz.', 'INVALID_INPUT');
+  if (trimmed === '') throw new DomainError('Kartela adı boş olamaz.', 'INVALID_INPUT');
   const [clash] = await db
     .select({ id: colorPalettes.id })
     .from(colorPalettes)
@@ -136,7 +136,7 @@ export async function addPaletteCode(
   rawCode: string,
 ): Promise<ColorPalette> {
   const code = normalizeColorCode(rawCode);
-  if (code === '') throw new DomainError('Renk kodu bos olamaz.', 'INVALID_INPUT');
+  if (code === '') throw new DomainError('Renk kodu boş olamaz.', 'INVALID_INPUT');
   const codes = await paletteCodes(db, paletteId);
   if (codes.includes(code)) throw new DomainError(`${code} bu kartelada zaten var.`, 'DUPLICATE');
   return saveCodes(db, paletteId, sortColorCodes([...codes, code]));

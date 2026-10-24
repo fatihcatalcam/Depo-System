@@ -17,10 +17,10 @@ export interface StockHistoryEntry {
 export const MOVEMENT_LABELS: Record<MovementType, string> = {
   goods_receipt: 'Mal kabul',
   delivery: 'Teslimat',
-  stock_count: 'Sayim duzeltme',
-  return: 'Iade',
+  stock_count: 'Sayım düzeltme',
+  return: 'İade',
   scrap: 'Fire',
-  manual: 'Elle duzeltme',
+  manual: 'Elle düzeltme',
 };
 
 /** Bir kartin **bir depodaki** hareket gecmisi. */

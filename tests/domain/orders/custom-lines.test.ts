@@ -81,7 +81,7 @@ describe('serbest satir', () => {
         deliveryAddress: 'Adres',
         lines: [{ itemType: 'custom', description: '   ', quantity: 1, unitPriceKurus: 1000 }],
       }),
-    ).rejects.toThrow('Serbest satirda urun adi yazilmali');
+    ).rejects.toThrow('Serbest satırda ürün adı yazılmalı');
   });
 
   /**

@@ -88,13 +88,13 @@ export default async function StokPage({ searchParams }: PageProps) {
         <div>
           <h1 className="text-xl font-semibold">Stok</h1>
           <p className="text-base text-neutral-500">
-            {setRows} takim · {grid.others.length} diger urun
+            {setRows} takım · {grid.others.length} diğer ürün
           </p>
         </div>
         <div className="flex items-center gap-2">
           <LockToggle locked={locked} />
           <Link href="/stok/yeni" className={cn(buttonVariants(), 'h-11 px-4')}>
-            Yeni parca
+            Yeni parça
           </Link>
         </div>
       </div>

@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
       deleted: stale.length,
     });
   } catch (error) {
-    console.error('Yedek alinamadi:', error);
-    return NextResponse.json({ error: 'Yedek alinamadi.' }, { status: 500 });
+    console.error('Yedek alınamadı:', error);
+    return NextResponse.json({ error: 'Yedek alınamadı.' }, { status: 500 });
   } finally {
     await pool.end();
   }

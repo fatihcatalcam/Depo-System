@@ -30,7 +30,7 @@ export async function adjustStockCount(
   input: StockCountInput,
 ): Promise<StockCountResult> {
   if (input.countedQuantity < 0) {
-    throw new Error('Sayilan adet negatif olamaz.');
+    throw new Error('Sayılan adet negatif olamaz.');
   }
 
   const [item] = await db
@@ -38,7 +38,7 @@ export async function adjustStockCount(
     .from(stockItems)
     .where(eq(stockItems.id, input.stockItemId));
 
-  if (!item) throw new NotFoundError(`Stok karti (${input.stockItemId})`);
+  if (!item) throw new NotFoundError(`Stok kartı (${input.stockItemId})`);
 
   const [balance] = await db
     .select({ onHand: stockBalances.quantityOnHand })

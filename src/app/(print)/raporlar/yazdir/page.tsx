@@ -8,9 +8,9 @@ import { isReportsUnlocked } from '@/lib/auth/locks';
 import { formatKurus } from '@/lib/money';
 
 const PRESET_LABELS: Record<PeriodPreset, string> = {
-  gun: 'Gunluk',
-  hafta: 'Haftalik',
-  ay: 'Aylik',
+  gun: 'Günlük',
+  hafta: 'Haftalık',
+  ay: 'Aylık',
 };
 
 interface PageProps {
@@ -37,7 +37,7 @@ export default async function RaporYazdirPage({ searchParams }: PageProps) {
       <UnlockScreen
         area="raporlar"
         title="Raporlar kilitli"
-        description="Ciro, tahsilat ve alacak bilgileri icin yonetici parolasi gerekir."
+        description="Ciro, tahsilat ve alacak bilgileri için yönetici parolası gerekir."
       />
     );
   }
@@ -47,35 +47,35 @@ export default async function RaporYazdirPage({ searchParams }: PageProps) {
   return (
     <>
       <PrintHeader
-        title={`${PRESET_LABELS[preset]} Ozet`}
+        title={`${PRESET_LABELS[preset]} Özet`}
         subtitle={`${formatDate(from)} – ${formatDate(to)}`}
       />
 
       <table className="mb-6 w-full border-collapse text-sm">
         <tbody>
-          <Row label="Siparis adedi" value={String(summary.orderCount)} />
+          <Row label="Sipariş adedi" value={String(summary.orderCount)} />
           <Row label="Ciro" value={formatKurus(summary.revenueKurus)} />
           <Row label="Tahsilat" value={formatKurus(summary.collectedKurus)} />
           <Row label="Teslimat adedi" value={String(summary.deliveryCount)} />
           <Row
-            label="Kalan alacak (rapor anindaki guncel durum)"
+            label="Kalan alacak (rapor anındaki güncel durum)"
             value={formatKurus(summary.outstandingKurus)}
           />
           <Row
-            label="Stok degeri (rapor anindaki guncel durum)"
+            label="Stok değeri (rapor anındaki güncel durum)"
             value={formatKurus(summary.stockValueKurus)}
           />
         </tbody>
       </table>
 
-      <h2 className="mb-1 text-sm font-bold">En cok satan urunler</h2>
+      <h2 className="mb-1 text-sm font-bold">En çok satan ürünler</h2>
       {summary.topProducts.length === 0 ? (
-        <p className="text-sm">Bu donemde siparis kaydi yok.</p>
+        <p className="text-sm">Bu dönemde sipariş kaydı yok.</p>
       ) : (
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-neutral-400 text-left">
-              <th className="py-1.5">Urun</th>
+              <th className="py-1.5">Ürün</th>
               <th className="w-20 py-1.5 text-right">Adet</th>
               <th className="w-32 py-1.5 text-right">Tutar</th>
             </tr>

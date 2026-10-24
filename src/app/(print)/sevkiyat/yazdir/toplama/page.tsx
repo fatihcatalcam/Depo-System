@@ -25,18 +25,18 @@ export default async function ToplamaListesiPage({ searchParams }: PageProps) {
       <PrintHeader title="Depo Toplama Listesi" subtitle={formatLongDate(date)} />
 
       {shipment.pickingList.length === 0 ? (
-        <p className="text-sm">Bu tarihe planlanmis sevkiyat yok.</p>
+        <p className="text-sm">Bu tarihe planlanmış sevkiyat yok.</p>
       ) : (
         <>
           <p className="mb-3 text-sm">
-            {shipment.stops.length} durak · toplam <strong>{shipment.totalPieces}</strong> parca
+            {shipment.stops.length} durak · toplam <strong>{shipment.totalPieces}</strong> parça
           </p>
 
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-neutral-400 text-left">
                 <th className="w-10 py-1.5">✓</th>
-                <th className="py-1.5">Parca</th>
+                <th className="py-1.5">Parça</th>
                 <th className="py-1.5">Boyut</th>
                 <th className="py-1.5">Kod</th>
                 <th className="w-20 py-1.5 text-right">Adet</th>
@@ -67,7 +67,7 @@ export default async function ToplamaListesiPage({ searchParams }: PageProps) {
 
           <div className="mt-8 flex justify-between text-xs">
             <div>
-              Hazirlayan: <span className="inline-block w-40 border-b border-neutral-400" />
+              Hazırlayan: <span className="inline-block w-40 border-b border-neutral-400" />
             </div>
             <div>
               Kontrol: <span className="inline-block w-40 border-b border-neutral-400" />

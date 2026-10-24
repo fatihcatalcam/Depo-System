@@ -66,7 +66,7 @@ describe('adjustStockCount', () => {
     const item = await makeStockItem(ctx.db);
     await expect(
       adjustStockCount(ctx.db, ctx.branchId, { stockItemId: item.id, countedQuantity: -1 }),
-    ).rejects.toThrow('Sayilan adet negatif olamaz');
+    ).rejects.toThrow('Sayılan adet negatif olamaz');
   });
 
   it('not hareket kaydina yazilir', async () => {
@@ -87,6 +87,6 @@ describe('adjustStockCount', () => {
         stockItemId: '44444444-4444-4444-4444-444444444444',
         countedQuantity: 5,
       }),
-    ).rejects.toThrow('bulunamadi');
+    ).rejects.toThrow('bulunamadı');
   });
 });

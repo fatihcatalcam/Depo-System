@@ -65,7 +65,7 @@ export async function GET(
       filename = `stok-sayim-${today}.xlsx`;
       break;
     default:
-      return NextResponse.json({ error: 'Bilinmeyen disa aktarma turu.' }, { status: 404 });
+      return NextResponse.json({ error: 'Bilinmeyen dışa aktarma türü.' }, { status: 404 });
   }
 
   return new NextResponse(new Uint8Array(buffer), {

@@ -41,7 +41,7 @@ export function LockToggle({ locked }: Props) {
         }
       >
         <LockOpen className="size-4" />
-        Stok acik
+        Stok açık
       </Button>
     );
   }
@@ -68,12 +68,12 @@ export function LockToggle({ locked }: Props) {
         startTransition(async () => {
           const result = await unlockStockPermanentlyAction(password);
           if (!result.ok) {
-            toast.error(result.error ?? 'Kilit acilamadi.');
+            toast.error(result.error ?? 'Kilit açılamadı.');
             return;
           }
           setPassword('');
           setAsking(false);
-          toast.success('Stok kilidi acildi.');
+          toast.success('Stok kilidi açıldı.');
           router.refresh();
         });
       }}
@@ -85,11 +85,11 @@ export function LockToggle({ locked }: Props) {
         value={password}
         onChange={(event) => setPassword(event.target.value)}
         placeholder="Parola"
-        aria-label="Stok kilidi parolasi"
+        aria-label="Stok kilidi parolası"
         className="h-11 w-36"
       />
       <Button type="submit" disabled={pending} className="h-11">
-        {pending ? '...' : 'Ac'}
+        {pending ? '...' : 'Aç'}
       </Button>
       <Button
         type="button"
@@ -100,7 +100,7 @@ export function LockToggle({ locked }: Props) {
           setAsking(false);
         }}
       >
-        Vazgec
+        Vazgeç
       </Button>
     </form>
   );

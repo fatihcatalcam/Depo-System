@@ -80,7 +80,7 @@ export function ShipmentStopSheet({
           <div className="text-lg font-bold tabular-nums">
             {stop.balanceKurus > 0
               ? formatKurus(stop.balanceKurus, { currency: stop.currency })
-              : 'Odendi'}
+              : 'Ödendi'}
           </div>
         </div>
       </div>
@@ -122,7 +122,7 @@ export function ShipmentStopSheet({
             <div className="mt-4 border-b border-neutral-400" />
           </div>
           <div className="w-28">
-            Alinan tutar:
+            Alınan tutar:
             <div className="mt-4 border-b border-neutral-400" />
           </div>
         </div>

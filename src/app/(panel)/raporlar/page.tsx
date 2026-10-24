@@ -10,9 +10,9 @@ import { formatKurus } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 const PRESETS: { value: PeriodPreset; label: string }[] = [
-  { value: 'gun', label: 'Gunluk' },
-  { value: 'hafta', label: 'Haftalik' },
-  { value: 'ay', label: 'Aylik' },
+  { value: 'gun', label: 'Günlük' },
+  { value: 'hafta', label: 'Haftalık' },
+  { value: 'ay', label: 'Aylık' },
 ];
 
 interface PageProps {
@@ -38,7 +38,7 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
       <UnlockScreen
         area="raporlar"
         title="Raporlar kilitli"
-        description="Ciro, tahsilat ve alacak bilgileri icin stok ve rapor parolasi gerekir."
+        description="Ciro, tahsilat ve alacak bilgileri için stok ve rapor parolası gerekir."
       />
     );
   }
@@ -51,7 +51,7 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
         <h1 className="text-lg font-semibold">Raporlar</h1>
         <p className="text-sm text-neutral-500">
           {formatDate(from)} – {formatDate(to)}
-          {user.isCentral ? ' · iki sube toplami' : ` · ${user.label}`}
+          {user.isCentral ? ' · iki şube toplamı' : ` · ${user.label}`}
         </p>
       </div>
 
@@ -84,38 +84,38 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
             type="submit"
             className={cn(buttonVariants({ variant: 'outline' }), 'h-10 px-3')}
           >
-            Goster
+            Göster
           </button>
         </form>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Stat label="Siparis adedi" value={String(summary.orderCount)} />
+        <Stat label="Sipariş adedi" value={String(summary.orderCount)} />
         <Stat label="Ciro" value={formatKurus(summary.revenueKurus)} />
         <Stat label="Tahsilat" value={formatKurus(summary.collectedKurus)} />
         <Stat label="Teslimat adedi" value={String(summary.deliveryCount)} />
         <Stat
-          label="Kalan alacak (guncel)"
+          label="Kalan alacak (güncel)"
           value={formatKurus(summary.outstandingKurus)}
           danger={summary.outstandingKurus > 0}
         />
         {/* Stok degeri her zaman kendi deposu — merkez de digerinin stogunu
             gormez. Etiketi bu yuzden subeyi acikca yaziyor. */}
         <Stat
-          label={`Stok degeri · ${user.label}`}
+          label={`Stok değeri · ${user.label}`}
           value={formatKurus(summary.stockValueKurus)}
         />
       </div>
 
       {summary.branches.length > 1 ? (
         <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-          <h2 className="border-b border-neutral-200 p-3 text-sm font-semibold">Sube bazinda</h2>
+          <h2 className="border-b border-neutral-200 p-3 text-sm font-semibold">Şube bazında</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
                 <tr>
-                  <th className="p-3">Sube</th>
-                  <th className="p-3 text-right">Siparis</th>
+                  <th className="p-3">Şube</th>
+                  <th className="p-3 text-right">Sipariş</th>
                   <th className="p-3 text-right">Ciro</th>
                   <th className="p-3 text-right">Tahsilat</th>
                   <th className="p-3 text-right">Kalan alacak</th>
@@ -152,7 +152,7 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
           href={`/raporlar/yazdir?donem=${preset}&tarih=${reference}`}
           className={cn(buttonVariants(), 'h-11 px-4')}
         >
-          Yazdir / PDF
+          Yazdır / PDF
         </Link>
         <a
           href={`/api/disa-aktar/rapor?from=${from}&to=${to}`}
@@ -164,11 +164,11 @@ export default async function RaporlarPage({ searchParams }: PageProps) {
 
       <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
         <h2 className="border-b border-neutral-200 p-3 text-sm font-semibold">
-          En cok satan urunler
+          En çok satan ürünler
         </h2>
         {summary.topProducts.length === 0 ? (
           <p className="p-6 text-center text-sm text-neutral-500">
-            Bu donemde siparis kaydi yok.
+            Bu dönemde sipariş kaydı yok.
           </p>
         ) : (
           <ul>

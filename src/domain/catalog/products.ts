@@ -33,7 +33,7 @@ export interface CreateProductInput {
 
 export async function createProduct(db: DbOrTx, input: CreateProductInput): Promise<Product> {
   const name = input.name.trim();
-  if (name === '') throw new DomainError('Urun adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Ürün adı boş olamaz.', 'INVALID_INPUT');
   validateComponents(input.components);
 
   const code = await nextDocumentNumber(db, 'product');
@@ -76,12 +76,12 @@ export async function updateProduct(
   input: UpdateProductInput,
 ): Promise<Product> {
   const [existing] = await db.select().from(products).where(eq(products.id, id));
-  if (!existing) throw new NotFoundError('Urun');
+  if (!existing) throw new NotFoundError('Ürün');
 
   if (input.components) validateComponents(input.components);
 
   const name = input.name?.trim() ?? existing.name;
-  if (name === '') throw new DomainError('Urun adi bos olamaz.', 'INVALID_INPUT');
+  if (name === '') throw new DomainError('Ürün adı boş olamaz.', 'INVALID_INPUT');
 
   const [product] = await db
     .update(products)
@@ -120,7 +120,7 @@ export async function getProductWithComponents(
   id: string,
 ): Promise<ProductWithComponents> {
   const [product] = await db.select().from(products).where(eq(products.id, id));
-  if (!product) throw new NotFoundError('Urun');
+  if (!product) throw new NotFoundError('Ürün');
 
   const rows = await db
     .select({
@@ -320,14 +320,14 @@ export async function duplicateProductForSize(
 
   if (missing.length > 0) {
     throw new DomainError(
-      `${input.targetSizeLabel} boyutunda karsiligi bulunamayan parcalar: ${missing.join(', ')}. Once bu parcalarin hedef boyuttaki stok kartlarini olusturun.`,
+      `${input.targetSizeLabel} boyutunda karşılığı bulunamayan parçalar: ${missing.join(', ')}. Önce bu parçaların hedef boyuttaki stok kartlarını oluşturun.`,
       'MISSING_COUNTERPART',
     );
   }
 
   if (ambiguous.length > 0) {
     throw new DomainError(
-      `Su parcalarin hedef boyutta birden fazla secenegi var: ${ambiguous.join(', ')}. Hangisinin kullanilacagini secin.`,
+      `Şu parçaların hedef boyutta birden fazla seçeneği var: ${ambiguous.join(', ')}. Hangisinin kullanılacağını seçin.`,
       'AMBIGUOUS_COUNTERPART',
     );
   }
@@ -344,17 +344,17 @@ export async function duplicateProductForSize(
 
 function validateComponents(components: ComponentInput[]) {
   if (components.length === 0) {
-    throw new DomainError('Urun en az bir parca icermeli.', 'EMPTY_RECIPE');
+    throw new DomainError('Ürün en az bir parça içermeli.', 'EMPTY_RECIPE');
   }
 
   const seen = new Set<string>();
   for (const component of components) {
     if (component.quantity <= 0) {
-      throw new DomainError('Recete miktari sifirdan buyuk olmali.', 'INVALID_QUANTITY');
+      throw new DomainError('Reçete miktarı sıfırdan büyük olmalı.', 'INVALID_QUANTITY');
     }
     if (seen.has(component.stockItemId)) {
       throw new DomainError(
-        'Ayni parca recetede birden fazla kez yer alamaz.',
+        'Aynı parça reçetede birden fazla kez yer alamaz.',
         'DUPLICATE_COMPONENT',
       );
     }

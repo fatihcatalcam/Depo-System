@@ -17,7 +17,7 @@ export function DatePicker({ date }: { date: string }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button variant="outline" className="h-11" onClick={() => go(shift(date, -1))}>
-        Onceki gun
+        Önceki gün
       </Button>
       <Input
         type="date"
@@ -29,7 +29,7 @@ export function DatePicker({ date }: { date: string }) {
         aria-label="Sevkiyat tarihi"
       />
       <Button variant="outline" className="h-11" onClick={() => go(shift(date, 1))}>
-        Sonraki gun
+        Sonraki gün
       </Button>
     </div>
   );

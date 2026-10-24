@@ -31,7 +31,7 @@ const STOCK_LOCKED_COOKIE = 'depo_stok_kilitli';
 function secret(): Uint8Array {
   const value = process.env.SESSION_SECRET;
   if (!value || value.length < 32) {
-    throw new Error('SESSION_SECRET tanimli degil veya 32 karakterden kisa.');
+    throw new Error('SESSION_SECRET tanımlı değil veya 32 karakterden kısa.');
   }
   return new TextEncoder().encode(value);
 }

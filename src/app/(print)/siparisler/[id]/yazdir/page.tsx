@@ -34,11 +34,11 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <PrintHeader title="Siparis Formu" subtitle={order.orderNo} />
+      <PrintHeader title="Sipariş Formu" subtitle={order.orderNo} />
 
       <section className="mb-4 grid gap-3 text-sm sm:grid-cols-2">
         <div>
-          <div className="text-xs font-semibold uppercase text-neutral-600">Musteri</div>
+          <div className="text-xs font-semibold uppercase text-neutral-600">Müşteri</div>
           <div>{order.customerName}</div>
           {order.customerPhone ? (
             <div className="text-xs text-neutral-600">{order.customerPhone}</div>
@@ -63,10 +63,10 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
           ) : null}
         </div>
         <div>
-          <div className="text-xs font-semibold uppercase text-neutral-600">Siparis tarihi</div>
+          <div className="text-xs font-semibold uppercase text-neutral-600">Sipariş tarihi</div>
           <div>{formatDate(order.orderDate)}</div>
           {order.salespersonName ? (
-            <div className="text-xs text-neutral-600">Satici: {order.salespersonName}</div>
+            <div className="text-xs text-neutral-600">Satıcı: {order.salespersonName}</div>
           ) : null}
         </div>
         <div>
@@ -162,7 +162,7 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
               </div>
               {order.discountKurus > 0 ? (
                 <div className="flex justify-between">
-                  <dt>Iskonto</dt>
+                  <dt>İskonto</dt>
                   <dd className="tabular-nums">-{formatKurus(order.discountKurus, { currency: order.currency })}</dd>
                 </div>
               ) : null}
@@ -174,12 +174,12 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
           </div>
           {order.depositKurus > 0 ? (
             <div className="flex justify-between">
-              <dt>Alinan ucret (kapora)</dt>
+              <dt>Alınan ücret (kapora)</dt>
               <dd className="tabular-nums">{formatKurus(order.depositKurus, { currency: order.currency })}</dd>
             </div>
           ) : null}
           <div className="flex justify-between">
-            <dt>Odenen</dt>
+            <dt>Ödenen</dt>
             <dd className="tabular-nums">{formatKurus(order.paidKurus, { currency: order.currency })}</dd>
           </div>
           <div className="flex justify-between border-t border-neutral-300 pt-1 text-base font-bold">
@@ -191,7 +191,7 @@ export default async function SiparisYazdirPage({ params }: { params: Promise<{ 
 
       {payments.length > 0 ? (
         <section className="mt-5">
-          <h2 className="mb-1 text-xs font-semibold uppercase text-neutral-600">Odemeler</h2>
+          <h2 className="mb-1 text-xs font-semibold uppercase text-neutral-600">Ödemeler</h2>
           <ul className="text-sm">
             {payments.map((payment) => (
               <li key={payment.id} className="flex justify-between border-b border-neutral-200 py-1">

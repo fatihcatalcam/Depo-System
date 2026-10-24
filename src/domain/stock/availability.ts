@@ -158,7 +158,7 @@ export async function getReservationBreakdown(
   }
 
   if (otherBranches > 0) {
-    mine.push({ orderId: null, orderNo: null, label: 'Diger sube', quantity: otherBranches });
+    mine.push({ orderId: null, orderNo: null, label: 'Diğer şube', quantity: otherBranches });
   }
 
   return mine;
@@ -174,7 +174,7 @@ export async function getAvailability(
     .from(stockItems)
     .where(eq(stockItems.id, stockItemId));
 
-  if (!item) throw new NotFoundError(`Stok karti (${stockItemId})`);
+  if (!item) throw new NotFoundError(`Stok kartı (${stockItemId})`);
 
   const onHand = (await getOnHandQuantities(db, warehouseId, [stockItemId])).get(stockItemId) ?? 0;
   const reserved =

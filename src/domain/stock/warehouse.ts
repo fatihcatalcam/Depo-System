@@ -24,6 +24,6 @@ export async function warehouseOf(db: DbOrTx, branchId: string): Promise<string>
     .from(branches)
     .where(eq(branches.id, branchId));
 
-  if (!row) throw new NotFoundError('Sube');
+  if (!row) throw new NotFoundError('Şube');
   return row.stockBranchId;
 }

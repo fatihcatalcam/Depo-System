@@ -9,11 +9,11 @@ export default async function YeniParcaPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Yeni parca</h1>
+      <h1 className="text-lg font-semibold">Yeni parça</h1>
       <StockItemForm
         categories={categories}
         palettes={palettes.map((palette) => ({ id: palette.id, name: palette.name }))}
-        submitLabel="Parcayi kaydet"
+        submitLabel="Parçayı kaydet"
         onSubmit={createStockItemAction}
         redirectBase="/stok"
       />

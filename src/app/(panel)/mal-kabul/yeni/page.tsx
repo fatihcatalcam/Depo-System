@@ -13,7 +13,7 @@ export default async function YeniMalKabulPage() {
       <div>
         <h1 className="text-lg font-semibold">Yeni mal kabul</h1>
         <p className="text-sm text-neutral-500">
-          Gelen parcalari ekleyin. Kaydettiginizde hepsi tek seferde stoga girer.
+          Gelen parçaları ekleyin. Kaydettiğinizde hepsi tek seferde stoğa girer.
         </p>
       </div>
       <ReceiptForm

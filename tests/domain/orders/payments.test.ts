@@ -116,7 +116,7 @@ describe('addPayment', () => {
         method: 'nakit',
         paidAt: '2026-08-08',
       }),
-    ).rejects.toThrow('Odeme tutari sifirdan buyuk olmali');
+    ).rejects.toThrow('Ödeme tutarı sıfırdan büyük olmalı');
   });
 
   it('taslak siparise siradan odeme eklenemez', async () => {
@@ -128,7 +128,7 @@ describe('addPayment', () => {
         method: 'nakit',
         paidAt: '2026-08-08',
       }),
-    ).rejects.toThrow('yalnizca kapora');
+    ).rejects.toThrow('yalnızca kapora');
   });
 
   /**
@@ -187,7 +187,7 @@ describe('addPayment', () => {
         method: 'nakit',
         paidAt: '2026-08-08',
       }),
-    ).rejects.toThrow('Iptal edilmis');
+    ).rejects.toThrow('İptal edilmiş');
   });
 
   it('odeme yontemi kaydedilir', async () => {
@@ -258,6 +258,6 @@ describe('deletePayment', () => {
   it('olmayan odeme silinemez', async () => {
     await expect(
       deletePayment(ctx.db, ctx.scope, '99999999-1111-2222-3333-444444444444'),
-    ).rejects.toThrow('bulunamadi');
+    ).rejects.toThrow('bulunamadı');
   });
 });
