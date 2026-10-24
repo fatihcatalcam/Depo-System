@@ -81,7 +81,8 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      {/* Merkezde uc dugme var; telefonda basligin altina insin, sayfa yana tasmasin. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">Siparişler</h1>
           <p className="text-sm text-neutral-500">
@@ -89,7 +90,7 @@ export default async function SiparislerPage({ searchParams }: PageProps) {
             <strong className="text-neutral-900">{formatKurus(openBalance)}</strong>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {user.isCentral ? (
             <Link
               href="/siparisler/ozet"

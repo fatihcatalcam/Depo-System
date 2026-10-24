@@ -522,7 +522,7 @@ export function OrderForm({
               ) : null}
 
               <p className="text-xs text-neutral-500">
-                Kayıtlı müşteriden seçebilir ya da sadece ismi yazip devam edebilirsiniz. Yeni
+                Kayıtlı müşteriden seçebilir ya da sadece ismi yazıp devam edebilirsiniz. Yeni
                 müşteri, girdiğiniz teslimat adresi ve telefonuyla birlikte kaydedilir.
               </p>
             </>
