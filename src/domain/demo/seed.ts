@@ -277,8 +277,12 @@ export async function seedDemo(db: DbOrTx): Promise<void> {
       const full = await getOrder(db, scope, order.id);
       await addPayment(db, scope, {
         orderId: order.id,
-        // Kapora yuvarlak olsun: 1.000 TL'ye yuvarlanir.
-        amountKurus: Math.round((full.totalKurus * spec.paid) / 100_000) * 100_000,
+        // Kapora yuvarlak olsun: 1.000 TL'ye yuvarlanir. Tamami odenende
+        // yuvarlama fazla tahsilat (eksi kalan) birakirdi; tutarin kendisi.
+        amountKurus:
+          spec.paid === 1
+            ? full.totalKurus
+            : Math.round((full.totalKurus * spec.paid) / 100_000) * 100_000,
         method: spec.paid === 1 ? 'kart' : 'nakit',
         paidAt: day(-spec.daysAgo),
         notes: spec.paid === 1 ? 'Tamamı ödendi' : 'Kapora',

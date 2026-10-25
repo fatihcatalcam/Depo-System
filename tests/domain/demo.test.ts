@@ -67,6 +67,13 @@ describe('demo sifirlama', () => {
     expect((await getSettings(demo.db)).companyName).toBe(DEMO_COMPANY);
     expect(await verifyUnlockPassword(demo.db, DEMO_UNLOCK_PASSWORD)).toBe(true);
     expect((await listBranches(demo.db)).map((branch) => branch.name)).toEqual(['Merkez', 'Şube 2']);
+    // Hicbir sipariste fazla tahsilat (eksi kalan) yok.
+    const orders = await demo.db.select().from(schema.orders);
+    const paid = await demo.db.select().from(schema.payments);
+    for (const order of orders) {
+      const sum = paid.filter((p) => p.orderId === order.id).reduce((total, p) => total + Number(p.amountKurus), 0);
+      expect(sum).toBeLessThanOrEqual(order.totalKurus);
+    }
   }, 60_000);
 
   it('ikinci sifirlama ziyaretcinin girdigini siler, veriyi ikiye katlamaz', async () => {
