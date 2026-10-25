@@ -5,6 +5,7 @@ import { colorPartLabel, colorPartOrder } from '@/domain/orders/line-colors';
 import { listOrders, type OrderStatus, type OrderSummary } from '@/domain/orders/orders';
 import type { Scope } from '@/domain/scope';
 import type { PaymentMethod } from '@/lib/payment-methods';
+import { productMatcher } from '@/lib/product-search';
 
 /**
  * Siparis ozeti: dukkanin Excel'deki siparis listesinin karsiligi. Tek
@@ -67,17 +68,20 @@ export async function listOrderSummaries(
   scope: Scope,
   filters: SummaryFilters,
 ): Promise<OrderSummaryRow[]> {
-  const list = await listOrders(db, scope, {
+  const base = {
     statuses: filters.date ? DAY_STATUSES : VIEW_STATUSES[filters.view],
     orderDate: filters.date,
     branchId: filters.branchId,
-    query: filters.query,
     limit: SUMMARY_LIMIT,
-  });
-  if (list.length === 0) return [];
+  };
+  // Arama varsa liste aramasiz geliyor: urun eslesmesi satirlara bakarak
+  // burada yapiliyor, musteri/telefon/adres eslesmesi listOrders'ta.
+  const query = filters.query?.trim();
+  const all = await listOrders(db, scope, base);
+  if (all.length === 0) return [];
 
   // Satirlar ve odemeler iki sorguda, siparis basina ayri sorgu degil.
-  const ids = list.map((order) => order.id);
+  const ids = all.map((order) => order.id);
   const [lineRows, componentRows, paymentRows] = await Promise.all([
     db
       .select({
@@ -94,6 +98,7 @@ export async function listOrderSummaries(
       .select({
         orderLineId: orderLineComponents.orderLineId,
         name: stockItems.name,
+        sizeLabel: stockItems.sizeLabel,
         quantityPerUnit: orderLineComponents.quantityPerUnit,
         totalQuantity: orderLineComponents.totalQuantity,
         deliveredQuantity: orderLineComponents.deliveredQuantity,
@@ -125,10 +130,13 @@ export async function listOrderSummaries(
     });
     componentsByLine.set(row.orderLineId, list);
   }
+  const list = query ? await searchOrders(db, scope, base, query, all, lineRows, componentRows) : all;
   const delivered = new Set(list.filter((order) => order.status === 'delivered').map((o) => o.id));
 
   const items = new Map<string, SummaryItem[]>();
+  const listed = new Set(list.map((order) => order.id));
   for (const line of lineRows) {
+    if (!listed.has(line.orderId)) continue;
     // Teslim edilmis sipariste her sey teslim edilmistir; bilesen bakmaya gerek yok.
     const lineItems = delivered.has(line.orderId)
       ? [{ text: lineText(line, line.quantity), delivered: true }]
@@ -167,6 +175,39 @@ export async function listOrderSummaries(
   // Bekleyenler Excel'deki gibi eskiden yeniye: en uzun bekleyen ustte.
   // Teslim edilenlerde en yenisi ustte. Tek gunde girildigi sirayla.
   return filters.date || filters.view === 'bekleyen' ? rows.reverse() : rows;
+}
+
+/**
+ * Aramaya uyan siparisler, listedeki sirayla: musteri, telefon, siparis no
+ * ya da adresi uyanlar (veritabaninda) ve satirlarindan birinde aranan urun
+ * gecenler (productMatcher, yazim hatasina dayanikli).
+ */
+async function searchOrders(
+  db: DbOrTx,
+  scope: Scope,
+  base: Parameters<typeof listOrders>[2],
+  query: string,
+  all: OrderSummary[],
+  lineRows: { id: string; orderId: string; description: string }[],
+  componentRows: { orderLineId: string; name: string | null; sizeLabel: string | null }[],
+): Promise<OrderSummary[]> {
+  const byText = new Set((await listOrders(db, scope, { ...base, query })).map((order) => order.id));
+
+  const matcher = productMatcher(query);
+  const byProduct = new Set<string>();
+  if (matcher) {
+    const partTexts = new Map<string, string[]>();
+    for (const row of componentRows) {
+      const texts = partTexts.get(row.orderLineId) ?? [];
+      texts.push(...[row.name, row.sizeLabel].filter((text): text is string => Boolean(text)));
+      partTexts.set(row.orderLineId, texts);
+    }
+    for (const line of lineRows) {
+      if (matcher([line.description, ...(partTexts.get(line.id) ?? [])])) byProduct.add(line.orderId);
+    }
+  }
+
+  return all.filter((order) => byText.has(order.id) || byProduct.has(order.id));
 }
 
 export interface LineComponent {

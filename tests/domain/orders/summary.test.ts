@@ -229,3 +229,42 @@ describe('gun secimi', () => {
     expect(rows.map((row) => row.customerName)).toEqual(['GUN BEKLEYEN']);
   });
 });
+
+describe('urun aramasi', () => {
+  let biosaltOrderId: string;
+
+  beforeAll(async () => {
+    const set = await makeBedSet(ctx.db, ctx.warehouseId, { model: 'BİOSALT', size: '120x200', stock: 5 });
+    const customer = await createCustomer(ctx.db, ctx.scope, { name: 'URUN ARAYAN' });
+    const created = await createOrder(ctx.db, ctx.scope, {
+      customerId: customer.id,
+      orderDate: '2026-07-01',
+      deliveryAddress: 'Adres',
+      lines: [{ itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100_000 }],
+    });
+    // Onayda parcalar donuyor: "biosalt yatak" parca adindan bulunur.
+    await confirmOrder(ctx.db, ctx.scope, created.id);
+    biosaltOrderId = created.id;
+  });
+
+  async function found(query: string) {
+    const rows = await listOrderSummaries(ctx.db, ctx.scope, { view: 'bekleyen', query });
+    return rows.map((row) => row.id);
+  }
+
+  it('urun adi ve olcuyle, yazim hatasina ragmen bulur', async () => {
+    expect(await found('biosalt 120x200')).toEqual([biosaltOrderId]);
+    expect(await found('biosalr 120x200')).toEqual([biosaltOrderId]);
+    expect(await found('bisalt 120*200')).toEqual([biosaltOrderId]);
+    expect(await found('biosalt yatak')).toEqual([biosaltOrderId]);
+  });
+
+  it('baska olcu ya da cok farkli ad bulmaz', async () => {
+    expect(await found('biosalt 160x200')).toEqual([]);
+    expect(await found('bxxsalt 120x200')).toEqual([]);
+  });
+
+  it('musteri aramasi da calismaya devam eder', async () => {
+    expect(await found('urun arayan')).toEqual([biosaltOrderId]);
+  });
+});

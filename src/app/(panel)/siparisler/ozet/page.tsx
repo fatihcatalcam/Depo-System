@@ -101,7 +101,7 @@ export default async function SiparisOzetiPage({ searchParams }: PageProps) {
       <div className="flex flex-wrap gap-2">
         <div className="min-w-0 flex-1">
           <Suspense fallback={<div className="h-11" />}>
-            <SearchBox placeholder="Müşteri, telefon, sipariş no, adres veya ilçe ara" />
+            <SearchBox placeholder="Müşteri, telefon, sipariş no, adres veya ürün ara" />
           </Suspense>
         </div>
         <Suspense fallback={<div className="h-11 w-40" />}>
