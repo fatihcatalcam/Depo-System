@@ -69,6 +69,9 @@ const lineSchema = z.object({
     .optional(),
 });
 
+/** Dukkanin elle yazdigi fis numarasi; olusturmada ve duzenlemede ayni. */
+const receiptNoSchema = z.string().max(50, 'Fiş no en fazla 50 karakter olabilir.').optional();
+
 /** Fatura alanlari hem olusturmada hem duzenlemede ayni. */
 const invoiceShape = {
   invoiceTitle: z.string().optional(),
@@ -121,6 +124,7 @@ const orderSchema = z.object({
   // Ikisinden biri: kayitli musteri ya da yeni musteri adi.
   customerId: z.uuid().optional(),
   newCustomerName: z.string().optional(),
+  receiptNo: receiptNoSchema,
   orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih geçersiz.'),
   currency: z.enum(['TRY', 'USD', 'EUR']).optional(),
   exchangeRate: z.string().optional(),
@@ -171,6 +175,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
             district: parsed.data.deliveryDistrict,
           }
         : undefined,
+      receiptNo: parsed.data.receiptNo,
       orderDate: parsed.data.orderDate,
       ...currencyFields(parsed.data.currency, parsed.data.exchangeRate),
       salespersonId: parsed.data.salespersonId,
@@ -228,6 +233,11 @@ const orderPatchSchema = z.object({
   // Duzenlemede bos birakilabilir: alan eklenmeden once acilmis siparislerin
   // saticisi bilinmiyor, tarih duzeltmek icin satici secmek zorunda kalinmasin.
   salespersonId: z.uuid().or(z.literal('')).optional(),
+  // Musteri degisikligi: kayitli musteri ya da yeni musteri adi; ikisi de
+  // yoksa musteri degismez.
+  customerId: z.uuid().optional(),
+  newCustomerName: z.string().optional(),
+  receiptNo: receiptNoSchema,
   orderDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih geçersiz.')
@@ -257,7 +267,19 @@ export async function updateOrderAction(id: string, input: unknown): Promise<Act
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   try {
+    const newCustomerName = parsed.data.newCustomerName?.trim();
     await updateOrder(db, await currentScope(), id, {
+      customerId: parsed.data.customerId,
+      newCustomer: newCustomerName
+        ? {
+            name: newCustomerName,
+            phone: parsed.data.deliveryPhone,
+            address: parsed.data.deliveryAddress,
+            city: parsed.data.deliveryCity,
+            district: parsed.data.deliveryDistrict,
+          }
+        : undefined,
+      receiptNo: parsed.data.receiptNo,
       orderDate: parsed.data.orderDate,
       salespersonId:
         parsed.data.salespersonId !== undefined ? parsed.data.salespersonId || null : undefined,

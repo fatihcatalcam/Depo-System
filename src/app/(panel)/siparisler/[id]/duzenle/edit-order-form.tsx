@@ -22,6 +22,11 @@ interface Props {
 export function EditOrderForm({ orderId, initial, salespeople, catalog, rates }: Props) {
   async function submit(input: OrderSubmitInput) {
     return updateOrderAction(orderId, {
+      // Musteri degistirildiyse yeni secim gider; degismediyse ayni kimlik
+      // gider ve alan katmani dokunmaz.
+      customerId: input.customerId,
+      newCustomerName: input.newCustomerName,
+      receiptNo: input.receiptNo,
       orderDate: input.orderDate,
       currency: input.currency,
       exchangeRate: input.exchangeRate,

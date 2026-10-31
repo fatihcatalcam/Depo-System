@@ -76,6 +76,11 @@ export const orders = pgTable(
       .notNull()
       .references(() => branches.id, { onDelete: 'restrict' }),
     orderNo: text('order_no').notNull().unique(),
+    /**
+     * Dukkanin elle yazdigi fis (makbuz) numarasi. Serbest metin ve istege
+     * bagli: eski siparislerde yok, ayni numara iki sipariste de olabilir.
+     */
+    receiptNo: text('receipt_no'),
     customerId: uuid('customer_id')
       .notNull()
       .references(() => customers.id, { onDelete: 'restrict' }),

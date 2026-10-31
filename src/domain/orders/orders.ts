@@ -22,7 +22,7 @@ import {
   type LineColorInput,
 } from '@/domain/orders/line-colors';
 import { createCustomer } from '@/domain/parties/parties';
-import { ownBranch, scopeFilter, type Scope } from '@/domain/scope';
+import { branchScope, ownBranch, scopeFilter, type Scope } from '@/domain/scope';
 import { getReservedQuantities } from '@/domain/stock/availability';
 import { applyMovements } from '@/domain/stock/movements';
 import { warehouseOf } from '@/domain/stock/warehouse';
@@ -133,6 +133,8 @@ export interface CreateOrderInput extends InvoiceInput {
    * Boylece listeye girer, bir dahakine bulunur ve cari bakiyesi tutulur.
    */
   newCustomer?: NewCustomerInput;
+  /** Dukkanin elle yazdigi fis numarasi; istege bagli. */
+  receiptNo?: string | null;
   /** ISO tarih (YYYY-MM-DD). */
   orderDate: string;
   /**
@@ -203,6 +205,7 @@ export async function createOrder(
         branchId: branch.id,
         orderNo,
         customerId,
+        receiptNo: input.receiptNo?.trim() || null,
         orderDate: input.orderDate,
         ...resolveCurrency(input.currency, input.exchangeRate),
         salespersonId: input.salespersonId || null,
@@ -291,6 +294,14 @@ function invoiceValues(input: InvoiceInput) {
 }
 
 export interface UpdateOrderInput extends InvoiceInput {
+  /**
+   * Musteri degisikligi: kayitli bir musteri ya da yeni musteri adi. Ikisi de
+   * gonderilmezse mevcut musteri korunur.
+   */
+  customerId?: string;
+  newCustomer?: NewCustomerInput;
+  /** Bos string fis numarasini siler; gonderilmezse mevcut korunur. */
+  receiptNo?: string | null;
   /** ISO tarih (YYYY-MM-DD). */
   orderDate?: string;
   /**
@@ -347,6 +358,7 @@ export async function updateOrder(
     if (address === '') throw new DomainError('Teslimat adresi boş olamaz.', 'INVALID_INPUT');
 
     const money = await resolveCurrencyUpdate(tx, id, existing, input);
+    const customerId = await resolveCustomerChange(tx, scope, existing, input);
 
     // Isten ayrilan saticinin eski siparisi duzenlenebilmeli: adi zaten
     // kayitliysa dokunmuyoruz. Yalnizca yeni atanan satici aktif olmali.
@@ -418,6 +430,9 @@ export async function updateOrder(
     const [order] = await tx
       .update(orders)
       .set({
+        customerId,
+        receiptNo:
+          input.receiptNo !== undefined ? input.receiptNo?.trim() || null : existing.receiptNo,
         orderDate: input.orderDate ?? existing.orderDate,
         salespersonId,
         plannedDeliveryDate:
@@ -805,7 +820,7 @@ export interface OrderFilters {
   /** Yalnizca yonetici icin anlamli: tek subeye daraltir. */
   branchId?: string;
   /**
-   * Serbest arama: musteri adi, siparis no, adres ve telefonlar. Telefonlar
+   * Serbest arama: musteri adi, siparis ve fis no, adres ve telefonlar. Telefonlar
    * yalnizca rakamlarla karsilastiriliyor, bosluklu ya da bosluksuz yazilmis
    * olmasi fark etmiyor.
    */
@@ -820,6 +835,7 @@ function orderSearchCondition(query: string) {
   const text = [
     containsFolded(customers.name, query),
     containsFolded(orders.orderNo, query),
+    containsFolded(orders.receiptNo, query),
     containsFolded(orders.deliveryAddress, query),
     containsFolded(orders.deliveryDistrict, query),
   ];
@@ -965,6 +981,50 @@ async function resolveCustomer(tx: Tx, scope: Scope, input: CreateOrderInput): P
   }
 
   const created = await createCustomer(tx, scope, {
+    name,
+    phone: input.newCustomer?.phone ?? null,
+    address: input.newCustomer?.address ?? null,
+    city: input.newCustomer?.city ?? null,
+    district: input.newCustomer?.district ?? null,
+  });
+  return created.id;
+}
+
+/**
+ * Duzenlemede musteri degisikligi.
+ *
+ * Musteri siparisin subesine ait olmali: merkez Sube 2'nin siparisini
+ * duzenlerken baska subenin musterisini secerse Sube 2 kendi siparisinin
+ * musterisini goremez olurdu. Yeni musteri de bu yuzden siparisin subesinde
+ * aciliyor, duzenleyenin subesinde degil.
+ */
+async function resolveCustomerChange(
+  tx: Tx,
+  scope: Scope,
+  existing: Order,
+  input: UpdateOrderInput,
+): Promise<string> {
+  if (input.customerId) {
+    if (input.customerId === existing.customerId) return existing.customerId;
+    const [customer] = await tx
+      .select({ id: customers.id, branchId: customers.branchId })
+      .from(customers)
+      .where(and(eq(customers.id, input.customerId), scopeFilter(scope, customers.branchId)));
+    if (!customer) throw new NotFoundError('Müşteri');
+    if (customer.branchId !== existing.branchId) {
+      throw new DomainError('Müşteri, siparişin şubesinde kayıtlı olmalı.', 'CUSTOMER_BRANCH');
+    }
+    return customer.id;
+  }
+
+  const name = input.newCustomer?.name?.trim() ?? '';
+  if (name === '') return existing.customerId;
+
+  const [branch] = await tx
+    .select({ id: branches.id, code: branches.code })
+    .from(branches)
+    .where(eq(branches.id, existing.branchId));
+  const created = await createCustomer(tx, branchScope(branch.id, branch.code), {
     name,
     phone: input.newCustomer?.phone ?? null,
     address: input.newCustomer?.address ?? null,

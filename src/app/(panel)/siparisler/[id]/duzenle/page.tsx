@@ -104,6 +104,7 @@ export default async function SiparisDuzenlePage({
             name: order.customerName,
             phone: order.customerPhone,
           },
+          receiptNo: order.receiptNo ?? '',
           salespersonId: order.salespersonId ?? '',
           orderDate: order.orderDate,
           plannedDeliveryDate: order.plannedDeliveryDate ?? '',

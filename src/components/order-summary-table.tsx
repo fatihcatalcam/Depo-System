@@ -51,6 +51,7 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
         <tr>
           <th className={cn(cell, 'w-8 text-center')}>No</th>
           <th className={cell}>Müşteri</th>
+          <th className={cn(cell, 'whitespace-nowrap')}>Fiş no</th>
           <th className={cell}>Sipariş</th>
           <th className={cn(cell, 'w-[26%]')}>Siparişin cinsi</th>
           <th className={cell}>Teslim</th>
@@ -78,6 +79,9 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
                     {phone}
                   </div>
                 ))}
+              </td>
+              <td className={cn(cell, 'whitespace-nowrap font-semibold tabular-nums')}>
+                {row.receiptNo ?? ''}
               </td>
               <td className={cn(cell, 'whitespace-nowrap')}>
                 <div className="flex items-center gap-1.5 font-semibold">
@@ -162,7 +166,7 @@ export function OrderSummaryTable({ rows, linkRows = false, print = false }: Pro
       </tbody>
       <tfoot className={cn('font-bold', print ? 'bg-neutral-100' : 'border-t-2 border-neutral-300')}>
         <tr>
-          <td className={cell} colSpan={6}>
+          <td className={cell} colSpan={7}>
             {rows.length} sipariş · toplamlar TL karşılığı
           </td>
           <td className={cn(cell, 'whitespace-nowrap text-right tabular-nums')}>

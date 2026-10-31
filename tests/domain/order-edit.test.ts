@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { confirmOrder, createOrder, getOrder, updateOrder } from '@/domain/orders/orders';
+import { confirmOrder, createOrder, getOrder, listOrders, updateOrder } from '@/domain/orders/orders';
 import { createDelivery } from '@/domain/orders/deliveries';
 import { createCustomer } from '@/domain/parties/parties';
 import { makeBedSet } from '../helpers/order-fixtures';
@@ -262,5 +262,109 @@ describe('kismen teslim edilmis sipariste duzenleme', () => {
       expect.stringContaining(`${other.yatak.name}`),
     ]);
     expect(after.status).toBe('partially_delivered');
+  });
+});
+
+describe('fis numarasi', () => {
+  it('olusturmada yazilir, duzenlemede degisir, bos birakilinca silinir', async () => {
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'FIS', size: '160x200', stock: 5 });
+    const customer = await createCustomer(ctx.db, ctx.scope, { name: 'Fisli Musteri' });
+    const order = await createOrder(ctx.db, ctx.scope, {
+      customerId: customer.id,
+      receiptNo: '  1254 ',
+      orderDate: '2026-08-10',
+      deliveryAddress: 'Adres',
+      lines: [{ itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100_000 }],
+    });
+    expect(order.receiptNo).toBe('1254');
+
+    await updateOrder(ctx.db, ctx.scope, order.id, { receiptNo: 'A-77' });
+    expect((await getOrder(ctx.db, ctx.scope, order.id)).receiptNo).toBe('A-77');
+
+    // Gonderilmezse dokunulmaz.
+    await updateOrder(ctx.db, ctx.scope, order.id, { notes: 'not' });
+    expect((await getOrder(ctx.db, ctx.scope, order.id)).receiptNo).toBe('A-77');
+
+    await updateOrder(ctx.db, ctx.scope, order.id, { receiptNo: '' });
+    expect((await getOrder(ctx.db, ctx.scope, order.id)).receiptNo).toBeNull();
+  });
+
+  it('aramada fis numarasiyla bulunur', async () => {
+    const { order } = await draftOrder();
+    await updateOrder(ctx.db, ctx.scope, order.id, { receiptNo: 'FIS-98765' });
+
+    const found = await listOrders(ctx.db, ctx.scope, { query: 'fis-98765' });
+    expect(found.map((row) => row.id)).toEqual([order.id]);
+  });
+});
+
+describe('duzenlemede musteri degisikligi', () => {
+  it('kayitli baska bir musteri secilebilir', async () => {
+    const { order } = await draftOrder();
+    const other = await createCustomer(ctx.db, ctx.scope, { name: 'Dogru Musteri' });
+
+    await updateOrder(ctx.db, ctx.scope, order.id, { customerId: other.id });
+
+    const detail = await getOrder(ctx.db, ctx.scope, order.id);
+    expect(detail.customerId).toBe(other.id);
+    expect(detail.customerName).toBe('Dogru Musteri');
+  });
+
+  it('yeni musteri adi yazilinca musteri siparisle birlikte acilir', async () => {
+    const { order } = await draftOrder();
+
+    await updateOrder(ctx.db, ctx.scope, order.id, {
+      newCustomer: { name: 'Yazim Duzeltilmis Ad', phone: '0555 333 33 33' },
+    });
+
+    const detail = await getOrder(ctx.db, ctx.scope, order.id);
+    expect(detail.customerName).toBe('Yazim Duzeltilmis Ad');
+  });
+
+  it('musteri gonderilmezse ya da ayni musteri gelirse degismez', async () => {
+    const { order, customer } = await draftOrder();
+
+    await updateOrder(ctx.db, ctx.scope, order.id, { notes: 'x' });
+    await updateOrder(ctx.db, ctx.scope, order.id, { customerId: customer.id });
+
+    expect((await getOrder(ctx.db, ctx.scope, order.id)).customerId).toBe(customer.id);
+  });
+
+  it('merkez Sube 2 siparisinde yeni musteri acarsa musteri Sube 2ye kaydolur', async () => {
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'SUBE', size: '160x200', stock: 5 });
+    const s2Customer = await createCustomer(ctx.db, ctx.scopes.s2, { name: 'Sube Musterisi' });
+    const order = await createOrder(ctx.db, ctx.scopes.s2, {
+      customerId: s2Customer.id,
+      orderDate: '2026-08-10',
+      deliveryAddress: 'Adres',
+      lines: [{ itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100_000 }],
+    });
+
+    await updateOrder(ctx.db, ctx.scopes.s1, order.id, { newCustomer: { name: 'Yeni Sube Musterisi' } });
+
+    // Sube 2 kendi siparisinin yeni musterisini gorebiliyor.
+    const detail = await getOrder(ctx.db, ctx.scopes.s2, order.id);
+    expect(detail.customerName).toBe('Yeni Sube Musterisi');
+  });
+
+  it('baska subenin musterisi secilemez', async () => {
+    const set = await makeBedSet(ctx.db, ctx.branchId, { model: 'KARSI', size: '160x200', stock: 5 });
+    const s2Customer = await createCustomer(ctx.db, ctx.scopes.s2, { name: 'Sube 2 Musterisi' });
+    const merkezCustomer = await createCustomer(ctx.db, ctx.scopes.s1, { name: 'Merkez Musterisi' });
+    const order = await createOrder(ctx.db, ctx.scopes.s2, {
+      customerId: s2Customer.id,
+      orderDate: '2026-08-10',
+      deliveryAddress: 'Adres',
+      lines: [{ itemType: 'product', productId: set.product.id, quantity: 1, unitPriceKurus: 100_000 }],
+    });
+
+    // Merkez her musteriyi goruyor ama Sube 2 siparisine merkez musterisi baglanmaz.
+    await expect(
+      updateOrder(ctx.db, ctx.scopes.s1, order.id, { customerId: merkezCustomer.id }),
+    ).rejects.toThrow('siparişin şubesinde');
+    // Sube 2 merkezin musterisini hic goremez: bulunamadi.
+    await expect(
+      updateOrder(ctx.db, ctx.scopes.s2, order.id, { customerId: merkezCustomer.id }),
+    ).rejects.toThrow('bulunamadı');
   });
 });

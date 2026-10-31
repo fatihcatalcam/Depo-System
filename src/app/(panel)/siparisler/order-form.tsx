@@ -100,6 +100,8 @@ export interface SalespersonOption {
 
 export interface OrderFormValues {
   customer: SelectedCustomer;
+  /** Dukkanin elle yazdigi fis numarasi; bos olabilir. */
+  receiptNo: string;
   /** Bos string: eski sipariste satici kaydedilmemis. */
   salespersonId: string;
   orderDate: string;
@@ -161,6 +163,8 @@ interface OrderFormProps {
 export interface OrderSubmitInput {
   customerId?: string;
   newCustomerName?: string;
+  /** Bos string: fis numarasi yok (duzenlemede silmek demek). */
+  receiptNo: string;
   salespersonId: string;
   orderDate: string;
   currency: Currency;
@@ -207,6 +211,7 @@ export function OrderForm({
   onSubmit,
 }: OrderFormProps) {
   const [customer, setCustomer] = useState<SelectedCustomer | null>(initial?.customer ?? null);
+  const [receiptNo, setReceiptNo] = useState(initial?.receiptNo ?? '');
   const [salespersonId, setSalespersonId] = useState(initial?.salespersonId ?? '');
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerHits, setCustomerHits] = useState<CustomerHit[]>([]);
@@ -385,6 +390,7 @@ export function OrderForm({
           const input: OrderSubmitInput = {
             customerId: customer.kind === 'existing' ? customer.id : undefined,
             newCustomerName: customer.kind === 'new' ? customer.name : undefined,
+            receiptNo: receiptNo.trim(),
             salespersonId,
             orderDate,
             currency,
@@ -449,85 +455,101 @@ export function OrderForm({
       }}
     >
       <div className="space-y-6">
-        <section className="space-y-2">
-          <Label htmlFor="customer-search">Müşteri</Label>
-          {customer ? (
-            <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3">
-              <span className="text-sm">
-                <span className="font-medium">{customer.name}</span>
-                {customer.kind === 'existing' && customer.phone ? (
-                  <span className="ml-2 text-neutral-500">{customer.phone}</span>
-                ) : null}
-                {customer.kind === 'new' ? (
-                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
-                    yeni müşteri — siparişle birlikte kaydedilecek
-                  </span>
-                ) : null}
-              </span>
-              <Button type="button" variant="ghost" onClick={() => setCustomer(null)}>
-                Değiştir
-              </Button>
-            </div>
-          ) : (
-            <>
-              <Input
-                id="customer-search"
-                value={customerQuery}
-                onChange={(event) => void findCustomers(event.target.value)}
-                onKeyDown={(event) => {
-                  // Enter'a basinca eslesme yoksa dogrudan yeni musteri olarak al.
-                  if (event.key === 'Enter' && customerQuery.trim().length >= 2) {
-                    event.preventDefault();
-                    if (customerHits.length === 1) pickCustomer(customerHits[0]);
-                    else pickNewCustomer(customerQuery);
-                  }
-                }}
-                placeholder="Müşteri adını yazın (kayıtlı olması gerekmez)"
-                className="h-11"
-              />
+        {/* Fis no musterinin yaninda: dukkan siparisi fisten yazarken ikisine
+            birlikte bakiyor. Telefonda alt alta. */}
+        <div className="grid gap-4 sm:grid-cols-[1fr_11rem]">
+          <section className="min-w-0 space-y-2">
+            <Label htmlFor="customer-search">Müşteri</Label>
+            {customer ? (
+              <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3">
+                <span className="text-sm">
+                  <span className="font-medium">{customer.name}</span>
+                  {customer.kind === 'existing' && customer.phone ? (
+                    <span className="ml-2 text-neutral-500">{customer.phone}</span>
+                  ) : null}
+                  {customer.kind === 'new' ? (
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
+                      yeni müşteri — siparişle birlikte kaydedilecek
+                    </span>
+                  ) : null}
+                </span>
+                <Button type="button" variant="ghost" onClick={() => setCustomer(null)}>
+                  Değiştir
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Input
+                  id="customer-search"
+                  value={customerQuery}
+                  onChange={(event) => void findCustomers(event.target.value)}
+                  onKeyDown={(event) => {
+                    // Enter'a basinca eslesme yoksa dogrudan yeni musteri olarak al.
+                    if (event.key === 'Enter' && customerQuery.trim().length >= 2) {
+                      event.preventDefault();
+                      if (customerHits.length === 1) pickCustomer(customerHits[0]);
+                      else pickNewCustomer(customerQuery);
+                    }
+                  }}
+                  placeholder="Müşteri adını yazın (kayıtlı olması gerekmez)"
+                  className="h-11"
+                />
 
-              {customerQuery.trim().length >= 2 ? (
-                <ul className="rounded-lg border border-neutral-200 bg-white">
-                  {customerHits.map((hit) => (
-                    <li key={hit.id}>
+                {customerQuery.trim().length >= 2 ? (
+                  <ul className="rounded-lg border border-neutral-200 bg-white">
+                    {customerHits.map((hit) => (
+                      <li key={hit.id}>
+                        <button
+                          type="button"
+                          onClick={() => pickCustomer(hit)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                        >
+                          {hit.name}
+                          {hit.phone ? (
+                            <span className="ml-2 text-xs text-neutral-400">{hit.phone}</span>
+                          ) : null}
+                        </button>
+                      </li>
+                    ))}
+                    <li className="border-t border-neutral-100">
                       <button
                         type="button"
-                        onClick={() => pickCustomer(hit)}
+                        onClick={() => pickNewCustomer(customerQuery)}
                         className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
                       >
-                        {hit.name}
-                        {hit.phone ? (
-                          <span className="ml-2 text-xs text-neutral-400">{hit.phone}</span>
-                        ) : null}
+                        <span className="font-medium">
+                          &ldquo;{customerQuery.trim()}&rdquo; adıyla yeni müşteri
+                        </span>
+                        <span className="ml-2 text-xs text-neutral-500">
+                          {customerHits.length > 0
+                            ? 'listedekilerden biri değilse'
+                            : 'kayıt açmadan devam et'}
+                        </span>
                       </button>
                     </li>
-                  ))}
-                  <li className="border-t border-neutral-100">
-                    <button
-                      type="button"
-                      onClick={() => pickNewCustomer(customerQuery)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-50"
-                    >
-                      <span className="font-medium">
-                        &ldquo;{customerQuery.trim()}&rdquo; adıyla yeni müşteri
-                      </span>
-                      <span className="ml-2 text-xs text-neutral-500">
-                        {customerHits.length > 0
-                          ? 'listedekilerden biri degilse'
-                          : 'kayıt açmadan devam et'}
-                      </span>
-                    </button>
-                  </li>
-                </ul>
-              ) : null}
+                  </ul>
+                ) : null}
 
-              <p className="text-xs text-neutral-500">
-                Kayıtlı müşteriden seçebilir ya da sadece ismi yazıp devam edebilirsiniz. Yeni
-                müşteri, girdiğiniz teslimat adresi ve telefonuyla birlikte kaydedilir.
-              </p>
-            </>
-          )}
-        </section>
+                <p className="text-xs text-neutral-500">
+                  Kayıtlı müşteriden seçebilir ya da sadece ismi yazıp devam edebilirsiniz. Yeni
+                  müşteri, girdiğiniz teslimat adresi ve telefonuyla birlikte kaydedilir.
+                </p>
+              </>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <Label htmlFor="receipt-no">Fiş no</Label>
+            <Input
+              id="receipt-no"
+              value={receiptNo}
+              onChange={(event) => setReceiptNo(event.target.value)}
+              maxLength={50}
+              placeholder="Örnek: 1254"
+              className="h-11"
+            />
+          </section>
+        </div>
 
         <section className="space-y-1.5">
           <Label htmlFor="salesperson">Satıcı</Label>
