@@ -1,4 +1,5 @@
-import { DEMO_CONTACT_URL, isDemo } from '@/lib/demo';
+import { CookieSettingsButton } from '@/components/demo-analytics';
+import { DEMO_CONTACT_URL, isDemo, isDemoAnalytics } from '@/lib/demo';
 
 /**
  * Demonun her sayfanin ustundeki ince seridi. Ziyaretci gercek bir isletmenin
@@ -14,6 +15,12 @@ export function DemoBanner() {
       <a href={DEMO_CONTACT_URL} target="_blank" rel="noopener" className="font-semibold underline">
         @catalcamyazilim
       </a>
+      {isDemoAnalytics() ? (
+        <>
+          {' · '}
+          <CookieSettingsButton />
+        </>
+      ) : null}
     </div>
   );
 }

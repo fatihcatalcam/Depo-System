@@ -15,6 +15,7 @@ işletmenin verisine hiçbir yoldan erişmez.
 | Gece yedeği (`/api/yedek`) | Her gece Blob'a | Kapalı (404) |
 | TCMB kuru (`/api/kur`) | Açık | Açık; yalnızca demo veritabanına yazar |
 | Veri | Gerçek | Uydurma; her gece 03:00'te (`/api/demo-sifirla`) baştan kurulur |
+| Ölçüm (GA, Clarity) | Yok | Yalnızca `NEXT_PUBLIC_DEMO_ANALYTICS=1` ile ve çerez onayından sonra |
 
 Bayrak `NEXT_PUBLIC_DEMO_MODE=1`. Tek başına yetki vermez: parolasız giriş ve
 sıfırlama ayrıca veritabanının adının `depo_demo` olmasını ister. Bayrak
@@ -34,6 +35,7 @@ yanlışlıkla canlı projeye girse bile canlı veritabanında ikisi de çalış
    - `SESSION_SECRET`: yeni, en az 32 karakter
      (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
    - `CRON_SECRET`: yeni
+   - `NEXT_PUBLIC_DEMO_ANALYTICS=1`: Google Analytics ve Clarity (çerez onayıyla). Canlı projeye **eklenmez**.
    - `OPENAI_API_KEY` ve `BLOB_READ_WRITE_TOKEN` **eklenmez**.
 3. **Alan adı:** Vercel'de projeye `depo.catalcamyazilim.online` eklenir. DNS'te
    `depo` için `CNAME cname.vercel-dns.com`.
@@ -54,3 +56,16 @@ gerçek okuyucuyla, demo kataloğu üzerinde okundu. Kayıt, kart kimliğini de�
 kartın adını ve ölçüsünü tutar; okuma anında o geceki kartlara çevrilir.
 
 Demo kataloğu (`src/domain/demo/seed.ts`) değişirse örnekler yeniden okunmalı.
+
+## Ölçüm: Google Analytics ve Clarity
+
+- Yalnızca demo bayrağı ve `NEXT_PUBLIC_DEMO_ANALYTICS=1` birlikteyken. Kimlikler
+  `src/lib/demo-analytics.ts`'te, yalnızca sunucuda; bayrak yoksa sayfaya hiçbir
+  ölçüm kodu girmez, tarayıcıya giden kodda da kimlik ya da adres yok.
+- Onay olmadan hiçbir betik yüklenmez. Tercih `cerez-tercihi` çerezinde (evet/hayir,
+  `.catalcamyazilim.online`, 1 yıl, SameSite=Lax). Reddedilince `_ga`, `_ga_*`,
+  `_clck`, `_clsk` silinir. Demo şeridindeki "Çerez tercihi" bildirimi yeniden açar.
+- GA4 sayfa geçişlerini kendisi sayıyor (Admin > Data streams > Enhanced measurement >
+  "Page changes based on browser history events" açık kalmalı; varsayılan açık).
+- Clarity ekran kaydı tutuyor. Kodda maskeyi kaldıran bir ayar yok; Clarity panelinde
+  de maskeleme "Balanced" ya da "Strict" kalmalı, "Relaxed" yapılmamalı.

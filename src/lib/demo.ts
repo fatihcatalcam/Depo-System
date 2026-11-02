@@ -14,6 +14,16 @@ export function isDemo(): boolean {
   return process.env.NEXT_PUBLIC_DEMO_MODE === '1';
 }
 
+/**
+ * Demoda Google Analytics ve Microsoft Clarity. Yalnizca demo projesinde
+ * tanimli ayri bir bayrak; demo bayragiyla birlikte acik degilse hicbir olcum
+ * kodu sayfaya girmez. Gercek isletmenin kurulumunda ikisi de yok, yani
+ * dukkanin ekranlari ve verisi bu hesaplara hicbir kosulda gitmez.
+ */
+export function isDemoAnalytics(): boolean {
+  return isDemo() && process.env.NEXT_PUBLIC_DEMO_ANALYTICS === '1';
+}
+
 /** Demo veritabaninin adi. Canli veritabani baska adla aciliyor. */
 export const DEMO_DATABASE = 'depo_demo';
 
